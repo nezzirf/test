@@ -80,6 +80,7 @@
       <div class="mt-3 flex justify-center gap-4 items-center">
         <button data-act="play" class="btn bg-amber-400 hover:bg-amber-300 text-slate-900 text-3xl px-8 py-3 pulse2">▶ Jouer le Run du Jour</button>
         <button data-act="train" class="btn bg-fuchsia-400 hover:bg-fuchsia-300 text-slate-900 text-lg px-4 py-2">🎲 Mode entraînement</button>
+        <button data-act="test" class="testOnly btn bg-lime-400 hover:bg-lime-300 text-slate-900 text-lg px-4 py-2">🧪 Mode test</button>
       </div>
       <div id="dateTag" class="mt-2 text-sm font-bold text-indigo-200"></div>
     </div>
@@ -106,6 +107,29 @@
       <div class="mt-4 flex justify-center gap-3">
         <button data-act="train" class="btn bg-fuchsia-400 hover:bg-fuchsia-300 text-slate-900 text-xl px-5 py-2">🎲 Mode entraînement</button>
         <button data-act="share" class="btn bg-emerald-400 hover:bg-emerald-300 text-slate-900 text-xl px-5 py-2">📋 Copier mon résultat</button>
+        <button data-act="test" class="testOnly btn bg-lime-400 hover:bg-lime-300 text-slate-900 text-xl px-5 py-2">🧪 Mode test</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ [MODE TEST] CHOIX JOUR / VARIANTE / ÉTAGE ============ -->
+  <div id="testPick" class="screen off" style="background:rgba(10,6,40,.85)">
+    <div class="text-center" style="width:880px">
+      <h2 class="text-3xl font-black text-lime-300">🧪 Mode test — joue n'importe quelle tour</h2>
+      <p class="font-bold text-indigo-100 text-sm">Rien n'est enregistré. En jeu : <b>N</b> = étage suivant, <b>B</b> = étage précédent.</p>
+      <div class="mt-2 font-black text-left">1. Le jour</div>
+      <div id="testThemes" class="mt-1 grid grid-cols-7 gap-2"></div>
+      <div class="mt-3 flex items-center gap-3">
+        <span class="font-black">2. La semaine</span>
+        <button data-act="testVar" data-d="-1" class="btn bg-sky-300 text-slate-900 text-xl px-3">◀</button>
+        <span id="testVar" class="text-xl font-black text-amber-300" style="min-width:190px"></span>
+        <button data-act="testVar" data-d="1" class="btn bg-sky-300 text-slate-900 text-xl px-3">▶</button>
+      </div>
+      <div class="mt-3 font-black text-left">3. L'étage de départ (clique pour lancer)</div>
+      <div id="testFloors" class="mt-1 grid grid-cols-6 gap-2"></div>
+      <div class="mt-4 flex justify-center gap-3">
+        <button data-act="home" class="btn bg-sky-300 hover:bg-sky-200 text-slate-900 text-lg px-5 py-2">🏠 Retour</button>
+        <button data-act="testReset" class="btn bg-rose-400 hover:bg-rose-300 text-slate-900 text-lg px-5 py-2">♻️ Réinitialiser le run du jour</button>
       </div>
     </div>
   </div>
@@ -147,6 +171,8 @@ const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900, SPRING = 
 const PW = 28, PH = 40;
 const STEP = 1 / 120;
 const SAVE_KEY = 'chronoTower.daily.v2';
+/* [MODE TEST] Passe à false (ou supprime les blocs marqués [MODE TEST]) quand tout est réglé. */
+const TEST_MODE = true;
 
 /* ---------- Les 7 thèmes de la semaine (index 0 = lundi) ---------- */
 const THEMES = [
@@ -201,7 +227,7 @@ const TOWER_NAMES = ['du Dragon Rigolo', 'du Hibou Savant', 'du Sorcier Farceur'
   'du Fantôme Gourmand', 'du Pirate des Nuages', 'du Yéti Chatouilleux', 'de la Grenouille Géante', 'du Lutin Champion', 'du Panda Magique',
   'du Renard Malin', 'de la Sorcière Étourdie', 'du Géant Timide', 'du Corbeau Bavard', 'de la Fée Turbo', 'du Troll Danseur', 'du Phénix Frileux', 'de la Tortue Fusée'];
 
-let SEED = '', THEME = THEMES[0], VARIANT = 0, isDaily = true, dayHue = 0;
+let SEED = '', THEME = THEMES[0], VARIANT = 0, isDaily = true, isTest = false, dayHue = 0;
 let floorSeq = [];   // niveaux de difficulté (0..11) des étages de la partie
 
 /* ---------- Sauvegarde locale ---------- */
@@ -257,6 +283,10 @@ addEventListener('keydown', e => {
     if (e.code === 'KeyP' || e.code === 'Escape') togglePause();
     if (e.code === 'KeyM') toggleMute();
     if (e.code === 'Enter' && state === 'paused') togglePause();
+    if (TEST_MODE && isTest && state === 'playing') {   // [MODE TEST] raccourcis
+      if (e.code === 'KeyN' && floor < floorSeq.length - 1) loadFloor(floor + 1);
+      if (e.code === 'KeyB' && floor > 0) loadFloor(floor - 1);
+    }
   }
 });
 addEventListener('keyup', e => { const m = mapKey(e); if (m) keys[m] = false; });
@@ -281,7 +311,8 @@ function puzzleFor(fi) {
   if (THEME.simon) return { key: last || f % 3 === 2, sw: 'simon' };
   if (last) return { key: true, sw: THEME.mix ? 'simon' : 'button' };
   if (THEME.mix) return r < .33 ? { key: true, sw: null } : r < .66 ? { key: false, sw: 'button' } : { key: false, sw: 'simon' };
-  return r < .4 ? { key: true, sw: null } : r < .8 ? { key: false, sw: 'button' } : { key: true, sw: 'button' };
+  const both = (f / 11) * .7;   // plus on monte, plus il y a de chances d'avoir clé + interrupteur
+  return r < both ? { key: true, sw: 'button' } : r < both + (1 - both) / 2 ? { key: true, sw: null } : { key: false, sw: 'button' };
 }
 
 function genFloor(fi) {
@@ -292,8 +323,8 @@ function genFloor(fi) {
   const plats = [], spikes = [], traps = [], coins = [], orbs = [], cps = [];
   const mk = o => { o.h = 24; o.px = o.x; o.py = o.y; o.dx = 0; o.dy = 0; plats.push(o); return o; };
   const puz = puzzleFor(fi);
-  const gmax = rise => Math.max(60, 125 + 85 * D - Math.max(0, rise) * .9);
-  const target = 6500 + f * 700;
+  const gmax = rise => Math.max(55, 95 + 125 * D - Math.max(0, rise) * .9);
+  const target = 5000 + f * 1150;
 
   let cur = mk({ x: 0, y: 440, w: 360, type: 'normal', start: true });
   cps.push({ x: 84, y: 440, on: true });
@@ -309,119 +340,123 @@ function genFloor(fi) {
     cur = p; return p;
   };
   const addSpikes = (p, chance) => {
-    if (p.w >= 190 && rng() < chance) {
-      const sw = RI(2, p.w >= 240 ? 4 : 3) * 20;
-      spikes.push({ x: p.x + RI(65, Math.floor(p.w - 65 - sw)), y: p.y - 18, w: sw, h: 18 }); p.spiky = true;
+    if (p.w >= 150 && rng() < chance) {
+      const maxN = Math.min(2 + Math.round(2 * D), Math.floor((p.w - 110) / 20));
+      const sw = RI(2, Math.max(2, maxN)) * 20;
+      spikes.push({ x: p.x + RI(55, Math.floor(p.w - 55 - sw)), y: p.y - 18, w: sw, h: 18 }); p.spiky = true;
     }
   };
 
+  /* Tous les réglages dépendent de D (0 = étage 1, très doux → 1 = étage 12, très dur) */
   const SEG = {
     plain() {
       const n = RI(1, 3);
       for (let i = 0; i < n; i++) {
-        const w = R(125 - 50 * D, 270 - 90 * D);
-        const p = put(R(70, 250), RI(-85, 75), w, rng() < .1 + .12 * D && w >= 150 ? { type: 'ice' } : null);
-        if (p.type === 'normal') { addSpikes(p, .3 + .35 * D); if (!p.spiky && w >= 120) keyCand.push(p); }
+        const w = R(200 - 120 * D, 320 - 130 * D), dyM = 40 + 45 * D;
+        const p = put(R(55, 250), RI(-dyM, dyM), w, rng() < .02 + .25 * D && w >= 140 ? { type: 'ice' } : null);
+        if (p.type === 'normal') { addSpikes(p, .05 + .7 * D); if (!p.spiky && w >= 120) keyCand.push(p); }
       }
     },
     narrow() {
-      const n = RI(3, 4 + Math.round(2 * D));
-      for (let i = 0; i < n; i++) put(R(85, 110 + 60 * D), RI(-55, 55), R(46, 74 - 14 * D), { tiny: true });
-      put(R(70, 130), RI(-40, 40), R(130, 190));
+      const n = 2 + Math.round(4 * D) + RI(0, 1);
+      for (let i = 0; i < n; i++) put(R(60 + 40 * D, 90 + 80 * D), RI(-20 - 35 * D, 20 + 35 * D), R(80 - 34 * D, 100 - 40 * D), { tiny: true });
+      put(R(60, 130), RI(-40, 40), R(130, 190));
     },
     movH() {
-      const prev = cur, G = R(250, 300 + 60 * D);
-      const p = put(G, RI(-30, 30), R(110, 200), { exact: true });
-      mk({ x: 0, y: 0, w: 100 - 20 * D, type: 'mover', mv: true, bx: prev.x + prev.w + G / 2 - 50 + 10 * D, by: (prev.y + p.y) / 2, ax: (G - 100) / 2 - 10, ay: 0, sp: 1.1 + .5 * D, ph: R(0, 6) });
-      addSpikes(p, .2 + .3 * D);
+      const prev = cur, G = R(230, 260 + 100 * D), mw = 120 - 45 * D;
+      const p = put(G, RI(-30, 30), R(190 - 80 * D, 240 - 80 * D), { exact: true });
+      mk({ x: 0, y: 0, w: mw, type: 'mover', mv: true, bx: prev.x + prev.w + G / 2 - mw / 2, by: (prev.y + p.y) / 2, ax: (G - mw) / 2 - 10, ay: 0, sp: .8 + .9 * D, ph: R(0, 6) });
+      addSpikes(p, .7 * D);
     },
     movV() {
-      const prev = cur, G = R(180, 205);
-      const p = put(G, RI(-20, 20), R(110, 190), { exact: true });
-      mk({ x: 0, y: 0, w: 90, type: 'mover', mv: true, bx: prev.x + prev.w + (G - 90) / 2, by: (prev.y + p.y) / 2, ax: 0, ay: 50 + 28 * D, sp: 1.3 + .5 * D, ph: R(0, 6) });
+      const prev = cur, G = R(170, 185 + 20 * D);
+      const p = put(G, RI(-20, 20), R(190 - 80 * D, 230 - 70 * D), { exact: true });
+      mk({ x: 0, y: 0, w: 110 - 25 * D, type: 'mover', mv: true, bx: prev.x + prev.w + (G - 110 + 25 * D) / 2, by: (prev.y + p.y) / 2, ax: 0, ay: 35 + 45 * D, sp: 1 + .9 * D, ph: R(0, 6) });
     },
     crumble() {
-      const n = RI(3, 4 + Math.round(2 * D));
-      for (let i = 0; i < n; i++) put(R(45, 95 + 40 * D), RI(-35, 35), R(80, 105), { type: 'crumble', cr: 0, crT: 0, delay: .6 - .25 * D });
+      const n = 2 + Math.round(4 * D) + RI(0, 1);
+      for (let i = 0; i < n; i++) put(R(40, 70 + 70 * D), RI(-10 - 30 * D, 10 + 30 * D), R(100 - 25 * D, 125 - 30 * D), { type: 'crumble', cr: 0, crT: 0, delay: .9 - .6 * D });
       put(R(60, 110), RI(-30, 30), R(130, 190));
     },
     trap() {
-      const n = D > .5 && rng() < .5 ? 2 : 1;
+      const n = 1 + (D > .35 && rng() < D ? 1 : 0) + (D > .75 && rng() < .5 ? 1 : 0);
       for (let i = 0; i < n; i++) {
-        const p = put(R(70, 120), RI(-30, 30), R(300, 390), { spiky: true });
-        traps.push({ x: p.x + 70, y: p.y, w: Math.floor((p.w - 140) / 20) * 20, per: R(2.4, 3.1) - .6 * D, ph: rng() });
+        const p = put(R(60, 120), RI(-30, 30), R(240, 290) + 90 * D, { spiky: true });
+        traps.push({ x: p.x + 70, y: p.y, w: Math.floor((p.w - 140) / 20) * 20, per: R(3.2, 3.6) - 1.5 * D, ph: rng() });
       }
-      put(R(70, 120), RI(-30, 30), R(130, 190));
+      put(R(60, 120), RI(-30, 30), R(130, 190));
     },
     ghost() {
-      const n = RI(3, 5 + Math.round(2 * D));
-      for (let i = 0; i < n; i++) put(R(80, 150), RI(-60, 60), R(85 - 15 * D, 135 - 25 * D), { type: 'ghost', flash: 0 });
-      put(R(70, 120), RI(-30, 30), R(130, 190));
+      const n = 2 + Math.round(5 * D) + RI(0, 1);
+      for (let i = 0; i < n; i++) put(R(60 + 20 * D, 90 + 70 * D), RI(-20 - 40 * D, 20 + 40 * D), R(140 - 60 * D, 170 - 70 * D), { type: 'ghost', flash: 0 });
+      put(R(60, 120), RI(-30, 30), R(130, 190));
     },
     color() {
-      const grp = grpN++; let prev = put(R(70, 120), RI(-20, 20), 170), col = 'r';
-      const n = RI(2, 3 + Math.round(2 * D));
+      const grp = grpN++; let prev = put(R(60, 120), RI(-20, 20), 170), col = 'r';
+      const n = 1 + Math.round(4 * D) + (D > .3 ? RI(0, 1) : 0);
       for (let i = 0; i < n; i++) {
-        const gap = R(95, 130);
-        const g = put(gap, RI(-25, 25), R(100, 125), { type: 'color', col, grp, exact: true });
+        const gap = R(85, 100 + 35 * D);
+        const g = put(gap, RI(-25 * D, 25 * D), R(130 - 30 * D, 150 - 30 * D), { type: 'color', col, grp, exact: true });
         orbs.push({ x: prev.x + prev.w + gap / 2, y: Math.min(prev.y, g.y) - 92, grp, cd: 0 });
         prev = g; col = col === 'r' ? 'b' : 'r';
       }
-      put(R(90, 125), RI(-20, 20), 170, { exact: true });
+      put(R(85, 100 + 25 * D), RI(-20, 20), 170, { exact: true });
     },
     iceRun() {
-      const p = put(R(70, 130), RI(-40, 40), R(300, 420), { type: 'ice' });
-      const sw = RI(2, 3) * 20; spikes.push({ x: p.x + p.w / 2 - sw / 2 + RI(-30, 30), y: p.y - 18, w: sw, h: 18 }); p.spiky = true;
-      put(R(90, 150), RI(-50, 40), R(90, 140), rng() < .5 ? { type: 'ice' } : null);
+      const p = put(R(60, 130), RI(-40, 40), R(260, 340) + 80 * D, { type: 'ice' });
+      const sw = RI(2, 2 + Math.round(2 * D)) * 20; spikes.push({ x: p.x + p.w / 2 - sw / 2 + RI(-30, 30), y: p.y - 18, w: sw, h: 18 }); p.spiky = true;
+      put(R(70 + 20 * D, 100 + 60 * D), RI(-50, 40), R(150 - 60 * D, 180 - 50 * D), rng() < D * .7 ? { type: 'ice' } : null);
     },
     conv() {
-      const n = RI(1, 2);
+      const n = 1 + (D > .5 && rng() < .6 ? 1 : 0);
       for (let i = 0; i < n; i++) {
-        const p = put(R(80, 200), RI(-40, 40), R(280, 440), { conv: (rng() < .55 ? -1 : 1) * R(110, 150 + 40 * D), spiky: true });
-        if (rng() < .3 + .4 * D) { const sw = 40; spikes.push({ x: p.x + p.w / 2 - 20, y: p.y - 18, w: sw, h: 18 }); }
+        const p = put(R(60, 200), RI(-40, 40), R(280, 440), { conv: (rng() < .3 + .4 * D ? -1 : 1) * (R(70, 110) + 100 * D), spiky: true });
+        if (rng() < .1 + .7 * D) spikes.push({ x: p.x + p.w / 2 - 20, y: p.y - 18, w: 40, h: 18 });
       }
-      put(R(90, 200), RI(-40, 40), R(120, 180));
+      put(R(60, 200), RI(-40, 40), R(180 - 60 * D, 220 - 60 * D));
     },
     climb() {
-      const up = cur.y - 90 > ymin + 60, n = RI(4, 6);
-      for (let i = 0; i < n; i++) put(R(50, 110 + 30 * D), up ? -R(60, 85) : R(60, 120), R(90 - 20 * D, 140 - 20 * D));
+      const up = cur.y - 90 > ymin + 60, n = 3 + Math.round(3 * D) + RI(0, 1);
+      for (let i = 0; i < n; i++) put(R(40 + 20 * D, 70 + 70 * D), up ? -R(50 + 15 * D, 70 + 15 * D) : R(60, 120), R(150 - 70 * D, 180 - 70 * D));
     },
     spring() {
-      put(R(60, 110), RI(-10, 20), R(105, 130), { spring: true, springT: 0, spiky: true });
+      put(R(50, 110), RI(-10, 20), R(140 - 30 * D, 160 - 30 * D), { spring: true, springT: 0, spiky: true });
       const up = cur.y - 240 > ymin;
-      put(R(40, 130), up ? -R(150, 232) : R(40, 120), R(120 - 20 * D, 190 - 30 * D), { exact: true }, 235);
+      put(R(30, 60 + 70 * D), up ? -R(120 + 50 * D, 170 + 60 * D) : R(40, 120), R(200 - 100 * D, 240 - 100 * D), { exact: true }, 235);
     },
     // --- énigmes ---
     button() {
-      swPlat = put(R(70, 110), RI(-20, 20), 220, { sw: true, spiky: true });
+      swPlat = put(R(60, 110), RI(-20, 20), 220, { sw: true, spiky: true });
       bridge = mk({ x: swPlat.x + swPlat.w, y: swPlat.y, w: 420, type: 'bridge', grow: 0, active: false });
       put(420, 0, R(150, 210), { exact: true });
     },
     simon() {
-      const base = put(R(70, 110), RI(-20, 20), 210, { simonBase: true, spiky: true }), pads = [];
+      const base = put(R(60, 110), RI(-20, 20), 210, { simonBase: true, spiky: true }), pads = [];
       for (let i = 0; i < 4; i++) pads.push(put(46, 0, 66, { type: 'pad', pad: i, exact: true }));
       swPlat = put(46, 0, 190, { sw: true, spiky: true, exact: true });
       bridge = mk({ x: swPlat.x + swPlat.w, y: swPlat.y, w: 420, type: 'bridge', grow: 0, active: false });
       put(420, 0, R(150, 210), { exact: true });
-      const len = Math.min(7, 3 + Math.floor(f / 3)), seq = [];
+      const len = 3 + Math.floor(f * 5 / 11), seq = [];   // 3 couleurs à l'étage 1 → 8 à l'étage 12
       for (let i = 0; i < len; i++) { let v; do { v = RI(0, 3); } while (i && v === seq[i - 1]); seq.push(v); }
-      simon = { seq, pads, base, prog: 0, showing: false, showT: 0, showI: 0, done: false, retry: 0, lit: -1, litT: 0, seen: false };
+      simon = { seq, pads, base, prog: 0, showing: false, showT: 0, showI: 0, done: false, retry: 0, lit: -1, litT: 0, seen: false, pace: .9 - .4 * D };
     }
   };
 
-  const names = Object.keys(T.w), total = names.reduce((s, n) => s + T.w[n], 0);
+  // au début : surtout des plateformes simples ; plus haut : surtout les pièges du thème
+  const wOf = n => T.w[n] * (n === 'plain' ? 3 - 2.6 * D : n === 'narrow' ? .15 + 1.1 * D : .35 + .95 * D);
+  const names = Object.keys(T.w), total = names.reduce((s, n) => s + wOf(n), 0);
   const swAt = puz.sw ? target * R(.35, .6) : Infinity;
   let swDone = false, guard = 0;
   while (cur.x + cur.w < target && guard++ < 400) {
     if (!swDone && cur.x > swAt) { SEG[puz.sw](); swDone = true; }
     else {
       let r = rng() * total, name = names[0];
-      for (const n of names) { r -= T.w[n]; if (r <= 0) { name = n; break; } }
+      for (const n of names) { r -= wOf(n); if (r <= 0) { name = n; break; } }
       if (T.alt && cur.y < ymin + 120 && (name === 'spring' || name === 'climb')) name = 'plain';
       SEG[name]();
     }
     // drapeau (point de contrôle) de temps en temps, sur une plateforme sûre
-    if (cur.type === 'normal' && !cur.spiky && !cur.tiny && cur.w >= 120 && cur.x - lastCpX > 1900) {
+    if (cur.type === 'normal' && !cur.spiky && !cur.tiny && cur.w >= 120 && cur.x - lastCpX > 1400 + 1400 * D) {
       cps.push({ x: cur.x + cur.w / 2, y: cur.y, on: false }); cur.cp = true; lastCpX = cur.x;
     }
   }
@@ -434,7 +469,8 @@ function genFloor(fi) {
   // clé sur une petite plateforme en hauteur
   let key = null;
   if (puz.key) {
-    let c = keyCand.filter(p => !p.cp && p.x > 800 && p.x < target * .8); if (!c.length) c = keyCand.filter(p => !p.cp); if (!c.length) c = [plats[0]];
+    let c = keyCand.filter(p => !p.cp && p.x > 800 && p.x < target * .8); if (!c.length) c = plats.filter(p => p.type === 'normal' && !p.start && !p.end && !p.spiky && !p.tiny && !p.cp && p.w >= 90 && p.x > 800);
+    if (!c.length) c = plats.filter(p => p.type === 'normal' && !p.start && !p.end && !p.sw && !p.spring && !p.cp); if (!c.length) c = [plats[0]];
     const base = c[Math.floor(rng() * c.length)];
     const kp = mk({ x: base.x + base.w / 2 - 50, y: base.y - 128, w: 100, type: 'normal', keyplat: true });
     key = { x: kp.x + kp.w / 2, y: kp.y - 34, got: false }; base.hasKey = true;
@@ -458,7 +494,7 @@ function genFloor(fi) {
   const sw = puz.sw ? { kind: puz.sw, x: swPlat.x + swPlat.w / 2, y: swPlat.y, on: false, bridge } : null;
   const cst = {}; for (let g = 0; g < grpN; g++) cst[g] = 'b';
   return { f, fi, last, plats, spikes, traps, coins, orbs, cps, door, key, sw, simon, cst, needKey: puz.key, W: end.x + end.w + 80,
-    top: Math.min(0, minY - 260), respawn: cps[0], revealT: 5.5, hint, th: theme(f) };
+    top: Math.min(0, minY - 260), respawn: cps[0], revealT: 7 - 3.5 * D, reveal2: 5 - 2.5 * D, ghostA: .24 - .16 * D, hint, th: theme(f) };
 }
 
 /* ======================================================================
@@ -477,10 +513,14 @@ function newPlayer(x, y) {
     face: 1, sx: 1, sy: 1, inv: 0, dustT: 0, hidden: false };
 }
 
-function startRun(daily, themeIdx) {
+function startRun(daily, themeIdx, test) {
   ac();
-  isDaily = daily;
-  if (daily) {
+  isDaily = daily; isTest = !!test;
+  if (test) {   // [MODE TEST] la vraie tour du jour choisi, à partir de l'étage choisi
+    THEME = THEMES[test.theme]; VARIANT = test.variant;
+    floorSeq = Array.from({ length: DAILY_FLOORS }, (_, i) => i);
+    SEED = THEME.id + '|variante' + VARIANT;
+  } else if (daily) {
     const di = dayInfo(); THEME = di.theme; VARIANT = di.variant;
     floorSeq = Array.from({ length: DAILY_FLOORS }, (_, i) => i);
     SEED = THEME.id + '|variante' + VARIANT;
@@ -492,10 +532,11 @@ function startRun(daily, themeIdx) {
   dayHue = (THEME.hue + (hashStr(SEED) % 50) - 25 + 360) % 360;
   run = { coins: 0, floorsDone: 0, elapsed: 0, score: 0, deaths: 0 };
   $('trainTag').classList.toggle('off', daily);
+  $('trainTag').textContent = isTest ? `MODE TEST · variante ${VARIANT + 1} · N : étage suivant · B : étage précédent` : 'ENTRAÎNEMENT';
   $('themeBox').textContent = THEME.emoji + ' ' + THEME.name;
   if (daily) saveProgress('started');
   hideScreens(); $('hud').classList.remove('off');
-  loadFloor(0, true);
+  loadFloor(test ? test.floor : 0, true);
   state = 'playing';
   updateHUD(true);
 }
@@ -517,7 +558,7 @@ function respawn() {
   P = newPlayer(L.respawn.x - PW / 2, L.respawn.y - PH); P.inv = 1;
   for (const g in L.cst) L.cst[g] = 'b';
   for (const p of L.plats) if (p.type === 'crumble') { p.cr = 0; p.crT = 0; }
-  L.revealT = 4;
+  L.revealT = L.reveal2;
   cam.x = Math.max(0, Math.min(L.W - W, P.x - W * .4)); state = 'playing';
 }
 
@@ -607,7 +648,7 @@ function updateSimon(dt) {
   if (s.showing) {
     s.showT -= dt;
     if (s.showT <= 0) {
-      if (s.showI < s.seq.length) { s.lit = s.seq[s.showI]; s.litT = .5; SFX.pad(s.lit); s.showI++; s.showT = .75; }
+      if (s.showI < s.seq.length) { s.lit = s.seq[s.showI]; s.litT = s.pace * .65; SFX.pad(s.lit); s.showI++; s.showT = s.pace; }
       else { s.showing = false; showToast('🎮 À toi ! Saute sur les plots dans le même ordre'); }
     }
   }
@@ -770,7 +811,7 @@ function endRun(kind) {
   const b = 'btn text-slate-900 text-xl px-5 py-2 ';
   $('endBtns').innerHTML = isDaily
     ? `<button data-act="train" class="${b}bg-fuchsia-400 hover:bg-fuchsia-300">🎲 Mode entraînement</button><button data-act="share" class="${b}bg-emerald-400 hover:bg-emerald-300">📋 Copier mon résultat</button><button data-act="closed" class="${b}bg-sky-300 hover:bg-sky-200">🌙 À demain !</button>`
-    : `<button data-act="train" class="${b}bg-fuchsia-400 hover:bg-fuchsia-300">🎲 Rejouer</button><button data-act="home" class="${b}bg-sky-300 hover:bg-sky-200">🏠 Accueil</button>`;
+    : `<button data-act="${isTest ? 'test' : 'train'}" class="${b}bg-fuchsia-400 hover:bg-fuchsia-300">${isTest ? '🧪 Mode test' : '🎲 Rejouer'}</button><button data-act="home" class="${b}bg-sky-300 hover:bg-sky-200">🏠 Accueil</button>`;
   showScreen('end');
   if (win) { for (let i = 0; i < 6; i++) setTimeout(() => confetti(cam.x + 120 + Math.random() * 720, cam.y + 120, 70, 700, 300), i * 350); }
   else SFX.over();
@@ -841,6 +882,12 @@ document.addEventListener('click', e => {
   if (a === 'play') { const s = loadSave(); if (s) showClosed(s); else startRun(true); }
   else if (a === 'train') { state = 'title'; $('hud').classList.add('off'); showScreen('trainPick'); }
   else if (a === 'trainGo') startRun(false, +b.dataset.i);
+  // [MODE TEST]
+  else if (a === 'test') { state = 'title'; $('hud').classList.add('off'); renderTest(); showScreen('testPick'); }
+  else if (a === 'testTheme') { testSel.theme = +b.dataset.i; renderTest(); }
+  else if (a === 'testVar') { testSel.variant = (testSel.variant + +b.dataset.d + VARIANTS) % VARIANTS; renderTest(); }
+  else if (a === 'testGo') startRun(false, 0, { theme: testSel.theme, variant: testSel.variant, floor: +b.dataset.i });
+  else if (a === 'testReset') { try { localStorage.removeItem(SAVE_KEY); } catch (err) { } state = 'title'; showScreen('title'); }
   else if (a === 'resume') togglePause();
   else if (a === 'share') shareResult();
   else if (a === 'closed') { const s = loadSave(); if (s) showClosed(s); }
@@ -849,7 +896,17 @@ document.addEventListener('click', e => {
 $('btnPause').addEventListener('click', togglePause);
 $('btnMute').addEventListener('click', toggleMute);
 
+/* [MODE TEST] écran de choix : jour, variante, étage */
+const testSel = { theme: dayInfo().wd, variant: dayInfo().variant };
+function renderTest() {
+  $('testThemes').innerHTML = THEMES.map((th, i) => `<button data-act="testTheme" data-i="${i}" class="btn text-slate-900 px-1 py-1 text-sm" style="background:${th.col};${i === testSel.theme ? 'outline:4px solid #fff;' : 'opacity:.55'}">
+    <div class="text-2xl">${th.emoji}</div><div class="font-black">${th.day}</div><div class="text-xs font-bold">${th.name}</div></button>`).join('');
+  $('testVar').textContent = `Variante ${testSel.variant + 1} / ${VARIANTS}`;
+  $('testFloors').innerHTML = Array.from({ length: DAILY_FLOORS }, (_, i) => `<button data-act="testGo" data-i="${i}" class="btn bg-amber-400 hover:bg-amber-300 text-slate-900 text-lg py-1">Étage ${i + 1}</button>`).join('');
+}
+
 function initTitle() {
+  for (const el of document.querySelectorAll('.testOnly')) el.classList.toggle('off', !TEST_MODE);
   const di = dayInfo(), t = di.theme;
   dayHue = t.hue;
   $('todayCard').style.background = t.col;
@@ -942,7 +999,7 @@ function drawPlat(p) {
     return;
   }
   let alpha = 1;
-  if (p.type === 'ghost') alpha = Math.max(.1, Math.min(1, L.revealT), p.flash > 0 ? 1 : 0, P && P.standing === p ? 1 : 0);
+  if (p.type === 'ghost') alpha = Math.max(L.ghostA, Math.min(1, L.revealT), p.flash > 0 ? 1 : 0, P && P.standing === p ? 1 : 0);
   if (p.type === 'crumble') {
     if (p.cr === 2) return;
     if (p.cr === 1) { x += (Math.random() - .5) * 5; y += (Math.random() - .5) * 3; }
