@@ -170,7 +170,7 @@ const DAILY_FLOORS = 12, RUN_SECONDS = 30 * 60, VARIANTS = 20;
 const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900, SPRING = 1000;
 const PW = 28, PH = 40;
 const STEP = 1 / 120;
-const SAVE_KEY = 'chronoTower.daily.v2';
+const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v7';
 /* [MODE TEST] Passe à false (ou supprime les blocs marqués [MODE TEST]) quand tout est réglé. */
 const TEST_MODE = true;
 
@@ -393,7 +393,7 @@ function genFloor(fi) {
       put(R(60, 120), RI(-30, 30), R(130, 190));
     },
     ghost() {   // plateformes fantômes : visibles seulement quand la lanterne brille
-      const lp = put(R(60, 110), RI(-20, 20), 150), g = newMem(lp, 2.2 - 1.1 * D); forceCp(lp);
+      const lp = put(R(60, 110), RI(-20, 20), 150), g = newMem(lp, 1); forceCp(lp);   // visibles 1 seconde, pas plus
       const n = Math.min(4, 2 + Math.round(2 * D) + RI(0, 1));
       for (let i = 0; i < n && cur.x + cur.w - g.lx < 560; i++) put(R(60 + 20 * D, 80 + 35 * D), RI(-20 - 40 * D, 20 + 40 * D), R(120 - 40 * D, 145 - 50 * D), { type: 'ghost', flash: 0, mg: g.id });
       g.x1 = put(R(60, 110), RI(-30, 30), R(130, 190)).x;
@@ -1001,7 +1001,7 @@ function initTitle() {
   $('todayDesc').textContent = t.desc;
   const d = new Date();
   $('dateTag').textContent = '📅 ' + d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-    + ` — La Tour ${TOWER_NAMES[di.variant]} (variante ${di.variant + 1}/${VARIANTS})`;
+    + ` — La Tour ${TOWER_NAMES[di.variant]} (variante ${di.variant + 1}/${VARIANTS}) · ${VERSION}`;
   $('trainGrid').innerHTML = THEMES.map((th, i) => `<button data-act="trainGo" data-i="${i}" class="btn text-slate-900 px-2 py-3" style="background:${th.col}">
     <div class="text-4xl">${th.emoji}</div><div class="text-lg font-black">${th.name}</div><div class="text-xs font-bold">${th.day}</div></button>`).join('');
 }
@@ -1098,7 +1098,7 @@ function drawPlat(p) {
     return;
   }
   let alpha = 1;
-  if (p.type === 'ghost') { alpha = Math.max(Math.min(1, L.mem[p.mg].rev * 3), P && P.standing === p ? 1 : 0); if (alpha <= 0) return; }   // totalement invisible sans la lanterne
+  if (p.type === 'ghost') { if (L.mem[p.mg].rev <= 0) return; }   // dessinée uniquement pendant le flash de la lanterne, sans aucune transparence
   if (p.type === 'crumble') {
     if (p.cr === 2) return;
     if (p.cr === 1) { x += (Math.random() - .5) * 5; y += (Math.random() - .5) * 3; }
