@@ -612,9 +612,9 @@ function genFloor(fi) {
       const colX = c => E.x + E.w + 150 + c * CW, rowY = r => E.y - r * RH, cells = [];
       for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
         const t = room.g[r][c]; if (!t) continue;
-        const p = mk({ x: colX(c), y: rowY(r), w: PWD, type: t === 'g' ? 'normal' : 'color', col: t, grp, busy: true, spiky: true });
+        const p = mk({ x: colX(c), y: rowY(r), w: PWD, type: t === 'g' ? 'normal' : 'color', col: t, grp, busy: true, spiky: true, roomCell: true });
         cells.push({ r, c, p });
-        if (room.btn[r][c]) tblocks.push({ x: p.x + PWD / 2, y: p.y - 96, plat: p, grp, bump: 0, cd: 0 });
+        if (room.btn[r][c]) tblocks.push({ x: p.x + PWD / 2, y: p.y - 63, plat: p, grp, bump: 0, cd: 0 });   // tient entre la tête du joueur et la case du dessus
       }
       forceCp(E, 40);
       cur = mk({ x: colX(cols), y: rowY(rows - 1), w: 200, type: 'normal' });
@@ -1120,7 +1120,7 @@ function updatePlayer(dt) {
   }
   if (L.simon && !L.simon.done && p.vy < 0 && L.simon.cd <= 0) for (const b of L.simon.pads) if (Math.abs(b.x - cx) < 28 && Math.abs(b.y - p.y) < 34) { L.simon.cd = .35; b.bump = .2; padHit(b.pad); break; }
   if (p.grounded) p.lastGround = p.standing;
-  if (p.vy < 0) for (const tb of L.tblocks) if (tb.cd <= 0 && p.lastGround === tb.plat && Math.abs(tb.x - cx) < 28 && Math.abs(tb.y - p.y) < 34) {
+  if (p.vy < 0) for (const tb of L.tblocks) if (tb.cd <= 0 && p.lastGround === tb.plat && Math.abs(tb.x - cx) < 20 && Math.abs(tb.y - p.y) < 34) {   // il faut être bien dessous : depuis le bord on peut sauter sans le toucher
     tb.cd = .35; tb.bump = .2; L.cst[tb.grp] = L.cst[tb.grp] === 'r' ? 'b' : 'r'; SFX.orb(); const col = L.cst[tb.grp] === 'r' ? '#f87171' : '#60a5fa'; ring(tb.x, tb.y, col); sparkle(tb.x, tb.y, 12, col);
   }
   if (L.levers && !L.levers.done && p.vy < 0 && L.levers.cd <= 0) for (let i = 0; i < L.levers.blocks.length; i++) { const b = L.levers.blocks[i]; if (Math.abs(b.x - cx) < 28 && Math.abs(b.y - p.y) < 34) { L.levers.cd = .3; b.bump = .2; leverHit(i); break; } }
@@ -1129,7 +1129,7 @@ function updatePlayer(dt) {
   if (p.grounded) for (const bt of L.cbtns) if (Math.abs(bt.x - cx) < 22 && Math.abs(p.y + PH - bt.y) < 6 && L.cst[bt.grp] !== bt.set) {
     L.cst[bt.grp] = bt.set; SFX.orb(); const col = bt.set === 'r' ? '#f87171' : '#60a5fa'; ring(bt.x, bt.y, col); sparkle(bt.x, bt.y - 10, 12, col);
   }
-  for (const cz of L.cpuz) if (!cz.told && p.standing === cz.E) { cz.told = true; showToast('⇄ Les blocs ⇄ échangent rouge et bleu. Trouve dans quel ordre les taper pour atteindre la sortie en haut à droite !'); }
+  for (const cz of L.cpuz) if (!cz.told && p.standing === cz.E) { cz.told = true; showToast('⇄ échange rouge et bleu. Dans quel ordre ? Sortie en haut à droite !'); }
   for (const rd of L.riddles) {
     if (!rd.told && Math.abs(rd.x - cx) < 160 && Math.abs(p.y + PH - rd.y) < 60) { rd.told = true; showToast('🤔 Trouve la réponse, puis reste immobile devant la bonne porte !'); }
     for (const d of rd.doors) {
@@ -1594,10 +1594,10 @@ function drawLogic() {   // boutons de couleur, plaque, blocs-leviers, ampoules,
   }
   for (const tb of L.tblocks) {
     if (tb.x < cam.x - 60 || tb.x > cam.x + W + 60) continue;
-    const y = tb.y - (tb.bump > 0 ? 7 : 0);
-    ctx.save(); rr(tb.x - 28, y - 20, 56, 40, 9); ctx.clip(); ctx.fillStyle = '#ef4444'; ctx.fillRect(tb.x - 28, y - 20, 28, 40); ctx.fillStyle = '#3b82f6'; ctx.fillRect(tb.x, y - 20, 28, 40); ctx.restore();
-    ctx.strokeStyle = OUT; ctx.lineWidth = 4; rr(tb.x - 28, y - 20, 56, 40, 9); ctx.stroke();
-    outText('⇄', tb.x, y + 1, 24, '#fff');
+    const y = tb.y - (tb.bump > 0 ? 5 : 0);
+    ctx.save(); rr(tb.x - 22, y - 13, 44, 26, 7); ctx.clip(); ctx.fillStyle = '#ef4444'; ctx.fillRect(tb.x - 22, y - 13, 22, 26); ctx.fillStyle = '#3b82f6'; ctx.fillRect(tb.x, y - 13, 22, 26); ctx.restore();
+    ctx.strokeStyle = OUT; ctx.lineWidth = 3; rr(tb.x - 22, y - 13, 44, 26, 7); ctx.stroke();
+    outText('⇄', tb.x, y + 1, 18, '#fff');
   }
   const pl = L.plate;
   if (pl) {
