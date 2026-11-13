@@ -7,7 +7,6 @@
 <!-- Tailwind (CDN) pour le design. Le jeu lui-même (canvas) fonctionne même hors-ligne. -->
 <script src="https://cdn.tailwindcss.com/3.4.17"></script>
 <style>
-  /* Structure minimale (garde le jeu jouable même si Tailwind ne se charge pas) */
   html,body{margin:0;height:100%;background:#0b0820;overflow:hidden;
     font-family:"Trebuchet MS","Comic Sans MS","Segoe UI",system-ui,sans-serif;color:#fff;user-select:none;-webkit-user-select:none}
   #stage{position:absolute;left:50%;top:50%;width:960px;height:540px;transform-origin:center center}
@@ -19,10 +18,10 @@
   .title-glow{text-shadow:0 4px 0 #4c1d95,0 0 30px rgba(250,204,21,.6)}
   @keyframes floaty{0%,100%{transform:translateY(0) rotate(-3deg)}50%{transform:translateY(-10px) rotate(3deg)}}
   .floaty{animation:floaty 2.4s ease-in-out infinite;display:inline-block}
-  @keyframes pulse2{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
+  @keyframes pulse2{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
   .pulse2{animation:pulse2 .7s ease-in-out infinite}
   @keyframes bannerIn{0%{opacity:0;transform:translateY(-20px) scale(.9)}12%{opacity:1;transform:none}85%{opacity:1}100%{opacity:0;transform:translateY(-10px)}}
-  .bannerAnim{animation:bannerIn 3.6s ease both}
+  .bannerAnim{animation:bannerIn 4s ease both}
 </style>
 </head>
 <body>
@@ -33,12 +32,9 @@
   <div id="hud" class="off" style="position:absolute;left:12px;right:12px;top:10px;pointer-events:none">
     <div class="flex items-start justify-between">
       <div class="flex gap-2 items-center">
-        <div id="hearts" class="flex gap-1 items-center bg-slate-900/70 border-4 border-slate-900 rounded-2xl px-3 py-1 text-2xl"></div>
-        <div id="floorBox" class="bg-indigo-600 border-4 border-slate-900 rounded-2xl px-3 py-1 text-xl font-black">Étage 1/5</div>
-      </div>
-      <div class="flex flex-col items-center">
-        <div id="timer" class="bg-slate-900/80 text-white border-4 border-amber-300 rounded-2xl px-5 py-1 text-3xl font-black tabular-nums">⏳ 20:00</div>
-        <div id="trainTag" class="off mt-1 bg-fuchsia-500 border-2 border-slate-900 rounded-full px-3 text-xs font-black tracking-widest">ENTRAÎNEMENT</div>
+        <div id="floorBox" class="bg-indigo-600 border-4 border-slate-900 rounded-2xl px-3 py-1 text-xl font-black">Étage 1/12</div>
+        <div id="themeBox" class="bg-slate-900/70 border-4 border-slate-900 rounded-2xl px-3 py-1 text-lg font-black"></div>
+        <div id="deathBox" class="bg-slate-900/70 border-4 border-slate-900 rounded-2xl px-3 py-1 text-lg font-black tabular-nums" title="Chutes">💫 0</div>
       </div>
       <div class="flex gap-2 items-center">
         <div id="puz" class="bg-slate-900/70 border-4 border-slate-900 rounded-2xl px-3 py-1 text-xl font-black"></div>
@@ -47,9 +43,13 @@
         <button id="btnMute" class="btn bg-sky-400 text-slate-900 px-2 text-xl" style="pointer-events:auto" title="Son (M)">🔊</button>
       </div>
     </div>
+    <div style="position:absolute;left:0;right:0;top:0;display:flex;flex-direction:column;align-items:center">
+      <div id="timer" class="bg-slate-900/80 text-white border-4 border-amber-300 rounded-2xl px-5 py-1 text-3xl font-black tabular-nums">⏳ 30:00</div>
+      <div id="trainTag" class="off mt-1 bg-fuchsia-500 border-2 border-slate-900 rounded-full px-3 text-xs font-black tracking-widest">ENTRAÎNEMENT</div>
+    </div>
   </div>
   <div id="bannerWrap" style="position:absolute;left:0;right:0;top:92px;display:flex;justify-content:center;pointer-events:none">
-    <div id="banner" class="off bg-slate-900/85 border-4 border-amber-300 rounded-3xl px-6 py-3 text-center" style="max-width:700px">
+    <div id="banner" class="off bg-slate-900/85 border-4 border-amber-300 rounded-3xl px-6 py-3 text-center" style="max-width:760px">
       <div id="bannerTitle" class="text-3xl font-black text-amber-300"></div>
       <div id="bannerHint" class="text-lg font-bold"></div>
     </div>
@@ -60,37 +60,49 @@
 
   <!-- ============ ÉCRAN TITRE ============ -->
   <div id="title" class="screen" style="background:rgba(10,6,40,.55)">
-    <div class="text-center" style="width:800px">
-      <div class="text-6xl mb-1"><span class="floaty">🧙‍♂️</span> <span class="floaty" style="animation-delay:.4s">⏳</span> <span class="floaty" style="animation-delay:.8s">🏰</span></div>
+    <div class="text-center" style="width:840px">
+      <div class="text-5xl mb-1"><span class="floaty">🧙‍♂️</span> <span class="floaty" style="animation-delay:.4s">⏳</span> <span class="floaty" style="animation-delay:.8s">🏰</span></div>
       <h1 class="title-glow text-6xl font-black text-amber-300 leading-none" style="-webkit-text-stroke:2px #1e1b4b">La Tour Chrono-Magique</h1>
-      <div id="towerName" class="mt-2 text-xl font-black text-fuchsia-300"></div>
-      <p class="mt-3 text-lg font-bold leading-snug text-indigo-100 bg-slate-900/60 border-4 border-slate-900 rounded-3xl px-5 py-3">
-        Le vieux sorcier <b class="text-amber-300">Chronos</b> a caché son trésor tout en haut de sa tour magique…
-        mais la tour change <b class="text-amber-300">chaque jour</b> ! Tu as <b class="text-amber-300">20 minutes</b> et
-        <b class="text-rose-300">3 cœurs ❤️</b> pour grimper <b class="text-amber-300">5 étages</b>, éviter les pièges
-        et résoudre les énigmes. Une seule tentative par jour : fais-la compter !
+      <div id="todayCard" class="mt-3 inline-block border-4 border-slate-900 rounded-3xl px-6 py-2 text-slate-900">
+        <div id="todayTheme" class="text-3xl font-black"></div>
+        <div id="todayDesc" class="text-base font-bold"></div>
+      </div>
+      <p class="mt-3 text-base font-bold leading-snug text-indigo-100 bg-slate-900/60 border-4 border-slate-900 rounded-3xl px-5 py-2">
+        Le sorcier <b class="text-amber-300">Chronos</b> a caché son trésor tout en haut de sa tour… et chaque jour de la semaine,
+        la tour lance un <b class="text-amber-300">défi différent</b> ! Tu as <b class="text-amber-300">30 minutes</b> pour grimper
+        <b class="text-amber-300">12 étages</b>. Pas de vies : si tu tombes, tu repars du dernier <b class="text-emerald-300">drapeau 🚩</b>… mais le chrono, lui, ne s'arrête pas !
       </p>
-      <div class="mt-3 flex justify-center gap-3 text-sm font-bold text-slate-100">
+      <div class="mt-2 flex justify-center gap-3 text-sm font-bold text-slate-100">
         <span class="bg-slate-900/70 rounded-xl px-3 py-1 border-2 border-slate-700">⬅️ ➡️ ou Q/A · D : bouger</span>
         <span class="bg-slate-900/70 rounded-xl px-3 py-1 border-2 border-slate-700">␣ ou ⬆️ : sauter (2× = double saut !)</span>
         <span class="bg-slate-900/70 rounded-xl px-3 py-1 border-2 border-slate-700">P : pause</span>
       </div>
-      <div class="mt-4 flex justify-center gap-4 items-center">
+      <div class="mt-3 flex justify-center gap-4 items-center">
         <button data-act="play" class="btn bg-amber-400 hover:bg-amber-300 text-slate-900 text-3xl px-8 py-3 pulse2">▶ Jouer le Run du Jour</button>
         <button data-act="train" class="btn bg-fuchsia-400 hover:bg-fuchsia-300 text-slate-900 text-lg px-4 py-2">🎲 Mode entraînement</button>
       </div>
-      <div id="dateTag" class="mt-3 text-sm font-bold text-indigo-200"></div>
+      <div id="dateTag" class="mt-2 text-sm font-bold text-indigo-200"></div>
+    </div>
+  </div>
+
+  <!-- ============ CHOIX DU THÈME (ENTRAÎNEMENT) ============ -->
+  <div id="trainPick" class="screen off" style="background:rgba(10,6,40,.8)">
+    <div class="text-center" style="width:860px">
+      <h2 class="text-4xl font-black text-fuchsia-300">🎲 Entraînement : choisis un thème</h2>
+      <p class="font-bold text-indigo-100 mt-1">3 étages (facile, moyen, difficile) — rien n'est enregistré.</p>
+      <div id="trainGrid" class="mt-4 grid grid-cols-4 gap-3"></div>
+      <button data-act="home" class="btn mt-4 bg-sky-300 hover:bg-sky-200 text-slate-900 text-xl px-5 py-2">🏠 Retour</button>
     </div>
   </div>
 
   <!-- ============ TOUR FERMÉE ============ -->
   <div id="closed" class="screen off" style="background:rgba(10,6,40,.75)">
-    <div class="text-center bg-indigo-900/90 border-8 border-slate-900 rounded-[2rem] px-8 py-6" style="width:700px">
+    <div class="text-center bg-indigo-900/90 border-8 border-slate-900 rounded-[2rem] px-8 py-6" style="width:720px">
       <div class="text-6xl">🔒🏰</div>
       <h2 class="text-4xl font-black text-amber-300 mt-1">La tour est fermée pour aujourd'hui !</h2>
       <p class="text-2xl font-black mt-1">Reviens demain ! 🌙</p>
       <div id="closedBody" class="mt-3 bg-slate-900/70 border-4 border-slate-900 rounded-2xl px-4 py-3 text-lg font-bold"></div>
-      <div class="mt-3 text-lg font-bold text-indigo-200">Nouvelle tour dans : <span id="countdown" class="text-amber-300 font-black tabular-nums text-2xl">--:--:--</span></div>
+      <div class="mt-3 text-lg font-bold text-indigo-200">Demain : <span id="tomorrowTheme" class="text-amber-300 font-black"></span> — dans <span id="countdown" class="text-amber-300 font-black tabular-nums text-2xl">--:--:--</span></div>
       <div class="mt-4 flex justify-center gap-3">
         <button data-act="train" class="btn bg-fuchsia-400 hover:bg-fuchsia-300 text-slate-900 text-xl px-5 py-2">🎲 Mode entraînement</button>
         <button data-act="share" class="btn bg-emerald-400 hover:bg-emerald-300 text-slate-900 text-xl px-5 py-2">📋 Copier mon résultat</button>
@@ -107,9 +119,9 @@
     </div>
   </div>
 
-  <!-- ============ VICTOIRE / GAME OVER ============ -->
+  <!-- ============ VICTOIRE / FIN ============ -->
   <div id="end" class="screen off" style="background:rgba(10,6,40,.6)">
-    <div id="endCard" class="text-center border-8 border-slate-900 rounded-[2rem] px-8 py-5" style="width:680px">
+    <div id="endCard" class="text-center border-8 border-slate-900 rounded-[2rem] px-8 py-5" style="width:700px">
       <div id="endIcon" class="text-6xl"></div>
       <h2 id="endTitle" class="text-4xl font-black"></h2>
       <p id="endMsg" class="text-lg font-bold mt-1"></p>
@@ -123,17 +135,43 @@
 <script>
 /* ======================================================================
    LA TOUR CHRONO-MAGIQUE — jeu de plateforme quotidien (JS pur + canvas)
+   Un thème par jour de la semaine, 20 variantes par thème (cycle de 20 semaines)
    ====================================================================== */
 const W = 960, H = 540;
 const $ = id => document.getElementById(id);
 const cv = $('cv'), ctx = cv.getContext('2d');
 
 /* ---------- Constantes de gameplay ---------- */
-const TOTAL_FLOORS = 5, MAX_LIVES = 3, RUN_SECONDS = 20 * 60;
-const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900;
+const DAILY_FLOORS = 12, RUN_SECONDS = 30 * 60, VARIANTS = 20;
+const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900, SPRING = 1000;
 const PW = 28, PH = 40;
 const STEP = 1 / 120;
-const SAVE_KEY = 'chronoTower.daily.v1';
+const SAVE_KEY = 'chronoTower.daily.v2';
+
+/* ---------- Les 7 thèmes de la semaine (index 0 = lundi) ---------- */
+const THEMES = [
+  { id: 'memoire', day: 'Lundi', name: 'Mémoire', emoji: '🧠', hue: 265, col: '#c4b5fd', simon: true,
+    desc: 'Retiens les séquences de couleurs et les plateformes fantômes qui disparaissent !',
+    w: { plain: 3, narrow: 1, movH: 1, movV: 1, ghost: 5 } },
+  { id: 'reflexe', day: 'Mardi', name: 'Réflexes', emoji: '⚡', hue: 40, col: '#fde047',
+    desc: 'Plateformes qui s\'écroulent et pics qui surgissent : réagis vite !',
+    w: { plain: 2, narrow: 1, movH: 2, movV: 1, crumble: 4, trap: 4 } },
+  { id: 'logique', day: 'Mercredi', name: 'Logique', emoji: '🧩', hue: 160, col: '#6ee7b7',
+    desc: 'Les orbes magiques échangent les blocs rouges et bleus : réfléchis avant de sauter !',
+    w: { plain: 3, narrow: 1, movH: 1, movV: 1, color: 5 } },
+  { id: 'precision', day: 'Jeudi', name: 'Précision', emoji: '🎯', hue: 350, col: '#fda4af',
+    desc: 'Plateformes minuscules, glace et pics : chaque saut doit être parfait !',
+    w: { plain: 2, narrow: 5, movH: 2, movV: 2, iceRun: 3 } },
+  { id: 'vitesse', day: 'Vendredi', name: 'Vitesse', emoji: '🏃', hue: 200, col: '#7dd3fc',
+    desc: 'Tapis roulants et grands sauts : fonce sans jamais t\'arrêter !',
+    w: { plain: 2, narrow: 1, movH: 2, conv: 5, crumble: 2 } },
+  { id: 'altitude', day: 'Samedi', name: 'Altitude', emoji: '🚀', hue: 225, col: '#a5b4fc', alt: true,
+    desc: 'Ressorts géants et escaliers dans le ciel : grimpe le plus haut possible !',
+    w: { plain: 1, narrow: 1, movV: 2, climb: 4, spring: 4 } },
+  { id: 'defi', day: 'Dimanche', name: 'Grand Défi', emoji: '👑', hue: 315, col: '#f0abfc', alt: true, mix: true,
+    desc: 'Le mélange de tous les pièges de la semaine. Es-tu prêt ?',
+    w: { plain: 2, narrow: 1, movH: 1, movV: 1, crumble: 1, trap: 1, ghost: 1, color: 1, conv: 1, climb: 1, spring: 1, iceRun: 1 } }
+];
 
 /* ---------- Aléatoire à graine (seed) ---------- */
 function hashStr(s) {
@@ -150,17 +188,21 @@ function mulberry32(a) {
     return ((t ^ t >>> 14) >>> 0) / 4294967296;
   };
 }
-function todayKey() {
-  const d = new Date();
-  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+function dateKey(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function todayKey() { return dateKey(new Date()); }
+/* Jour de la semaine (0 = lundi) + numéro de variante (0..19), qui change chaque semaine */
+function dayInfo(d = new Date()) {
+  const dn = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000;
+  const off = dn - Date.UTC(2024, 0, 1) / 86400000;            // le 1er janvier 2024 était un lundi
+  const wd = ((off % 7) + 7) % 7, week = Math.floor(off / 7);
+  return { wd, variant: ((week % VARIANTS) + VARIANTS) % VARIANTS, theme: THEMES[wd] };
 }
-const TOWER_NAMES = ['La Tour du Dragon Rigolo', 'La Tour du Hibou Savant', 'La Tour du Sorcier Farceur', 'La Tour du Chat Volant',
-  'La Tour du Robot Magicien', 'La Tour de la Licorne Pressée', 'La Tour du Fantôme Gourmand', 'La Tour du Pirate des Nuages',
-  'La Tour du Yéti Chatouilleux', 'La Tour de la Grenouille Géante', 'La Tour du Lutin Champion', 'La Tour du Panda Magique'];
+const TOWER_NAMES = ['du Dragon Rigolo', 'du Hibou Savant', 'du Sorcier Farceur', 'du Chat Volant', 'du Robot Magicien', 'de la Licorne Pressée',
+  'du Fantôme Gourmand', 'du Pirate des Nuages', 'du Yéti Chatouilleux', 'de la Grenouille Géante', 'du Lutin Champion', 'du Panda Magique',
+  'du Renard Malin', 'de la Sorcière Étourdie', 'du Géant Timide', 'du Corbeau Bavard', 'de la Fée Turbo', 'du Troll Danseur', 'du Phénix Frileux', 'de la Tortue Fusée'];
 
-let SEED = todayKey();
-let isDaily = true;
-let dayHue = 0;
+let SEED = '', THEME = THEMES[0], VARIANT = 0, isDaily = true, dayHue = 0;
+let floorSeq = [];   // niveaux de difficulté (0..11) des étages de la partie
 
 /* ---------- Sauvegarde locale ---------- */
 function loadSave() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); return s && s.date === todayKey() ? s : null; } catch (e) { return null; } }
@@ -182,6 +224,7 @@ function tone(f1, f2, dur, type = 'square', vol = .05, delay = 0) {
   o.connect(g); g.connect(a.destination); o.start(t); o.stop(t + dur + .02);
 }
 const arp = (notes, step, type, vol) => notes.forEach((f, i) => tone(f, f, .18, type, vol, i * step));
+const PAD_TONES = [262, 330, 392, 523], PAD_COLS = ['#ef4444', '#3b82f6', '#22c55e', '#facc15'];
 const SFX = {
   jump: () => tone(330, 700, .15), djump: () => tone(520, 1200, .22, 'triangle', .08), land: () => tone(140, 70, .07, 'sine', .07),
   coin: () => { tone(988, 988, .07, 'square', .04); tone(1319, 1319, .16, 'square', .04, .06); },
@@ -189,7 +232,9 @@ const SFX = {
   sw: () => { tone(200, 400, .12, 'square', .06); arp([392, 523, 659, 784], .09, 'triangle', .07); },
   door: () => arp([523, 659, 784, 1047, 1319], .07, 'triangle', .08),
   win: () => arp([523, 659, 784, 1047, 784, 1047, 1319, 1568], .12, 'triangle', .09),
-  over: () => arp([392, 330, 262, 196], .18, 'sine', .08), locked: () => tone(160, 120, .18, 'square', .05)
+  over: () => arp([392, 330, 262, 196], .18, 'sine', .08), locked: () => tone(160, 120, .18, 'square', .05),
+  spring: () => tone(180, 1000, .3, 'sine', .1), orb: () => { tone(700, 350, .12, 'triangle', .08); tone(350, 700, .12, 'triangle', .08, .1); },
+  crumble: () => tone(110, 60, .25, 'sawtooth', .05), cp: () => arp([659, 880], .09, 'triangle', .08), pad: i => tone(PAD_TONES[i], PAD_TONES[i], .3, 'triangle', .1)
 };
 
 /* ---------- Entrées clavier ---------- */
@@ -211,113 +256,209 @@ addEventListener('keydown', e => {
   if (!e.repeat) {
     if (e.code === 'KeyP' || e.code === 'Escape') togglePause();
     if (e.code === 'KeyM') toggleMute();
-    if ((e.code === 'Enter' || e.code === 'Space') && state === 'paused') togglePause();
+    if (e.code === 'Enter' && state === 'paused') togglePause();
   }
 });
 addEventListener('keyup', e => { const m = mapKey(e); if (m) keys[m] = false; });
 addEventListener('blur', () => { keys.left = keys.right = keys.jump = false; if (state === 'playing') togglePause(); });
 document.addEventListener('visibilitychange', () => { if (document.hidden && state === 'playing') togglePause(); });
 
-/* ---------- Thème visuel (change chaque jour et à chaque étage) ---------- */
+/* ---------- Décor (change selon le thème, la variante et l'étage) ---------- */
 function theme(f) {
-  const h = (dayHue + f * 37) % 360;
-  return {
-    h, top: `hsl(${h},55%,${20 + f * 5}%)`, bot: `hsl(${(h + 30) % 360},60%,${11 + f * 3}%)`,
-    brick: `hsl(${h},35%,${33 + f * 2}%)`, starA: .12 + f * .22
-  };
+  const h = (dayHue + f * 9) % 360, k = f / 11;
+  return { h, top: `hsl(${h},55%,${20 + k * 16}%)`, bot: `hsl(${(h + 30) % 360},60%,${11 + k * 8}%)`, brick: `hsl(${h},35%,${34 + k * 8}%)`, starA: .12 + k * .75 };
 }
 const STARS = Array.from({ length: 70 }, (_, i) => { const r = mulberry32(i * 977 + 13); return { x: r() * W, y: r() * H * .75, r: 1 + r() * 2.2, sp: 1 + r() * 3, ph: r() * 6 }; });
 
 /* ======================================================================
    GÉNÉRATION PROCÉDURALE D'UN ÉTAGE
+   Chaque étage est une suite de "segments" (sauts, plateformes mobiles,
+   fantômes, blocs de couleur...) choisis selon le thème du jour.
    ====================================================================== */
-function puzzleFor(f) {
-  if (f === TOTAL_FLOORS - 1) return 'both';
-  return mulberry32(hashStr(SEED + '#puz' + f))() < .5 ? 'key' : 'switch';
+function puzzleFor(fi) {
+  const f = floorSeq[fi], last = fi === floorSeq.length - 1;
+  const r = mulberry32(hashStr(SEED + '#puz' + f))();
+  if (THEME.simon) return { key: last || f % 3 === 2, sw: 'simon' };
+  if (last) return { key: true, sw: THEME.mix ? 'simon' : 'button' };
+  if (THEME.mix) return r < .33 ? { key: true, sw: null } : r < .66 ? { key: false, sw: 'button' } : { key: false, sw: 'simon' };
+  return r < .4 ? { key: true, sw: null } : r < .8 ? { key: false, sw: 'button' } : { key: true, sw: 'button' };
 }
 
-function genFloor(f) {
+function genFloor(fi) {
+  const f = floorSeq[fi], last = fi === floorSeq.length - 1, D = f / 11, T = THEME;
   const rng = mulberry32(hashStr(SEED + '#floor' + f));
   const R = (a, b) => a + rng() * (b - a), RI = (a, b) => Math.floor(R(a, b + 1));
-  const clampY = y => Math.max(250, Math.min(450, y));
-  const plats = [], spikes = [], coins = [];
+  const ymin = T.alt ? -520 : 250, ymax = 450;
+  const plats = [], spikes = [], traps = [], coins = [], orbs = [], cps = [];
   const mk = o => { o.h = 24; o.px = o.x; o.py = o.y; o.dx = 0; o.dy = 0; plats.push(o); return o; };
-  const puzzle = puzzleFor(f), needSwitch = puzzle !== 'key', needKey = puzzle !== 'switch';
-  const n = 8 + f * 2;
-  const swIdx = needSwitch ? RI(2, n - 3) : -1;
-  const maxGap = 105 + f * 14;
+  const puz = puzzleFor(fi);
+  const gmax = rise => Math.max(60, 125 + 85 * D - Math.max(0, rise) * .9);
+  const target = 6500 + f * 700;
 
-  let cur = mk({ x: 0, y: 440, w: 340, type: 'normal', start: true });
-  const keyCandidates = [];
-  let bridge = null, swPlat = null;
+  let cur = mk({ x: 0, y: 440, w: 360, type: 'normal', start: true });
+  cps.push({ x: 84, y: 440, on: true });
+  let lastCpX = 0, grpN = 0, bridge = null, swPlat = null, simon = null;
+  const keyCand = [];
 
-  for (let i = 0; i < n; i++) {
-    const prev = cur;
-    let connector = 'gap', w = RI(130, 270), dy = RI(-80, 60), type = 'normal';
-    const isSw = i === swIdx;
-    if (prev.sw) { connector = 'bridge'; dy = 0; }
-    else if (rng() < .16 + .05 * f) { connector = rng() < .5 ? 'movH' : 'movV'; dy = RI(-30, 30); }
-    let G;
-    if (connector === 'bridge') G = 420;
-    else if (connector === 'movH') G = R(250, 290);
-    else if (connector === 'movV') G = R(180, 200);
-    else G = R(70, maxGap);
-    const ny = connector === 'bridge' ? prev.y : clampY(prev.y + dy);
-    const nx = prev.x + prev.w + G;
-    if (!isSw && connector === 'gap' && w >= 170 && rng() < .14 + .05 * f) type = 'ice';
-    if (isSw) w = Math.max(w, 200);
-    const p = mk({ x: nx, y: ny, w, type });
-    if (isSw) { p.sw = true; swPlat = p; }
-
-    // connecteurs spéciaux
-    if (connector === 'bridge') {
-      bridge = mk({ x: prev.x + prev.w, y: prev.y, w: G, type: 'bridge', grow: 0, active: false });
-    } else if (connector === 'movH') {
-      const ax = (G - 100) / 2 - 10;
-      mk({ x: 0, y: 0, w: 100, type: 'mover', mv: true, bx: prev.x + prev.w + G / 2 - 50, by: (prev.y + ny) / 2, ax, ay: 0, sp: 1.1 + .1 * f, ph: R(0, 6) });
-    } else if (connector === 'movV') {
-      mk({ x: 0, y: 0, w: 90, type: 'mover', mv: true, bx: prev.x + prev.w + (G - 90) / 2, by: (prev.y + ny) / 2, ax: 0, ay: 50, sp: 1.3 + .1 * f, ph: R(0, 6) });
-    } else {
-      // pièces dans le vide : récompense un beau saut
-      if (rng() < .5) for (let j = -1; j <= 1; j++) coins.push({ x: prev.x + prev.w + G / 2 + j * 30, y: Math.min(prev.y, ny) - 80 - (1 - Math.abs(j)) * 26, got: false });
+  // pose une plateforme après la plateforme courante (saut garanti faisable)
+  const put = (gap, dy, w, props, maxRise = 85) => {
+    let ny = Math.max(ymin, Math.min(ymax, cur.y + dy));
+    if (cur.y - ny > maxRise) ny = cur.y - maxRise;
+    if (!(props && props.exact)) gap = Math.min(gap, gmax(cur.y - ny));
+    const p = mk(Object.assign({ x: cur.x + cur.w + gap, y: ny, w, type: 'normal' }, props || {}));
+    cur = p; return p;
+  };
+  const addSpikes = (p, chance) => {
+    if (p.w >= 190 && rng() < chance) {
+      const sw = RI(2, p.w >= 240 ? 4 : 3) * 20;
+      spikes.push({ x: p.x + RI(65, Math.floor(p.w - 65 - sw)), y: p.y - 18, w: sw, h: 18 }); p.spiky = true;
     }
+  };
 
-    // pics
-    if (!isSw && type === 'normal' && w >= 210 && rng() < .2 + .07 * f) {
-      const sw = RI(2, 3) * 20;
-      spikes.push({ x: p.x + RI(70, Math.floor(p.w - 70 - sw)), y: p.y - 18, w: sw, h: 18 });
-      p.spiky = true;
+  const SEG = {
+    plain() {
+      const n = RI(1, 3);
+      for (let i = 0; i < n; i++) {
+        const w = R(125 - 50 * D, 270 - 90 * D);
+        const p = put(R(70, 250), RI(-85, 75), w, rng() < .1 + .12 * D && w >= 150 ? { type: 'ice' } : null);
+        if (p.type === 'normal') { addSpikes(p, .3 + .35 * D); if (!p.spiky && w >= 120) keyCand.push(p); }
+      }
+    },
+    narrow() {
+      const n = RI(3, 4 + Math.round(2 * D));
+      for (let i = 0; i < n; i++) put(R(85, 110 + 60 * D), RI(-55, 55), R(46, 74 - 14 * D), { tiny: true });
+      put(R(70, 130), RI(-40, 40), R(130, 190));
+    },
+    movH() {
+      const prev = cur, G = R(250, 300 + 60 * D);
+      const p = put(G, RI(-30, 30), R(110, 200), { exact: true });
+      mk({ x: 0, y: 0, w: 100 - 20 * D, type: 'mover', mv: true, bx: prev.x + prev.w + G / 2 - 50 + 10 * D, by: (prev.y + p.y) / 2, ax: (G - 100) / 2 - 10, ay: 0, sp: 1.1 + .5 * D, ph: R(0, 6) });
+      addSpikes(p, .2 + .3 * D);
+    },
+    movV() {
+      const prev = cur, G = R(180, 205);
+      const p = put(G, RI(-20, 20), R(110, 190), { exact: true });
+      mk({ x: 0, y: 0, w: 90, type: 'mover', mv: true, bx: prev.x + prev.w + (G - 90) / 2, by: (prev.y + p.y) / 2, ax: 0, ay: 50 + 28 * D, sp: 1.3 + .5 * D, ph: R(0, 6) });
+    },
+    crumble() {
+      const n = RI(3, 4 + Math.round(2 * D));
+      for (let i = 0; i < n; i++) put(R(45, 95 + 40 * D), RI(-35, 35), R(80, 105), { type: 'crumble', cr: 0, crT: 0, delay: .6 - .25 * D });
+      put(R(60, 110), RI(-30, 30), R(130, 190));
+    },
+    trap() {
+      const n = D > .5 && rng() < .5 ? 2 : 1;
+      for (let i = 0; i < n; i++) {
+        const p = put(R(70, 120), RI(-30, 30), R(300, 390), { spiky: true });
+        traps.push({ x: p.x + 70, y: p.y, w: Math.floor((p.w - 140) / 20) * 20, per: R(2.4, 3.1) - .6 * D, ph: rng() });
+      }
+      put(R(70, 120), RI(-30, 30), R(130, 190));
+    },
+    ghost() {
+      const n = RI(3, 5 + Math.round(2 * D));
+      for (let i = 0; i < n; i++) put(R(80, 150), RI(-60, 60), R(85 - 15 * D, 135 - 25 * D), { type: 'ghost', flash: 0 });
+      put(R(70, 120), RI(-30, 30), R(130, 190));
+    },
+    color() {
+      const grp = grpN++; let prev = put(R(70, 120), RI(-20, 20), 170), col = 'r';
+      const n = RI(2, 3 + Math.round(2 * D));
+      for (let i = 0; i < n; i++) {
+        const gap = R(95, 130);
+        const g = put(gap, RI(-25, 25), R(100, 125), { type: 'color', col, grp, exact: true });
+        orbs.push({ x: prev.x + prev.w + gap / 2, y: Math.min(prev.y, g.y) - 92, grp, cd: 0 });
+        prev = g; col = col === 'r' ? 'b' : 'r';
+      }
+      put(R(90, 125), RI(-20, 20), 170, { exact: true });
+    },
+    iceRun() {
+      const p = put(R(70, 130), RI(-40, 40), R(300, 420), { type: 'ice' });
+      const sw = RI(2, 3) * 20; spikes.push({ x: p.x + p.w / 2 - sw / 2 + RI(-30, 30), y: p.y - 18, w: sw, h: 18 }); p.spiky = true;
+      put(R(90, 150), RI(-50, 40), R(90, 140), rng() < .5 ? { type: 'ice' } : null);
+    },
+    conv() {
+      const n = RI(1, 2);
+      for (let i = 0; i < n; i++) {
+        const p = put(R(80, 200), RI(-40, 40), R(280, 440), { conv: (rng() < .55 ? -1 : 1) * R(110, 150 + 40 * D), spiky: true });
+        if (rng() < .3 + .4 * D) { const sw = 40; spikes.push({ x: p.x + p.w / 2 - 20, y: p.y - 18, w: sw, h: 18 }); }
+      }
+      put(R(90, 200), RI(-40, 40), R(120, 180));
+    },
+    climb() {
+      const up = cur.y - 90 > ymin + 60, n = RI(4, 6);
+      for (let i = 0; i < n; i++) put(R(50, 110 + 30 * D), up ? -R(60, 85) : R(60, 120), R(90 - 20 * D, 140 - 20 * D));
+    },
+    spring() {
+      put(R(60, 110), RI(-10, 20), R(105, 130), { spring: true, springT: 0, spiky: true });
+      const up = cur.y - 240 > ymin;
+      put(R(40, 130), up ? -R(150, 232) : R(40, 120), R(120 - 20 * D, 190 - 30 * D), { exact: true }, 235);
+    },
+    // --- énigmes ---
+    button() {
+      swPlat = put(R(70, 110), RI(-20, 20), 220, { sw: true, spiky: true });
+      bridge = mk({ x: swPlat.x + swPlat.w, y: swPlat.y, w: 420, type: 'bridge', grow: 0, active: false });
+      put(420, 0, R(150, 210), { exact: true });
+    },
+    simon() {
+      const base = put(R(70, 110), RI(-20, 20), 210, { simonBase: true, spiky: true }), pads = [];
+      for (let i = 0; i < 4; i++) pads.push(put(46, 0, 66, { type: 'pad', pad: i, exact: true }));
+      swPlat = put(46, 0, 190, { sw: true, spiky: true, exact: true });
+      bridge = mk({ x: swPlat.x + swPlat.w, y: swPlat.y, w: 420, type: 'bridge', grow: 0, active: false });
+      put(420, 0, R(150, 210), { exact: true });
+      const len = Math.min(7, 3 + Math.floor(f / 3)), seq = [];
+      for (let i = 0; i < len; i++) { let v; do { v = RI(0, 3); } while (i && v === seq[i - 1]); seq.push(v); }
+      simon = { seq, pads, base, prog: 0, showing: false, showT: 0, showI: 0, done: false, retry: 0, lit: -1, litT: 0, seen: false };
     }
-    // pièces sur la plateforme
-    if (!p.spiky && rng() < .55) {
-      const c = RI(2, 4);
-      for (let j = 0; j < c; j++) coins.push({ x: p.x + p.w / 2 + (j - (c - 1) / 2) * 34, y: p.y - 44, got: false });
+  };
+
+  const names = Object.keys(T.w), total = names.reduce((s, n) => s + T.w[n], 0);
+  const swAt = puz.sw ? target * R(.35, .6) : Infinity;
+  let swDone = false, guard = 0;
+  while (cur.x + cur.w < target && guard++ < 400) {
+    if (!swDone && cur.x > swAt) { SEG[puz.sw](); swDone = true; }
+    else {
+      let r = rng() * total, name = names[0];
+      for (const n of names) { r -= T.w[n]; if (r <= 0) { name = n; break; } }
+      if (T.alt && cur.y < ymin + 120 && (name === 'spring' || name === 'climb')) name = 'plain';
+      SEG[name]();
     }
-    if (type === 'normal' && !isSw && !p.spiky && w >= 150) keyCandidates.push(p);
-    cur = p;
+    // drapeau (point de contrôle) de temps en temps, sur une plateforme sûre
+    if (cur.type === 'normal' && !cur.spiky && !cur.tiny && cur.w >= 120 && cur.x - lastCpX > 1900) {
+      cps.push({ x: cur.x + cur.w / 2, y: cur.y, on: false }); cur.cp = true; lastCpX = cur.x;
+    }
   }
+  if (puz.sw && !swDone) SEG[puz.sw]();
 
   // plateforme d'arrivée
-  const endGap = R(80, maxGap);
-  const end = mk({ x: cur.x + cur.w + endGap, y: clampY(cur.y + RI(-40, 40)), w: 300, type: 'normal', end: true });
-  const last = f === TOTAL_FLOORS - 1;
-  const door = { x: end.x + end.w - 120, y: end.y - 92, w: 64, h: 92, chest: last };
-  if (last) { door.w = 76; door.h = 56; door.y = end.y - 56; }
+  const end = put(R(80, 130), RI(-30, 30), 320, { end: true });
+  const door = last ? { x: end.x + end.w - 130, y: end.y - 56, w: 76, h: 56, chest: true } : { x: end.x + end.w - 120, y: end.y - 92, w: 64, h: 92 };
 
   // clé sur une petite plateforme en hauteur
   let key = null;
-  if (needKey) {
-    const base = keyCandidates.length ? keyCandidates[Math.floor(rng() * keyCandidates.length)] : plats[1];
-    const kp = mk({ x: base.x + base.w / 2 - 55, y: base.y - 125, w: 110, type: 'normal', keyplat: true });
-    key = { x: kp.x + kp.w / 2, y: kp.y - 34, got: false };
+  if (puz.key) {
+    let c = keyCand.filter(p => !p.cp && p.x > 800 && p.x < target * .8); if (!c.length) c = keyCand.filter(p => !p.cp); if (!c.length) c = [plats[0]];
+    const base = c[Math.floor(rng() * c.length)];
+    const kp = mk({ x: base.x + base.w / 2 - 50, y: base.y - 128, w: 100, type: 'normal', keyplat: true });
+    key = { x: kp.x + kp.w / 2, y: kp.y - 34, got: false }; base.hasKey = true;
   }
-  const swObj = needSwitch ? { x: swPlat.x + swPlat.w / 2, y: swPlat.y, on: false, t: 0, bridge } : null;
 
-  const hint = { key: 'Trouve la clé 🔑 cachée en hauteur pour ouvrir la porte !',
-    switch: 'Active l\'interrupteur 🔴 pour faire apparaître le pont !',
-    both: 'Clé 🔑 + interrupteur 🔴 : fais les deux pour atteindre le trésor !' }[puzzle];
-  return { f, plats, spikes, coins, door, key, sw: swObj, needKey, needSwitch, W: end.x + end.w + 80,
-    spawn: { x: 70, y: 440 - PH }, hint, puzzle, th: theme(f) };
+  // pièces
+  for (let i = 0; i < plats.length; i++) {
+    const p = plats[i];
+    if ((p.type === 'normal' || p.type === 'ice' || p.type === 'ghost') && !p.start && !p.spiky && !p.keyplat && !p.cp && !p.end && p.w >= 80 && rng() < .4) {
+      const c = Math.max(1, Math.min(4, Math.floor(p.w / 45)));
+      for (let j = 0; j < c; j++) coins.push({ x: p.x + p.w / 2 + (j - (c - 1) / 2) * 34, y: p.y - 44, got: false });
+    }
+  }
+  let minY = 250; for (const p of plats) if (!p.mv) minY = Math.min(minY, p.y);
+
+  const hints = [];
+  if (puz.sw === 'simon') hints.push('retiens la séquence de couleurs 🧠 pour faire apparaître le pont');
+  if (puz.sw === 'button') hints.push('active l\'interrupteur 🔴 pour faire apparaître le pont');
+  if (puz.key) hints.push('trouve la clé 🔑 pour ouvrir ' + (last ? 'le coffre' : 'la porte'));
+  let hint = hints.join(' et ') + ' !'; hint = hint[0].toUpperCase() + hint.slice(1);
+  const sw = puz.sw ? { kind: puz.sw, x: swPlat.x + swPlat.w / 2, y: swPlat.y, on: false, bridge } : null;
+  const cst = {}; for (let g = 0; g < grpN; g++) cst[g] = 'b';
+  return { f, fi, last, plats, spikes, traps, coins, orbs, cps, door, key, sw, simon, cst, needKey: puz.key, W: end.x + end.w + 80,
+    top: Math.min(0, minY - 260), respawn: cps[0], revealT: 5.5, hint, th: theme(f) };
 }
 
 /* ======================================================================
@@ -327,48 +468,65 @@ let state = 'title';   // title | playing | dying | clear | paused | end | close
 let prevState = 'title';
 let L = null, P = null;
 let floor = 0, run = null, time = 0;
-const cam = { x: 0 };
+const cam = { x: 0, y: 0 };
 let shake = 0, flash = 0, fade = 0, bannerT = 0, toastT = 0, dieT = 0, clearT = 0, finalWin = false, doorMsgCd = 0;
 const parts = [];
 
-function newPlayer(s) {
-  return { x: s.x, y: s.y, vx: 0, vy: 0, grounded: false, standing: null, coyote: 0, jbuf: 0, airJumps: 1, cut: false,
+function newPlayer(x, y) {
+  return { x, y, vx: 0, vy: 0, grounded: false, standing: null, coyote: 0, jbuf: 0, airJumps: 1, cut: false,
     face: 1, sx: 1, sy: 1, inv: 0, dustT: 0, hidden: false };
 }
 
-function startRun(daily) {
+function startRun(daily, themeIdx) {
   ac();
   isDaily = daily;
-  SEED = daily ? todayKey() : 'train-' + Math.random().toString(36).slice(2);
-  dayHue = hashStr(SEED) % 360;
-  run = { lives: MAX_LIVES, coins: 0, floorsDone: 0, elapsed: 0, score: 0 };
+  if (daily) {
+    const di = dayInfo(); THEME = di.theme; VARIANT = di.variant;
+    floorSeq = Array.from({ length: DAILY_FLOORS }, (_, i) => i);
+    SEED = THEME.id + '|variante' + VARIANT;
+  } else {
+    THEME = THEMES[themeIdx]; VARIANT = Math.floor(Math.random() * VARIANTS);
+    floorSeq = [1, 6, 11];
+    SEED = 'train-' + Math.random().toString(36).slice(2);
+  }
+  dayHue = (THEME.hue + (hashStr(SEED) % 50) - 25 + 360) % 360;
+  run = { coins: 0, floorsDone: 0, elapsed: 0, score: 0, deaths: 0 };
   $('trainTag').classList.toggle('off', daily);
-  if (daily) writeSave({ date: todayKey(), status: 'started', score: 0, floors: 0, hearts: MAX_LIVES, time: 0, coins: 0 });
+  $('themeBox').textContent = THEME.emoji + ' ' + THEME.name;
+  if (daily) saveProgress('started');
   hideScreens(); $('hud').classList.remove('off');
   loadFloor(0, true);
   state = 'playing';
   updateHUD(true);
 }
+function saveProgress(status) {
+  writeSave({ date: todayKey(), status, score: calcScore(status === 'win'), floors: run.floorsDone, total: floorSeq.length, deaths: run.deaths,
+    time: Math.round(run.elapsed), coins: run.coins, theme: THEME.emoji + ' ' + THEME.name, variant: VARIANT + 1 });
+}
 
 function loadFloor(i, first) {
-  floor = i; L = genFloor(i); P = newPlayer(L.spawn);
-  cam.x = 0; fade = first ? 0 : 1;
+  floor = i; L = genFloor(i); P = newPlayer(L.respawn.x - PW / 2, L.respawn.y - PH);
+  cam.x = 0; cam.y = 0; fade = first ? 0 : 1;
   const b = $('banner'); b.classList.remove('off', 'bannerAnim'); void b.offsetWidth; b.classList.add('bannerAnim');
-  $('bannerTitle').textContent = (i === TOTAL_FLOORS - 1 ? '👑 Étage final ' : 'Étage ') + (i + 1) + ' / ' + TOTAL_FLOORS;
-  $('bannerHint').textContent = L.hint; bannerT = 3.6;
+  $('bannerTitle').textContent = (L.last ? '👑 Étage final ' : 'Étage ') + (i + 1) + ' / ' + floorSeq.length + '  ·  ' + THEME.emoji + ' ' + THEME.name;
+  $('bannerHint').textContent = L.hint; bannerT = 4;
   updateHUD(true);
 }
 
 function respawn() {
-  P = newPlayer(L.spawn); P.inv = 1.6; cam.x = 0; state = 'playing';
+  P = newPlayer(L.respawn.x - PW / 2, L.respawn.y - PH); P.inv = 1;
+  for (const g in L.cst) L.cst[g] = 'b';
+  for (const p of L.plats) if (p.type === 'crumble') { p.cr = 0; p.crT = 0; }
+  L.revealT = 4;
+  cam.x = Math.max(0, Math.min(L.W - W, P.x - W * .4)); state = 'playing';
 }
 
 function hurt(why) {
   if (state !== 'playing' || P.inv > 0) return;
-  run.lives--; shake = 1; flash = .55; SFX.hurt(); state = 'dying'; dieT = .85;
-  const cx = P.x + PW / 2, cy = Math.min(P.y + 20, H - 10);
+  run.deaths++; shake = 1; flash = .5; SFX.hurt(); state = 'dying'; dieT = .7;
+  const cx = P.x + PW / 2, cy = Math.min(P.y + 20, cam.y + H - 10);
   for (let i = 0; i < 18; i++) parts.push({ t: 'dot', x: cx, y: cy, vx: (Math.random() - .5) * 420, vy: -Math.random() * 400, g: 1200, life: .8, max: .8, s: 4 + Math.random() * 5, c: ['#fb7185', '#fde047', '#fff'][i % 3] });
-  pop(cx, Math.min(cy, H - 60) - 30, why === 'fall' ? 'Aïe, ça tombe !' : 'Aïe !', '#fb7185');
+  pop(cx, cy - 50, why === 'fall' ? 'Oups, ça tombe !' : 'Aïe !', '#fb7185');
   updateHUD(true);
 }
 
@@ -388,7 +546,6 @@ function sparkle(x, y, n = 10, c = '#fde047') { for (let i = 0; i < n; i++) { co
    ====================================================================== */
 function step(dt) {
   time += dt;
-  // particules / effets
   for (let i = parts.length - 1; i >= 0; i--) {
     const q = parts[i]; q.life -= dt; if (q.life <= 0) { parts.splice(i, 1); continue; }
     q.vy += (q.g || 0) * dt; q.x += q.vx * dt; q.y += q.vy * dt; if (q.vr) q.r += q.vr * dt;
@@ -406,23 +563,21 @@ function step(dt) {
   if (run.elapsed >= RUN_SECONDS) { run.elapsed = RUN_SECONDS; endRun('timeout'); return; }
 
   updatePlatforms(dt);
+  updateSimon(dt);
+  L.revealT = Math.max(0, L.revealT - dt);
   if (L.sw && L.sw.bridge.active && L.sw.bridge.grow < 1) L.sw.bridge.grow = Math.min(1, L.sw.bridge.grow + dt / .9);
-  if (L.sw) L.sw.t += dt;
+  for (const o of L.orbs) o.cd = Math.max(0, o.cd - dt);
 
   if (state === 'playing') updatePlayer(dt);
-  else if (state === 'dying') {
-    dieT -= dt;
-    if (dieT <= 0) { if (run.lives <= 0) endRun('dead'); else respawn(); }
-  } else if (state === 'clear') {
+  else if (state === 'dying') { dieT -= dt; if (dieT <= 0) respawn(); }
+  else if (state === 'clear') {
     clearT -= dt; fade = Math.max(fade, Math.min(1, (0.5 - clearT) / .5));
-    if (clearT <= 0) {
-      if (finalWin) endRun('win');
-      else { loadFloor(floor + 1); state = 'playing'; }
-    }
+    if (clearT <= 0) { if (finalWin) endRun('win'); else { loadFloor(floor + 1); state = 'playing'; } }
   }
-  // caméra
-  const target = Math.max(0, Math.min(L.W - W, P.x + PW / 2 - W * .4 + P.face * 60));
-  cam.x += (target - cam.x) * Math.min(1, dt * 6);
+  // caméra (horizontale + verticale)
+  const tx = Math.max(0, Math.min(L.W - W, P.x + PW / 2 - W * .4 + P.face * 60));
+  const ty = Math.min(0, Math.max(L.top, P.y + PH / 2 - 330));
+  cam.x += (tx - cam.x) * Math.min(1, dt * 6); cam.y += (ty - cam.y) * Math.min(1, dt * 5);
 }
 
 function updatePlatforms(dt) {
@@ -432,22 +587,68 @@ function updatePlatforms(dt) {
       const t = time * p.sp + p.ph;
       p.x = p.bx + p.ax * Math.sin(t); p.y = p.by + p.ay * Math.sin(t);
       p.dx = p.x - p.px; p.dy = p.y - p.py;
-    }
+    } else if (p.type === 'crumble' && p.cr) {
+      p.crT -= dt;
+      if (p.crT <= 0) {
+        if (p.cr === 1) { p.cr = 2; p.crT = 2.8; SFX.crumble(); dust(p.x + p.w / 2, p.y + 10, 8); }
+        else { p.cr = 0; ring(p.x + p.w / 2, p.y + 12, '#fdba74'); }
+      }
+    } else if (p.type === 'ghost' && p.flash > 0) p.flash -= dt;
+    else if (p.spring && p.springT > 0) p.springT -= dt;
   }
 }
 
+/* ---------- Énigme "Mémoire" : séquence de couleurs ---------- */
+function startShow() { const s = L.simon; s.showing = true; s.showI = 0; s.showT = .7; s.prog = 0; s.retry = 0; s.seen = true; showToast('👀 Regarde bien la séquence !'); }
+function updateSimon(dt) {
+  const s = L.simon; if (!s || s.done) return;
+  if (s.litT > 0) { s.litT -= dt; if (s.litT <= 0) s.lit = -1; }
+  if (s.retry > 0) { s.retry -= dt; if (s.retry <= 0) startShow(); }
+  if (s.showing) {
+    s.showT -= dt;
+    if (s.showT <= 0) {
+      if (s.showI < s.seq.length) { s.lit = s.seq[s.showI]; s.litT = .5; SFX.pad(s.lit); s.showI++; s.showT = .75; }
+      else { s.showing = false; showToast('🎮 À toi ! Saute sur les plots dans le même ordre'); }
+    }
+  }
+}
+function padHit(i) {
+  const s = L.simon; if (!s || s.done || s.showing || s.retry > 0) return;
+  if (!s.seen) { startShow(); return; }
+  const pl = s.pads[i];
+  if (i === s.seq[s.prog]) {
+    s.prog++; s.lit = i; s.litT = .35; SFX.pad(i); sparkle(pl.x + pl.w / 2, pl.y, 8, PAD_COLS[i]);
+    pop(pl.x + pl.w / 2, pl.y - 30, s.prog + '/' + s.seq.length, '#fff');
+    if (s.prog >= s.seq.length) {
+      s.done = true; L.sw.on = true; L.sw.bridge.active = true; SFX.sw(); shake = .35;
+      confetti(pl.x, pl.y - 20, 80, 600, 450); showToast('🌉 Bravo ! Le pont magique apparaît !'); updateHUD(true);
+    }
+  } else { s.prog = 0; s.retry = 1.3; SFX.locked(); shake = .2; showToast('❌ Raté ! On regarde encore une fois…'); }
+}
+
 function platW(p) { return p.type === 'bridge' ? p.w * p.grow : p.w; }
+function solidNow(p) {
+  if (p.type === 'bridge') return p.active;
+  if (p.type === 'color') return L.cst[p.grp] === p.col;
+  if (p.type === 'crumble') return p.cr !== 2;
+  return true;
+}
+function trapExt(t) {   // 0 = pics rentrés, 1 = pics sortis
+  const u = (time / t.per + t.ph) % 1;
+  if (u < .45) return 0; if (u < .62) return .3 * (u - .45) / .17; if (u < .95) return 1; return 1 - (u - .95) / .05;
+}
 
 function updatePlayer(dt) {
   const p = P;
-  // porter le joueur avec la plateforme mobile
-  if (p.standing && p.standing.mv) { p.x += p.standing.dx; p.y += p.standing.dy; }
+  if (p.standing) {
+    if (p.standing.mv) { p.x += p.standing.dx; p.y += p.standing.dy; }
+    if (p.standing.conv) p.x += p.standing.conv * dt;
+  }
   const dir = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
   if (dir) p.face = dir;
   const ice = p.grounded && p.standing && p.standing.type === 'ice';
   const target = dir * MOVE;
-  let acc;
-  if (p.grounded) acc = ice ? (dir ? 480 : 260) : 3400; else acc = 2400;
+  const acc = p.grounded ? (ice ? (dir ? 480 : 260) : 3400) : 2400;
   if (p.vx < target) p.vx = Math.min(target, p.vx + acc * dt); else if (p.vx > target) p.vx = Math.max(target, p.vx - acc * dt);
 
   // saut (coyote time + tampon + double saut)
@@ -455,7 +656,7 @@ function updatePlayer(dt) {
   p.jbuf = Math.max(0, p.jbuf - dt);
   if (p.jbuf > 0) {
     if (p.coyote > 0) {
-      p.vy = -JUMP; p.coyote = 0; p.jbuf = 0; p.airJumps = 1; p.cut = false; p.grounded = false; p.standing = null;
+      p.vy = -JUMP; p.coyote = 0; p.jbuf = 0; p.airJumps = 1; p.cut = false; p.grounded = false;
       p.sx = .78; p.sy = 1.25; SFX.jump(); dust(p.x + PW / 2, p.y + PH, 4);
     } else if (p.airJumps > 0) {
       p.vy = -JUMP2; p.airJumps--; p.jbuf = 0; p.cut = false; p.sx = .75; p.sy = 1.3; SFX.djump();
@@ -463,78 +664,84 @@ function updatePlayer(dt) {
     }
   }
   if (!keys.jump && !p.cut && p.vy < -260) { p.vy *= .5; p.cut = true; }
-
   p.vy = Math.min(MAXFALL, p.vy + GRAV * dt);
 
-  // déplacement horizontal
   p.x += p.vx * dt;
   if (p.x < 0) { p.x = 0; p.vx = 0; }
   if (p.x > L.W - PW) { p.x = L.W - PW; p.vx = 0; }
 
   // déplacement vertical + atterrissage (plateformes "à traverser par le bas")
-  const prevBottom = p.y + PH, wasGrounded = p.grounded;
+  const prevBottom = p.y + PH, prevStanding = p.standing;
   p.y += p.vy * dt; p.grounded = false; p.standing = null;
   if (p.vy >= 0) {
     let best = null;
     for (const pl of L.plats) {
-      if (pl.type === 'bridge' && !pl.active) continue;
+      if (pl.x > p.x + PW || pl.x + pl.w < p.x || !solidNow(pl)) continue;
       const pw = platW(pl);
-      if (p.x + PW - 3 > pl.x && p.x + 3 < pl.x + pw && prevBottom <= pl.y + 8 && p.y + PH >= pl.y) {
-        if (!best || pl.y < best.y) best = pl;
-      }
+      if (p.x + PW - 3 > pl.x && p.x + 3 < pl.x + pw && prevBottom <= pl.y + 8 && p.y + PH >= pl.y) { if (!best || pl.y < best.y) best = pl; }
     }
     if (best) {
+      const fresh = best !== prevStanding;
       if (p.vy > 300) { p.sx = 1.3; p.sy = .72; SFX.land(); dust(p.x + PW / 2, best.y, 6); }
       p.y = best.y - PH; p.vy = 0; p.grounded = true; p.standing = best; p.airJumps = 1;
+      if (best.type === 'crumble' && best.cr === 0) { best.cr = 1; best.crT = best.delay; }
+      if (best.type === 'ghost') best.flash = .5;
+      if (fresh && best.pad !== undefined) padHit(best.pad);
+      if (fresh && best.simonBase && L.simon && !L.simon.done && !L.simon.showing && L.simon.retry <= 0) startShow();
+      if (best.spring) {
+        p.vy = -SPRING; p.grounded = false; p.standing = null; p.cut = true; p.sx = .7; p.sy = 1.4; best.springT = .3;
+        SFX.spring(); ring(p.x + PW / 2, best.y, '#f472b6'); sparkle(p.x + PW / 2, best.y, 10, '#f9a8d4');
+      }
     }
   }
-  // étirement / retour à la forme normale
   const k = Math.min(1, dt * 14); p.sx += (1 - p.sx) * k; p.sy += (1 - p.sy) * k;
   p.inv = Math.max(0, p.inv - dt);
   if (p.grounded && Math.abs(p.vx) > 100) { p.dustT -= dt; if (p.dustT <= 0) { p.dustT = .14; dust(p.x + PW / 2 - p.face * 8, p.y + PH, 1); } }
 
   // --- interactions ---
   const cx = p.x + PW / 2, cy = p.y + PH / 2;
-  // pièces
   for (const c of L.coins) if (!c.got && Math.abs(c.x - cx) < 26 && Math.abs(c.y - cy) < 30) {
     c.got = true; run.coins++; SFX.coin(); sparkle(c.x, c.y, 8); pop(c.x, c.y - 10, '+50'); updateHUD();
   }
-  // clé
+  for (const o of L.orbs) if (o.cd <= 0 && Math.abs(o.x - cx) < 32 && Math.abs(o.y - cy) < 38) {
+    o.cd = .55; L.cst[o.grp] = L.cst[o.grp] === 'b' ? 'r' : 'b'; SFX.orb();
+    ring(o.x, o.y, L.cst[o.grp] === 'r' ? '#f87171' : '#60a5fa'); sparkle(o.x, o.y, 12, L.cst[o.grp] === 'r' ? '#f87171' : '#60a5fa');
+  }
+  if (p.grounded) for (const c of L.cps) if (!c.on && Math.abs(c.x - cx) < 44 && Math.abs(p.y + PH - c.y) < 6) {
+    c.on = true; L.respawn = c; SFX.cp(); confetti(c.x, c.y - 50, 30, 300, 300); pop(c.x, c.y - 80, 'Drapeau ! 🚩', '#86efac');
+  }
   if (L.key && !L.key.got && Math.abs(L.key.x - cx) < 30 && Math.abs(L.key.y - cy) < 36) {
-    L.key.got = true; SFX.key(); confetti(L.key.x, L.key.y, 50, 400, 350); pop(L.key.x, L.key.y - 20, 'Clé trouvée ! 🔑', '#fde047'); updateHUD(true);
-    showToast('🔑 Tu as la clé ! Direction la porte !');
+    L.key.got = true; SFX.key(); confetti(L.key.x, L.key.y, 50, 400, 350); updateHUD(true);
+    showToast('🔑 Tu as la clé ! Direction ' + (L.last ? 'le coffre !' : 'la porte !'));
   }
-  // interrupteur
-  if (L.sw && !L.sw.on && Math.abs(L.sw.x - cx) < 34 && p.grounded && Math.abs((p.y + PH) - L.sw.y) < 6) {
+  if (L.sw && L.sw.kind === 'button' && !L.sw.on && Math.abs(L.sw.x - cx) < 34 && p.grounded && Math.abs((p.y + PH) - L.sw.y) < 6) {
     L.sw.on = true; L.sw.bridge.active = true; SFX.sw(); shake = .35; confetti(L.sw.x, L.sw.y - 10, 60, 500, 400);
-    pop(L.sw.x, L.sw.y - 40, 'Un pont apparaît !', '#86efac'); updateHUD(true); showToast('🌉 Un pont magique apparaît !');
+    updateHUD(true); showToast('🌉 Un pont magique apparaît !');
   }
-  // pics
+  // pics fixes + pics surgissants
   const hx = p.x + 6, hy = p.y + 10, hw = PW - 12, hh = PH - 10;
   for (const s of L.spikes) if (hx < s.x + s.w - 3 && hx + hw > s.x + 3 && hy < s.y + s.h && hy + hh > s.y + 5) { hurt('spike'); return; }
-  // chute dans le vide
-  if (p.y > H + 60) { hurt('fall'); return; }
+  for (const t of L.traps) if (hx < t.x + t.w - 3 && hx + hw > t.x + 3 && hy + hh > t.y - 16 && hy < t.y && trapExt(t) > .6) { hurt('spike'); return; }
+  if (p.y > 640) { hurt('fall'); return; }
   // porte / trésor
   const d = L.door;
   if (cx > d.x + 6 && cx < d.x + d.w - 6 && p.y + PH > d.y && p.y < d.y + d.h) {
-    const open = !L.needKey || L.key.got;
-    if (open) goal();
-    else if (doorMsgCd <= 0) { doorMsgCd = 2.2; SFX.locked(); showToast('🔒 Verrouillé ! Il te faut la clé 🔑'); pop(d.x + d.w / 2, d.y - 10, '🔒', '#fff'); }
+    if (!L.needKey || L.key.got) goal();
+    else if (doorMsgCd <= 0) { doorMsgCd = 2.2; SFX.locked(); showToast('🔒 Verrouillé ! Il te faut la clé 🔑'); }
   }
 }
 
 function goal() {
   state = 'clear'; run.floorsDone++; P.hidden = true; SFX.door();
-  const d = L.door;
-  finalWin = floor === TOTAL_FLOORS - 1;
+  const d = L.door; finalWin = L.last;
   confetti(d.x + d.w / 2, d.y + d.h / 2, finalWin ? 260 : 120, 800, 600);
   if (finalWin) { clearT = 2.0; SFX.win(); } else { clearT = 1.4; pop(d.x + d.w / 2, d.y - 20, 'Étage réussi ! ⭐', '#fde047'); }
-  if (isDaily) writeSave({ date: todayKey(), status: 'started', score: calcScore(false), floors: run.floorsDone, hearts: run.lives, time: Math.round(run.elapsed), coins: run.coins });
+  if (isDaily) saveProgress('started');
 }
 
 function calcScore(win) {
-  let s = run.coins * 50 + run.floorsDone * 500;
-  if (win) s += 1000 + run.lives * 300 + Math.max(0, Math.round(RUN_SECONDS - run.elapsed)) * 3;
+  let s = run.coins * 50 + run.floorsDone * 400;
+  if (win) s += 2000 + Math.max(0, Math.round(RUN_SECONDS - run.elapsed)) * 2 + Math.max(0, 1500 - run.deaths * 50);
   return s;
 }
 
@@ -542,34 +749,30 @@ function calcScore(win) {
    FIN DE PARTIE
    ====================================================================== */
 const fmt = s => { s = Math.max(0, Math.ceil(s)); return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); };
-const heartsStr = n => '❤️'.repeat(n) + '🖤'.repeat(MAX_LIVES - n);
-const STATUS_TXT = { win: '🏆 Victoire !', dead: '💀 Plus de cœurs', timeout: '⏰ Temps écoulé', started: '🚪 Partie quittée en cours de route' };
+const STATUS_TXT = { win: '🏆 Victoire !', timeout: '⏰ Temps écoulé', started: '🚪 Partie quittée en cours de route' };
 
 function endRun(kind) {
   state = 'end'; keys.left = keys.right = keys.jump = false;
-  const win = kind === 'win';
+  const win = kind === 'win', n = floorSeq.length;
   run.score = calcScore(win);
-  if (isDaily) writeSave({ date: todayKey(), status: kind, score: run.score, floors: run.floorsDone, hearts: run.lives, time: Math.round(run.elapsed), coins: run.coins });
+  if (isDaily) saveProgress(kind);
   $('hud').classList.add('off'); $('banner').classList.add('off'); $('toast').classList.add('off');
-  const card = $('endCard');
-  card.className = 'text-center border-8 border-slate-900 rounded-[2rem] px-8 py-5 ' + (win ? 'bg-amber-500/95 text-slate-900' : 'bg-indigo-900/95');
-  $('endIcon').textContent = win ? '🏆' : kind === 'timeout' ? '⏰' : '😵';
-  $('endTitle').textContent = win ? 'BRAVO, CHAMPION !' : kind === 'timeout' ? 'Le temps est écoulé !' : 'Oh non, plus de cœurs !';
+  $('endCard').className = 'text-center border-8 border-slate-900 rounded-[2rem] px-8 py-5 ' + (win ? 'bg-amber-500/95 text-slate-900' : 'bg-indigo-900/95');
+  $('endIcon').textContent = win ? '🏆' : '⏰';
+  $('endTitle').textContent = win ? 'BRAVO, CHAMPION !' : 'Le temps est écoulé !';
   $('endTitle').className = 'text-4xl font-black ' + (win ? 'text-white' : 'text-amber-300');
   $('endMsg').textContent = win ? 'Tu as récupéré le trésor de Chronos tout en haut de la tour ! 🎉'
-    : `Tu as quand même grimpé ${run.floorsDone} étage${run.floorsDone > 1 ? 's' : ''} ! Chaque essai te rend plus fort. ${isDaily ? 'Reviens demain : la tour sera complètement différente !' : 'Réessaie !'}`;
+    : `Tu as quand même grimpé ${run.floorsDone} étage${run.floorsDone > 1 ? 's' : ''} sur ${n} ! Chaque essai te rend plus fort. ${isDaily ? 'Reviens demain pour un nouveau défi !' : 'Réessaie !'}`;
   const box = 'bg-slate-900/70 text-white border-4 border-slate-900 rounded-2xl px-4 py-2';
-  $('endStats').innerHTML = `<div class="${box}">⭐ Score : <b>${run.score}</b></div><div class="${box}">🏰 Étages : <b>${run.floorsDone}/${TOTAL_FLOORS}</b></div>
-    <div class="${box}">⏱ Temps : <b>${fmt(run.elapsed)}</b></div><div class="${box}">🪙 Pièces : <b>${run.coins}</b> &nbsp; ${heartsStr(run.lives)}</div>`;
-  let rank = '';
-  if (win) rank = run.lives === 3 && run.elapsed < 600 ? '🧙‍♂️ Archimage du Temps !' : run.elapsed < 900 ? '⚡ Grand Magicien !' : '🎩 Apprenti Courageux !';
-  $('endRank').textContent = rank;
+  $('endStats').innerHTML = `<div class="${box}">⭐ Score : <b>${run.score}</b></div><div class="${box}">🏰 Étages : <b>${run.floorsDone}/${n}</b></div>
+    <div class="${box}">⏱ Temps : <b>${fmt(run.elapsed)}</b></div><div class="${box}">🪙 Pièces : <b>${run.coins}</b> &nbsp; 💫 Chutes : <b>${run.deaths}</b></div>`;
+  $('endRank').textContent = !win ? '' : run.elapsed < 15 * 60 ? '🧙‍♂️ Archimage du Temps !' : run.elapsed < 22 * 60 ? '⚡ Grand Magicien !' : '🎩 Apprenti Courageux !';
   const b = 'btn text-slate-900 text-xl px-5 py-2 ';
   $('endBtns').innerHTML = isDaily
     ? `<button data-act="train" class="${b}bg-fuchsia-400 hover:bg-fuchsia-300">🎲 Mode entraînement</button><button data-act="share" class="${b}bg-emerald-400 hover:bg-emerald-300">📋 Copier mon résultat</button><button data-act="closed" class="${b}bg-sky-300 hover:bg-sky-200">🌙 À demain !</button>`
     : `<button data-act="train" class="${b}bg-fuchsia-400 hover:bg-fuchsia-300">🎲 Rejouer</button><button data-act="home" class="${b}bg-sky-300 hover:bg-sky-200">🏠 Accueil</button>`;
   showScreen('end');
-  if (win) { for (let i = 0; i < 6; i++) setTimeout(() => confetti(120 + Math.random() * 720, 120, 70, 700, 300), i * 350); }
+  if (win) { for (let i = 0; i < 6; i++) setTimeout(() => confetti(cam.x + 120 + Math.random() * 720, cam.y + 120, 70, 700, 300), i * 350); }
   else SFX.over();
 }
 
@@ -578,32 +781,29 @@ function endRun(kind) {
    ====================================================================== */
 function showScreen(id) { for (const el of document.querySelectorAll('.screen')) el.classList.toggle('off', el.id !== id); }
 function hideScreens() { showScreen(''); }
-
-function showToast(t) { $('toastTxt').textContent = t; $('toast').classList.remove('off'); toastT = 2.4; }
+function showToast(t) { $('toastTxt').textContent = t; $('toast').classList.remove('off'); toastT = 2.6; }
 
 let hudCache = {};
 function setTxt(id, v) { if (hudCache[id] !== v) { hudCache[id] = v; $(id).textContent = v; } }
 function updateHUD(full) {
-  if (!run) return;
+  if (!run || !L) return;
   if (full) {
-    $('hearts').innerHTML = Array.from({ length: MAX_LIVES }, (_, i) => `<span style="${i < run.lives ? '' : 'filter:grayscale(1);opacity:.4'}">❤️</span>`).join('');
-    $('floorBox').textContent = `Étage ${floor + 1}/${TOTAL_FLOORS}`;
+    $('floorBox').textContent = `Étage ${floor + 1}/${floorSeq.length}`;
     let h = '';
     if (L.needKey) h += `<span style="${L.key.got ? '' : 'filter:grayscale(1);opacity:.5'}">🔑${L.key.got ? '✔' : ''}</span> `;
-    if (L.needSwitch) h += `<span style="${L.sw.on ? '' : 'filter:grayscale(1);opacity:.5'}">🔘${L.sw.on ? '✔' : ''}</span>`;
+    if (L.sw) h += `<span style="${L.sw.on ? '' : 'filter:grayscale(1);opacity:.5'}">${L.sw.kind === 'simon' ? '🧠' : '🔘'}${L.sw.on ? '✔' : ''}</span>`;
     $('puz').innerHTML = h;
   }
-  setTxt('scoreBox', '🪙 ' + run.coins);
+  setTxt('scoreBox', '🪙 ' + run.coins); setTxt('deathBox', '💫 ' + run.deaths);
 }
 function updateTimer() {
   if (!run) return;
-  const left = RUN_SECONDS - run.elapsed;
-  const t = '⏳ ' + fmt(left);
+  const left = RUN_SECONDS - run.elapsed, t = '⏳ ' + fmt(left);
   if (hudCache.timer !== t) {
     hudCache.timer = t; const el = $('timer'); el.textContent = t;
-    const low = left < 60;
+    const low = left < 120;
     el.style.borderColor = low ? '#f43f5e' : '#fcd34d'; el.style.color = low ? '#fecaca' : '#fff';
-    el.classList.toggle('pulse2', low);
+    el.classList.toggle('pulse2', left < 60);
   }
 }
 
@@ -615,10 +815,12 @@ function toggleMute() { muted = !muted; $('btnMute').textContent = muted ? '🔇
 
 function showClosed(save) {
   state = 'closed';
-  const s = save.status;
-  $('closedBody').innerHTML = `<div class="text-2xl font-black text-amber-300">${STATUS_TXT[s] || ''}</div>
-    <div class="mt-1">⭐ Score : <b>${save.score}</b> &nbsp;·&nbsp; 🏰 Étages : <b>${save.floors}/${TOTAL_FLOORS}</b></div>
-    <div>⏱ Temps : <b>${fmt(save.time)}</b> &nbsp;·&nbsp; 🪙 <b>${save.coins}</b> &nbsp; ${heartsStr(save.hearts)}</div>`;
+  $('closedBody').innerHTML = `<div class="text-xl font-black text-fuchsia-300">${save.theme || ''} · variante ${save.variant || '?'}/${VARIANTS}</div>
+    <div class="text-2xl font-black text-amber-300">${STATUS_TXT[save.status] || ''}</div>
+    <div class="mt-1">⭐ Score : <b>${save.score}</b> &nbsp;·&nbsp; 🏰 Étages : <b>${save.floors}/${save.total || DAILY_FLOORS}</b></div>
+    <div>⏱ Temps : <b>${fmt(save.time)}</b> &nbsp;·&nbsp; 🪙 <b>${save.coins}</b> &nbsp;·&nbsp; 💫 Chutes : <b>${save.deaths}</b></div>`;
+  const d = new Date(); d.setDate(d.getDate() + 1); const tm = dayInfo(d).theme;
+  $('tomorrowTheme').textContent = tm.emoji + ' ' + tm.day + ' ' + tm.name;
   $('hud').classList.add('off'); showScreen('closed');
 }
 function updateCountdown() {
@@ -628,32 +830,36 @@ function updateCountdown() {
 }
 function shareResult() {
   const s = loadSave(); if (!s) return;
-  const txt = `🏰 La Tour Chrono-Magique ${s.date}\n${STATUS_TXT[s.status] || ''}\n🏰 ${s.floors}/${TOTAL_FLOORS} étages · ⏱ ${fmt(s.time)} · ⭐ ${s.score}\n${heartsStr(s.hearts)}`;
-  const done = () => showToastGlobal('📋 Résultat copié !');
-  try { navigator.clipboard.writeText(txt).then(done, () => prompt('Copie ton résultat :', txt)); } catch (e) { prompt('Copie ton résultat :', txt); }
+  const txt = `🏰 La Tour Chrono-Magique ${s.date}\n${s.theme} (variante ${s.variant}/${VARIANTS})\n${STATUS_TXT[s.status] || ''}\n🏰 ${s.floors}/${s.total} étages · ⏱ ${fmt(s.time)} · 💫 ${s.deaths} chutes · ⭐ ${s.score}`;
+  try { navigator.clipboard.writeText(txt).then(() => showToast('📋 Résultat copié !'), () => prompt('Copie ton résultat :', txt)); } catch (e) { prompt('Copie ton résultat :', txt); }
 }
-function showToastGlobal(t) { showToast(t); }
 
 document.addEventListener('click', e => {
   const b = e.target.closest('[data-act]'); if (!b) return;
   ac();
   const a = b.dataset.act;
   if (a === 'play') { const s = loadSave(); if (s) showClosed(s); else startRun(true); }
-  else if (a === 'train') startRun(false);
+  else if (a === 'train') { state = 'title'; $('hud').classList.add('off'); showScreen('trainPick'); }
+  else if (a === 'trainGo') startRun(false, +b.dataset.i);
   else if (a === 'resume') togglePause();
   else if (a === 'share') shareResult();
   else if (a === 'closed') { const s = loadSave(); if (s) showClosed(s); }
-  else if (a === 'home') { state = 'title'; showScreen('title'); initTitle(); }
+  else if (a === 'home') { const s = loadSave(); if (s) showClosed(s); else { state = 'title'; showScreen('title'); } }
 });
-$('btnPause').addEventListener('click', () => { togglePause(); });
+$('btnPause').addEventListener('click', togglePause);
 $('btnMute').addEventListener('click', toggleMute);
 
 function initTitle() {
-  const t = todayKey();
-  dayHue = hashStr(t) % 360;
-  $('towerName').textContent = '✨ Aujourd\'hui : ' + TOWER_NAMES[hashStr(t + 'name') % TOWER_NAMES.length] + ' ✨';
+  const di = dayInfo(), t = di.theme;
+  dayHue = t.hue;
+  $('todayCard').style.background = t.col;
+  $('todayTheme').textContent = `${t.emoji} ${t.day} : ${t.name}`;
+  $('todayDesc').textContent = t.desc;
   const d = new Date();
-  $('dateTag').textContent = '📅 ' + d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) + ' — la tour est la même pour tous les joueurs aujourd\'hui !';
+  $('dateTag').textContent = '📅 ' + d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+    + ` — La Tour ${TOWER_NAMES[di.variant]} (variante ${di.variant + 1}/${VARIANTS})`;
+  $('trainGrid').innerHTML = THEMES.map((th, i) => `<button data-act="trainGo" data-i="${i}" class="btn text-slate-900 px-2 py-3" style="background:${th.col}">
+    <div class="text-4xl">${th.emoji}</div><div class="text-lg font-black">${th.name}</div><div class="text-xs font-bold">${th.day}</div></button>`).join('');
 }
 
 /* ======================================================================
@@ -673,16 +879,15 @@ function outText(t, x, y, size, fill, stroke = '#1e1b4b') {
   ctx.font = `900 ${size}px "Trebuchet MS","Comic Sans MS",sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.lineWidth = 5; ctx.strokeStyle = stroke; ctx.lineJoin = 'round'; ctx.strokeText(t, x, y); ctx.fillStyle = fill; ctx.fillText(t, x, y);
 }
+function emoji(t, x, y, size) { ctx.font = size + 'px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff'; ctx.fillText(t, x, y); }
 const OUT = '#1e1b4b';
 
 function drawBG(th, cx, t) {
   const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, th.top); g.addColorStop(1, th.bot);
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-  // étoiles + lune
   ctx.fillStyle = '#fff';
-  for (const s of STARS) { ctx.globalAlpha = th.starA * (.4 + .6 * Math.abs(Math.sin(t * s.sp + s.ph))); ctx.fillRect(((s.x - cx * .05) % W + W) % W, s.y, s.r, s.r); }
-  ctx.globalAlpha = th.starA + .1; ctx.beginPath(); ctx.arc(780 - cx * .02, 90, 34, 0, 7); ctx.fillStyle = '#fef9c3'; ctx.fill(); ctx.globalAlpha = 1;
-  // mur de briques (parallaxe)
+  for (const s of STARS) { ctx.globalAlpha = Math.min(1, th.starA) * (.4 + .6 * Math.abs(Math.sin(t * s.sp + s.ph))); ctx.fillRect(((s.x - cx * .05) % W + W) % W, s.y, s.r, s.r); }
+  ctx.globalAlpha = Math.min(1, th.starA + .1); ctx.beginPath(); ctx.arc(780 - cx * .01, 90, 34, 0, 7); ctx.fillStyle = '#fef9c3'; ctx.fill(); ctx.globalAlpha = 1;
   ctx.strokeStyle = 'rgba(0,0,0,.22)'; ctx.lineWidth = 2; ctx.beginPath();
   const sh = -((cx * .35) % 96);
   for (let r = 0; r * 40 < H; r++) {
@@ -691,7 +896,6 @@ function drawBG(th, cx, t) {
   }
   ctx.stroke();
   ctx.fillStyle = th.brick; ctx.globalAlpha = .18; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1;
-  // fenêtres et torches
   const sc = (cx * .5) % 480;
   for (let i = -1; i < 4; i++) {
     const wx = i * 480 + 140 - sc;
@@ -700,28 +904,22 @@ function drawBG(th, cx, t) {
     ctx.strokeStyle = '#1e1b4b'; ctx.lineWidth = 6; rr(wx, 90, 74, 120, 36); ctx.stroke();
     ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(wx + 37, 90); ctx.lineTo(wx + 37, 210); ctx.moveTo(wx, 150); ctx.lineTo(wx + 74, 150); ctx.stroke();
     const tx = wx + 330, fl = 1 + Math.sin(t * 9 + i) * .15;
-    const gl = ctx.createRadialGradient(tx, 250, 5, tx, 250, 110 * fl); gl.addColorStop(0, 'rgba(255,190,60,.45)'); gl.addColorStop(1, 'rgba(255,190,60,0)');
+    const gl = ctx.createRadialGradient(tx, 250, 5, tx, 250, 110 * fl); gl.addColorStop(0, 'rgba(255,190,60,.4)'); gl.addColorStop(1, 'rgba(255,190,60,0)');
     ctx.fillStyle = gl; ctx.fillRect(tx - 120, 130, 240, 240);
     ctx.fillStyle = '#78350f'; ctx.fillRect(tx - 4, 262, 8, 28); ctx.strokeStyle = OUT; ctx.lineWidth = 2; ctx.strokeRect(tx - 4, 262, 8, 28);
     ctx.beginPath(); ctx.ellipse(tx, 250, 9 * fl, 16 * fl, 0, 0, 7); ctx.fillStyle = '#fb923c'; ctx.fill();
     ctx.beginPath(); ctx.ellipse(tx, 253, 5 * fl, 9 * fl, 0, 0, 7); ctx.fillStyle = '#fde047'; ctx.fill();
   }
-  // nuages au sommet
-  if (th.starA > .6) {
-    ctx.fillStyle = 'rgba(255,255,255,.12)';
-    for (let i = 0; i < 6; i++) { const x = (((i * 260 - cx * .15 + t * 8) % (W + 300)) + W + 300) % (W + 300) - 150; ctx.beginPath(); ctx.ellipse(x, 380 + (i % 3) * 40, 90, 28, 0, 0, 7); ctx.fill(); }
-  }
 }
 
 function drawPlat(p) {
-  const x = p.x, y = p.y, h = p.h;
+  let x = p.x, y = p.y; const h = p.h;
   if (p.type === 'bridge') {
     const w = p.w * p.grow;
-    if (!p.active) { // fantôme du pont à venir
+    if (!p.active) {
       ctx.save(); ctx.setLineDash([12, 10]); ctx.lineWidth = 4; ctx.strokeStyle = `rgba(253,224,71,${.35 + .25 * Math.sin(time * 4)})`;
       rr(x, y, p.w, h, 8); ctx.stroke(); ctx.restore();
-      ctx.font = '22px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.globalAlpha = .6; ctx.fillText('🌉', x + p.w / 2, y + 12 + Math.sin(time * 3) * 4); ctx.globalAlpha = 1;
-      return;
+      ctx.globalAlpha = .6; emoji('🌉', x + p.w / 2, y + 12 + Math.sin(time * 3) * 4, 22); ctx.globalAlpha = 1; return;
     }
     if (w < 2) return;
     ctx.fillStyle = '#f59e0b'; rr(x, y, w, h, 8); ctx.fill(); ctx.strokeStyle = OUT; ctx.lineWidth = 4; ctx.stroke();
@@ -730,41 +928,81 @@ function drawPlat(p) {
     return;
   }
   const w = p.w;
+  if (p.type === 'color') {
+    const on = L.cst[p.grp] === p.col, c = p.col === 'r' ? '#ef4444' : '#3b82f6';
+    if (on) { ctx.fillStyle = c; rr(x, y, w, h, 8); ctx.fill(); ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.fillRect(x + 5, y + 4, w - 10, 5); ctx.strokeStyle = OUT; ctx.lineWidth = 4; rr(x, y, w, h, 8); ctx.stroke(); }
+    else { ctx.save(); ctx.setLineDash([8, 8]); ctx.strokeStyle = c; ctx.globalAlpha = .55; ctx.lineWidth = 3; rr(x, y, w, h, 8); ctx.stroke(); ctx.restore(); }
+    return;
+  }
+  if (p.type === 'pad') {
+    const s = L.simon, lit = s && s.lit === p.pad, c = PAD_COLS[p.pad];
+    if (lit) { const g = ctx.createRadialGradient(x + w / 2, y, 5, x + w / 2, y, 90); g.addColorStop(0, c); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.globalAlpha = .7; ctx.fillStyle = g; ctx.fillRect(x - 60, y - 90, w + 120, 180); ctx.globalAlpha = 1; }
+    ctx.globalAlpha = lit || (s && s.done) ? 1 : .55; ctx.fillStyle = c; rr(x, y - (lit ? 4 : 0), w, h + (lit ? 4 : 0), 8); ctx.fill(); ctx.globalAlpha = 1;
+    ctx.strokeStyle = lit ? '#fff' : OUT; ctx.lineWidth = 4; rr(x, y - (lit ? 4 : 0), w, h + (lit ? 4 : 0), 8); ctx.stroke();
+    return;
+  }
+  let alpha = 1;
+  if (p.type === 'ghost') alpha = Math.max(.1, Math.min(1, L.revealT), p.flash > 0 ? 1 : 0, P && P.standing === p ? 1 : 0);
+  if (p.type === 'crumble') {
+    if (p.cr === 2) return;
+    if (p.cr === 1) { x += (Math.random() - .5) * 5; y += (Math.random() - .5) * 3; }
+  }
   let body, top;
   if (p.type === 'ice') { body = '#7dd3fc'; top = '#e0f2fe'; }
   else if (p.type === 'mover') { body = '#f97316'; top = '#fde047'; }
+  else if (p.type === 'ghost') { body = '#8b5cf6'; top = '#e9d5ff'; }
+  else if (p.type === 'crumble') { body = '#a16207'; top = '#fdba74'; }
+  else if (p.conv) { body = '#475569'; top = '#94a3b8'; }
   else if (p.keyplat) { body = '#a78bfa'; top = '#ddd6fe'; }
-  else { body = L.th.brick.replace(/\d+%\)$/, '45%)'); top = '#4ade80'; }
+  else { body = `hsl(${L.th.h},30%,46%)`; top = '#4ade80'; }
+  ctx.globalAlpha = alpha;
   ctx.fillStyle = body; rr(x, y, w, h, 8); ctx.fill();
   ctx.save(); rr(x, y, w, h, 8); ctx.clip();
   ctx.fillStyle = top; ctx.fillRect(x, y, w, 9);
   ctx.strokeStyle = 'rgba(0,0,0,.25)'; ctx.lineWidth = 2; ctx.beginPath();
   if (p.type === 'ice') { for (let i = 0; i < w; i += 40) { ctx.moveTo(x + i + 10, y + 18); ctx.lineTo(x + i + 24, y + 12); } }
-  else { ctx.moveTo(x, y + 17); ctx.lineTo(x + w, y + 17); for (let px = x + 20; px < x + w; px += 32) { ctx.moveTo(px, y + 9); ctx.lineTo(px, y + 17); } }
+  else if (p.type === 'crumble') { for (let i = 14; i < w; i += 26) { ctx.moveTo(x + i, y + 9); ctx.lineTo(x + i + 6, y + 15); ctx.lineTo(x + i - 2, y + 24); } }
+  else if (!p.conv) { ctx.moveTo(x, y + 17); ctx.lineTo(x + w, y + 17); for (let px = x + 20; px < x + w; px += 32) { ctx.moveTo(px, y + 9); ctx.lineTo(px, y + 17); } }
   ctx.stroke();
   if (p.type === 'ice') { ctx.fillStyle = 'rgba(255,255,255,.8)'; for (let i = 0; i < w; i += 50) ctx.fillRect(x + i + 14 + Math.sin(time * 2 + i) * 4, y + 2, 14, 3); }
+  if (p.conv) { // chevrons animés du tapis roulant
+    const d = Math.sign(p.conv), off = ((time * p.conv * .6) % 28 + 28) % 28; ctx.fillStyle = '#fde047';
+    for (let i = -28 + off; i < w; i += 28) { ctx.beginPath(); ctx.moveTo(x + i + (d > 0 ? 10 : 0), y + 16); ctx.lineTo(x + i + (d > 0 ? 0 : 10), y + 11); ctx.lineTo(x + i + (d > 0 ? 0 : 10), y + 21); ctx.fill(); }
+  }
   ctx.restore();
   ctx.strokeStyle = OUT; ctx.lineWidth = 4; rr(x, y, w, h, 8); ctx.stroke();
+  ctx.globalAlpha = 1;
   if (p.type === 'mover') {
     ctx.fillStyle = OUT; const cy = y + 17, cxm = x + w / 2;
     if (p.ax) { ctx.beginPath(); ctx.moveTo(cxm - 22, cy); ctx.lineTo(cxm - 12, cy - 5); ctx.lineTo(cxm - 12, cy + 5); ctx.moveTo(cxm + 22, cy); ctx.lineTo(cxm + 12, cy - 5); ctx.lineTo(cxm + 12, cy + 5); ctx.fill(); }
     else { ctx.beginPath(); ctx.moveTo(cxm, cy - 6); ctx.lineTo(cxm - 6, cy + 1); ctx.lineTo(cxm + 6, cy + 1); ctx.moveTo(cxm, cy + 8); ctx.lineTo(cxm - 6, cy + 1); ctx.lineTo(cxm + 6, cy + 1); ctx.fill(); }
   }
+  if (p.spring) { // ressort
+    const k = p.springT > 0 ? 1.6 : 1, cxm = x + w / 2, hh = 12 * k;
+    ctx.strokeStyle = '#e5e7eb'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(cxm - 14, y); ctx.lineTo(cxm + 14, y - hh * .33); ctx.lineTo(cxm - 14, y - hh * .66); ctx.lineTo(cxm + 14, y - hh); ctx.stroke();
+    ctx.fillStyle = '#ec4899'; rr(cxm - 30, y - hh - 9, 60, 9, 4); ctx.fill(); ctx.strokeStyle = OUT; ctx.lineWidth = 3; ctx.stroke();
+    emoji('⬆️', cxm, y - 44 + Math.sin(time * 5) * 4, 18);
+  }
+  if (p.simonBase && L.simon && !L.simon.done) emoji('👀', x + w / 2, y - 34 + Math.sin(time * 4) * 4, 26);
 }
 
-function drawSpike(s) {
-  const n = Math.round(s.w / 20);
+function drawSpikeRow(x, y, w, hgt, col) {
+  const n = Math.round(w / 20);
   for (let i = 0; i < n; i++) {
-    const x = s.x + i * 20;
-    ctx.beginPath(); ctx.moveTo(x, s.y + s.h); ctx.lineTo(x + 10, s.y); ctx.lineTo(x + 20, s.y + s.h); ctx.closePath();
-    ctx.fillStyle = '#e5e7eb'; ctx.fill(); ctx.strokeStyle = OUT; ctx.lineWidth = 3; ctx.lineJoin = 'round'; ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(x + 10, s.y + 3); ctx.lineTo(x + 15, s.y + s.h - 3); ctx.lineTo(x + 10, s.y + s.h - 3); ctx.fillStyle = '#9ca3af'; ctx.fill();
+    const sx = x + i * 20;
+    ctx.beginPath(); ctx.moveTo(sx, y); ctx.lineTo(sx + 10, y - hgt); ctx.lineTo(sx + 20, y); ctx.closePath();
+    ctx.fillStyle = col; ctx.fill(); ctx.strokeStyle = OUT; ctx.lineWidth = 3; ctx.lineJoin = 'round'; ctx.stroke();
   }
+}
+function drawTrap(t) {
+  const e = trapExt(t);
+  ctx.fillStyle = '#0f172a'; for (let i = 0; i < t.w; i += 20) ctx.fillRect(t.x + i + 5, t.y - 2, 10, 5);
+  if (e > 0) drawSpikeRow(t.x, t.y, t.w, 3 + 19 * e, e > .6 ? '#fca5a5' : '#fde68a');
 }
 
 function drawDoor() {
   const d = L.door, open = !L.needKey || L.key.got, cx = d.x + d.w / 2;
-  if (d.chest) { // trésor
+  if (d.chest) {
     const g = ctx.createRadialGradient(cx, d.y + 20, 5, cx, d.y + 20, 120 + Math.sin(time * 4) * 10);
     g.addColorStop(0, 'rgba(253,224,71,.75)'); g.addColorStop(1, 'rgba(253,224,71,0)'); ctx.fillStyle = g; ctx.fillRect(cx - 140, d.y - 110, 280, 260);
     ctx.fillStyle = '#b45309'; rr(d.x, d.y + 14, d.w, d.h - 14, 8); ctx.fill(); ctx.strokeStyle = OUT; ctx.lineWidth = 4; ctx.stroke();
@@ -772,7 +1010,7 @@ function drawDoor() {
     ctx.fillStyle = '#fde047'; ctx.fillRect(cx - 5, d.y + 6, 10, 40); ctx.fillRect(d.x + 8, d.y + 6, 6, d.h - 10); ctx.fillRect(d.x + d.w - 14, d.y + 6, 6, d.h - 10);
     ctx.fillStyle = open ? '#22c55e' : '#ef4444'; ctx.beginPath(); ctx.arc(cx, d.y + 30, 8, 0, 7); ctx.fill(); ctx.stroke();
     if (open) for (let i = 0; i < 3; i++) star(cx - 30 + i * 30, d.y - 14 - Math.abs(Math.sin(time * 3 + i)) * 14, 8, '#fde047');
-    else { ctx.font = '26px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('🔒', cx, d.y - 12); }
+    else emoji('🔒', cx, d.y - 16, 26);
     return;
   }
   if (open) { const g = ctx.createRadialGradient(cx, d.y + 50, 5, cx, d.y + 50, 90); g.addColorStop(0, 'rgba(253,224,71,.6)'); g.addColorStop(1, 'rgba(253,224,71,0)'); ctx.fillStyle = g; ctx.fillRect(cx - 100, d.y - 40, 200, 200); }
@@ -780,16 +1018,16 @@ function drawDoor() {
   ctx.fillStyle = open ? '#fde68a' : '#92400e'; rr(d.x, d.y, d.w, d.h, 28); ctx.fill(); ctx.strokeStyle = OUT; ctx.lineWidth = 4; ctx.stroke();
   if (!open) {
     ctx.strokeStyle = '#78350f'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(cx, d.y + 4); ctx.lineTo(cx, d.y + d.h); ctx.moveTo(d.x + 4, d.y + 50); ctx.lineTo(d.x + d.w - 4, d.y + 50); ctx.stroke();
-    ctx.font = '28px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('🔒', cx, d.y + 52);
-  } else { star(cx, d.y + 46, 16 + Math.sin(time * 5) * 2, '#f59e0b'); }
+    emoji('🔒', cx, d.y + 52, 28);
+  } else star(cx, d.y + 46, 16 + Math.sin(time * 5) * 2, '#f59e0b');
 }
 
 function drawSwitch() {
-  const s = L.sw; if (!s) return;
+  const s = L.sw; if (!s || s.kind !== 'button') return;
   ctx.fillStyle = '#334155'; rr(s.x - 24, s.y - 8, 48, 8, 3); ctx.fill(); ctx.strokeStyle = OUT; ctx.lineWidth = 3; ctx.stroke();
   const bh = s.on ? 3 : 12;
   ctx.fillStyle = s.on ? '#22c55e' : '#ef4444'; rr(s.x - 16, s.y - 8 - bh, 32, bh, 5); ctx.fill(); ctx.stroke();
-  if (!s.on) { ctx.font = '22px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('👇', s.x, s.y - 40 + Math.sin(time * 5) * 5); }
+  if (!s.on) emoji('👇', s.x, s.y - 40 + Math.sin(time * 5) * 5, 22);
 }
 
 function drawKey() {
@@ -806,10 +1044,34 @@ function drawKey() {
 
 function drawCoins() {
   for (const c of L.coins) {
-    if (c.got) continue;
+    if (c.got || c.x < cam.x - 30 || c.x > cam.x + W + 30) continue;
     const sx = Math.abs(Math.cos(time * 4 + c.x * .05)), y = c.y + Math.sin(time * 3 + c.x) * 3;
     ctx.beginPath(); ctx.ellipse(c.x, y, 10 * Math.max(.2, sx), 11, 0, 0, 7); ctx.fillStyle = '#fbbf24'; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = OUT; ctx.stroke();
     ctx.beginPath(); ctx.ellipse(c.x, y, 5 * Math.max(.2, sx), 6, 0, 0, 7); ctx.fillStyle = '#fde68a'; ctx.fill();
+  }
+}
+
+function drawOrbs() {
+  for (const o of L.orbs) {
+    const next = L.cst[o.grp] === 'b' ? '#ef4444' : '#3b82f6', y = o.y + Math.sin(time * 3 + o.x) * 4, r = 20 - (o.cd > 0 ? 5 : 0);
+    const g = ctx.createRadialGradient(o.x, y, 4, o.x, y, 46); g.addColorStop(0, next); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.globalAlpha = .5; ctx.fillStyle = g; ctx.fillRect(o.x - 46, y - 46, 92, 92); ctx.globalAlpha = 1;
+    ctx.save(); ctx.translate(o.x, y); ctx.rotate(time * 2);
+    ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI); ctx.fillStyle = '#ef4444'; ctx.fill();
+    ctx.beginPath(); ctx.arc(0, 0, r, Math.PI, Math.PI * 2); ctx.fillStyle = '#3b82f6'; ctx.fill();
+    ctx.restore();
+    ctx.beginPath(); ctx.arc(o.x, y, r, 0, 7); ctx.strokeStyle = '#fff'; ctx.lineWidth = 4; ctx.stroke();
+    ctx.beginPath(); ctx.arc(o.x, y, 7, 0, 7); ctx.fillStyle = next; ctx.fill(); ctx.strokeStyle = OUT; ctx.lineWidth = 2; ctx.stroke();
+  }
+}
+
+function drawCheckpoints() {
+  for (let i = 1; i < L.cps.length; i++) {
+    const c = L.cps[i];
+    ctx.strokeStyle = OUT; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(c.x, c.y); ctx.lineTo(c.x, c.y - 62); ctx.stroke();
+    ctx.strokeStyle = '#e5e7eb'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(c.x, c.y); ctx.lineTo(c.x, c.y - 62); ctx.stroke();
+    const wv = Math.sin(time * 5 + i) * 3;
+    ctx.beginPath(); ctx.moveTo(c.x, c.y - 62); ctx.lineTo(c.x + 32, c.y - 52 + wv); ctx.lineTo(c.x, c.y - 40); ctx.closePath();
+    ctx.fillStyle = c.on ? '#22c55e' : '#94a3b8'; ctx.fill(); ctx.strokeStyle = OUT; ctx.lineWidth = 3; ctx.lineJoin = 'round'; ctx.stroke();
   }
 }
 
@@ -817,28 +1079,21 @@ function drawPlayer() {
   const p = P; if (p.hidden || state === 'dying') return;
   if (p.inv > 0 && Math.floor(time * 14) % 2) return;
   const cx = p.x + PW / 2, fy = p.y + PH;
-  const run = p.grounded && Math.abs(p.vx) > 30, t = time * 16, f = p.face;
+  const running = p.grounded && Math.abs(p.vx) > 30, t = time * 16, f = p.face;
   ctx.save(); ctx.translate(cx, fy); ctx.scale(p.sx, p.sy);
   ctx.lineWidth = 3; ctx.strokeStyle = OUT; ctx.lineJoin = 'round';
-  // souliers
-  const l1 = run ? Math.sin(t) * 5 : 0, l2 = run ? -Math.sin(t) * 5 : 0, air = !p.grounded ? 3 : 0;
+  const l1 = running ? Math.sin(t) * 5 : 0, l2 = -l1, air = !p.grounded ? 3 : 0;
   ctx.fillStyle = '#7c2d12';
   ctx.beginPath(); ctx.ellipse(-7 + l1, -3 - air, 7, 4.5, 0, 0, 7); ctx.fill(); ctx.stroke();
-  ctx.beginPath(); ctx.ellipse(7 + l2, -3 - air * (l2 ? 1 : 0) - (run && l2 < 0 ? 3 : 0), 7, 4.5, 0, 0, 7); ctx.fill(); ctx.stroke();
-  const bob = run ? -Math.abs(Math.sin(t)) * 2 : 0; ctx.translate(0, bob);
-  // robe
+  ctx.beginPath(); ctx.ellipse(7 + l2, -3 - (running && l2 < 0 ? 3 : 0), 7, 4.5, 0, 0, 7); ctx.fill(); ctx.stroke();
+  ctx.translate(0, running ? -Math.abs(Math.sin(t)) * 2 : 0);
   ctx.fillStyle = '#3b82f6'; ctx.beginPath(); ctx.moveTo(-14, -6); ctx.lineTo(-9, -30); ctx.lineTo(9, -30); ctx.lineTo(14, -6); ctx.closePath(); ctx.fill(); ctx.stroke();
   ctx.fillStyle = '#fbbf24'; ctx.fillRect(-11, -17, 22, 4);
-  // main
-  ctx.fillStyle = '#fcd9b6'; ctx.beginPath(); ctx.arc(f * 12, -17 + (run ? Math.sin(t) * 3 : 0), 4, 0, 7); ctx.fill(); ctx.stroke();
-  // tête
-  ctx.fillStyle = '#fcd9b6'; ctx.beginPath(); ctx.arc(0, -36, 11, 0, 7); ctx.fill(); ctx.stroke();
-  // barbe
+  ctx.fillStyle = '#fcd9b6'; ctx.beginPath(); ctx.arc(f * 12, -17 + (running ? Math.sin(t) * 3 : 0), 4, 0, 7); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.arc(0, -36, 11, 0, 7); ctx.fill(); ctx.stroke();
   ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.moveTo(-9, -32); ctx.quadraticCurveTo(0, -24, 9, -32); ctx.quadraticCurveTo(0, -12, -9, -32); ctx.fill(); ctx.stroke();
-  // yeux
-  ctx.fillStyle = '#fff'; for (const ex of [-4, 4]) { ctx.beginPath(); ctx.arc(ex + f * 2, -38, 3.2, 0, 7); ctx.fill(); }
+  for (const ex of [-4, 4]) { ctx.beginPath(); ctx.arc(ex + f * 2, -38, 3.2, 0, 7); ctx.fill(); }
   ctx.fillStyle = OUT; for (const ex of [-4, 4]) { ctx.beginPath(); ctx.arc(ex + f * 3, -38, 1.6, 0, 7); ctx.fill(); }
-  // chapeau
   ctx.fillStyle = '#7c3aed'; ctx.beginPath(); ctx.moveTo(-13, -43); ctx.quadraticCurveTo(-4, -60, f * 14, -72 + (p.vy < 0 ? -2 : 3)); ctx.quadraticCurveTo(10, -52, 13, -43); ctx.closePath(); ctx.fill(); ctx.stroke();
   ctx.beginPath(); ctx.ellipse(0, -43, 17, 5, 0, 0, 7); ctx.fill(); ctx.stroke();
   star(-1, -53, 4.5, '#fde047');
@@ -849,10 +1104,10 @@ function drawParticles() {
   for (const q of parts) {
     const a = Math.min(1, q.life / (q.max * .5));
     ctx.globalAlpha = Math.max(0, a);
-    if (q.t === 'conf') { ctx.save(); ctx.translate(q.x - cam.x, q.y); ctx.rotate(q.r); ctx.fillStyle = q.c; ctx.fillRect(-q.s / 2, -q.s / 4, q.s, q.s / 2); ctx.restore(); }
-    else if (q.t === 'dot') { ctx.fillStyle = q.c; ctx.beginPath(); ctx.arc(q.x - cam.x, q.y, q.s * a, 0, 7); ctx.fill(); }
-    else if (q.t === 'ring') { const k = 1 - q.life / q.max; ctx.strokeStyle = q.c; ctx.lineWidth = 4; ctx.beginPath(); ctx.ellipse(q.x - cam.x, q.y, 10 + k * 34, 4 + k * 10, 0, 0, 7); ctx.stroke(); }
-    else if (q.t === 'text') outText(q.text, q.x - cam.x, q.y, 22, q.c);
+    if (q.t === 'conf') { ctx.save(); ctx.translate(q.x, q.y); ctx.rotate(q.r); ctx.fillStyle = q.c; ctx.fillRect(-q.s / 2, -q.s / 4, q.s, q.s / 2); ctx.restore(); }
+    else if (q.t === 'dot') { ctx.fillStyle = q.c; ctx.beginPath(); ctx.arc(q.x, q.y, q.s * a, 0, 7); ctx.fill(); }
+    else if (q.t === 'ring') { const k = 1 - q.life / q.max; ctx.strokeStyle = q.c; ctx.lineWidth = 4; ctx.beginPath(); ctx.ellipse(q.x, q.y, 10 + k * 34, 4 + k * 10, 0, 0, 7); ctx.stroke(); }
+    else if (q.t === 'text') outText(q.text, q.x, q.y, 22, q.c);
     ctx.globalAlpha = 1;
   }
 }
@@ -860,25 +1115,19 @@ function drawParticles() {
 function render() {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   const playing = L && run && (state === 'playing' || state === 'dying' || state === 'clear' || state === 'paused' || state === 'end');
-  if (!playing) {
-    // décor animé pour l'écran titre
-    const th = theme(Math.floor(time / 8) % TOTAL_FLOORS);
-    drawBG(th, time * 40, time);
-    drawParticles(); return;
-  }
+  if (!playing) { drawBG(theme(Math.floor(time / 8) % 12), time * 40, time); return; }
   const sx = shake ? (Math.random() - .5) * shake * 22 : 0, sy = shake ? (Math.random() - .5) * shake * 22 : 0;
   ctx.save(); ctx.translate(sx, sy);
   drawBG(L.th, cam.x, time);
-  ctx.save(); ctx.translate(-cam.x, 0);
-  for (const p of L.plats) if (p.x + p.w > cam.x - 50 && p.x < cam.x + W + 50) drawPlat(p);
-  for (const s of L.spikes) drawSpike(s);
-  drawDoor(); drawSwitch(); drawKey(); drawCoins();
-  if (state === 'clear' && P.hidden) { /* le joueur est entré dans la porte */ }
+  ctx.translate(-Math.round(cam.x), -Math.round(cam.y));
+  const x0 = cam.x - 60, x1 = cam.x + W + 60;
+  for (const p of L.plats) if (p.x + p.w > x0 && p.x < x1) drawPlat(p);
+  for (const s of L.spikes) if (s.x + s.w > x0 && s.x < x1) drawSpikeRow(s.x, s.y + s.h, s.w, s.h, '#e5e7eb');
+  for (const t of L.traps) if (t.x + t.w > x0 && t.x < x1) drawTrap(t);
+  drawCheckpoints(); drawDoor(); drawSwitch(); drawKey(); drawCoins(); drawOrbs();
   drawPlayer();
-  ctx.restore();
   drawParticles();
   ctx.restore();
-  // flash rouge + fondu
   if (flash > 0) { ctx.fillStyle = `rgba(244,63,94,${flash * .5})`; ctx.fillRect(0, 0, W, H); }
   const vg = ctx.createRadialGradient(W / 2, H / 2, 280, W / 2, H / 2, 620); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.4)');
   ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
@@ -898,7 +1147,6 @@ function frame(ts) {
   if (run && state !== 'title' && state !== 'closed') updateTimer();
   if (state === 'closed') { cdT -= dt; if (cdT <= 0) { cdT = .5; updateCountdown(); } }
 }
-
 function fit() { const s = Math.min(innerWidth / 960, innerHeight / 540); $('stage').style.transform = `translate(-50%,-50%) scale(${s})`; }
 addEventListener('resize', fit); fit();
 
