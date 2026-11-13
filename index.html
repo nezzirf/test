@@ -359,24 +359,39 @@ function makeRiddle(rng, D) {
    - on peut aller sur la case voisine de la même rangée, ou monter d'une rangée (même colonne ou colonne voisine) ;
    - on peut se laisser tomber : on atterrit sur la première case solide en dessous (même colonne ou voisine) ;
    - taper le bloc ⇄ échange les couleurs ; si la case sous nos pieds disparaît, on tombe. */
-function solveColorRoom(g, btn, rows, cols, s0) {
+function solveColorRoom(g, btn, rows, cols, s0, perm) {
+  // perm = false : seulement les mouvements faciles (ceux qu'on attend du joueur)
+  // perm = true  : tous les mouvements que la physique permet (sauts précis, longues chutes, double saut après un échange)
   const solid = (r, c, s) => { if (c === -1) return r === 0; if (c === cols) return r === rows - 1; if (c < -1 || c > cols || r < 0 || r >= rows) return false; const t = g[r][c]; return t === 'g' || t === s; };
   const below = (r, c, s) => { for (let k = r - 1; k >= 0; k--) if (solid(k, c, s)) return k; return -1; };
+  const std = (r, c, s, out) => {
+    for (const dc of [-1, 0, 1]) {
+      if (dc && solid(r, c + dc, s)) out.push([r, c + dc, s, 0]);
+      if (solid(r + 1, c + dc, s)) out.push([r + 1, c + dc, s, 0]);
+      if (!perm) { if (!dc || !solid(r, c + dc, s)) { const k = below(r, c + dc, s); if (k >= 0) out.push([k, c + dc, s, 0]); } }
+    }
+    if (perm) for (let k = r - 1; k >= 0; k--) { const reach = r - k >= 3 ? 2 : 1; for (let dc = -reach; dc <= reach; dc++) if (solid(k, c + dc, s)) out.push([k, c + dc, s, 0]); }
+  };
   const key = (r, c, s) => r + ',' + c + ',' + s, dist = new Map(), prev = new Map(), dq = [[0, -1, s0, 0]];
   dist.set(key(0, -1, s0), 0);
   while (dq.length) {
     const [r, c, s, d] = dq.shift(); if (d > dist.get(key(r, c, s))) continue;
     if (c === cols && r === rows - 1) { const path = []; let k = key(r, c, s); while (k) { path.unshift(k); k = prev.get(k); } return { t: d, path }; }
-    const nxt = [];
-    for (const dc of [-1, 0, 1]) {
-      if (dc && solid(r, c + dc, s)) nxt.push([r, c + dc, s, 0]);
-      if (solid(r + 1, c + dc, s)) nxt.push([r + 1, c + dc, s, 0]);
-      const k = below(r, c + dc, s); if (k >= 0) nxt.push([k, c + dc, s, 0]);
+    const nxt = []; std(r, c, s, nxt);
+    if (c >= 0 && c < cols && btn[r][c]) {
+      const s2 = s === 'r' ? 'b' : 'r';
+      if (solid(r, c, s2)) nxt.push([r, c, s2, 1]); else { const k = below(r, c, s2); if (k >= 0) nxt.push([k, c, s2, 1]); }
+      if (perm) { const m = []; std(r, c, s2, m); for (const x of m) { x[3] = 1; nxt.push(x); } }
     }
-    if (c >= 0 && c < cols && btn[r][c]) { const s2 = s === 'r' ? 'b' : 'r'; if (solid(r, c, s2)) nxt.push([r, c, s2, 1]); else { const k = below(r, c, s2); if (k >= 0) nxt.push([k, c, s2, 1]); } }
     for (const [r2, c2, s2, w] of nxt) { const k2 = key(r2, c2, s2), d2 = d + w; if (!dist.has(k2) || d2 < dist.get(k2)) { dist.set(k2, d2); prev.set(k2, key(r, c, s)); if (w) dq.push([r2, c2, s2, d2]); else dq.unshift([r2, c2, s2, d2]); } }
   }
   return null;
+}
+// une salle est bonne si la solution facile ET la meilleure astuce possible demandent le même nombre d'échanges
+function checkColorRoom(g, btn, rows, cols, s0) {
+  const e = solveColorRoom(g, btn, rows, cols, s0, false); if (!e) return null;
+  const p = solveColorRoom(g, btn, rows, cols, s0, true); if (!p || p.t !== e.t) return null;
+  return e;
 }
 function makeColorRoom(rng, rows, cols, needT) {
   // on part d'une salle faisable, puis on la modifie case par case en ne gardant que les changements
@@ -384,16 +399,16 @@ function makeColorRoom(rng, rows, cols, needT) {
   const pick = () => { const u = rng(); return u < .2 ? null : u < .32 ? 'g' : u < .66 ? 'r' : 'b'; };
   const usesBoth = (g, sol) => { const u = new Set(sol.path.map(k => { const [r, c] = k.split(',').map(Number); return c >= 0 && c < cols ? g[r][c] : 'g'; })); return u.has('r') && u.has('b'); };
   let best = null;
-  for (let attempt = 0; attempt < 8 && !best; attempt++) {
+  for (let attempt = 0; attempt < (needT > 2 ? 3 : 6) && !best; attempt++) {
     let g, btn, s0 = rng() < .5 ? 'r' : 'b', sol = null;
     for (let k = 0; k < 200 && !sol; k++) {
       g = []; btn = [];
       for (let r = 0; r < rows; r++) { g.push([]); btn.push([]); for (let c = 0; c < cols; c++) { g[r].push(pick()); btn[r].push(false); } }
       for (let i = 0; i < 2; i++) { const r = Math.floor(rng() * rows), c = Math.floor(rng() * cols); if (g[r][c]) btn[r][c] = true; }
-      sol = solveColorRoom(g, btn, rows, cols, s0);
+      sol = checkColorRoom(g, btn, rows, cols, s0);
     }
     if (!sol) continue;
-    for (let it = 0; it < 2500; it++) {
+    for (let it = 0; it < 1500; it++) {
       if (sol.t === needT && usesBoth(g, sol)) { best = { g, btn, s0, sol }; break; }
       const g2 = g.map(row => row.slice()), b2 = btn.map(row => row.slice());
       const r = Math.floor(rng() * rows), c = Math.floor(rng() * cols), m = rng();
@@ -401,8 +416,9 @@ function makeColorRoom(rng, rows, cols, needT) {
       else if (m < .85) { if (g2[r][c]) b2[r][c] = !b2[r][c]; }
       else { const r2 = Math.floor(rng() * rows), c2 = Math.floor(rng() * cols); const t = g2[r][c]; g2[r][c] = g2[r2][c2]; g2[r2][c2] = t; const tb = b2[r][c]; b2[r][c] = b2[r2][c2]; b2[r2][c2] = tb; }
       if (b2.flat().filter(Boolean).length > needT + 2) continue;   // pas trop de blocs ⇄
-      const s2 = solveColorRoom(g2, b2, rows, cols, s0);
-      if (!s2 || s2.t > needT) continue;
+      const s2 = solveColorRoom(g2, b2, rows, cols, s0, false);
+      if (!s2 || s2.t > needT || s2.t < sol.t) continue;
+      const p2 = solveColorRoom(g2, b2, rows, cols, s0, true); if (!p2 || p2.t !== s2.t) continue;   // pas de raccourci astucieux
       if (s2.t > sol.t || (s2.t === sol.t && rng() < .5)) { g = g2; btn = b2; sol = s2; }
     }
   }
@@ -411,7 +427,7 @@ function makeColorRoom(rng, rows, cols, needT) {
     for (let r = 0; r < rows; r++) { g.push([]); btn.push([]); for (let c = 0; c < cols; c++) { g[r].push(null); btn[r].push(false); } }
     for (let c = 0; c < cols; c++) { g[0][c] = c % 2 ? (c % 4 === 1 ? 'b' : 'r') : 'g'; if (c % 2 === 0) btn[0][c] = true; }
     for (let r = 1; r < rows; r++) g[r][cols - 1] = 'g';
-    best = { g, btn, s0: 'r', sol: solveColorRoom(g, btn, rows, cols, 'r'), fallback: true };
+    best = { g, btn, s0: 'r', sol: solveColorRoom(g, btn, rows, cols, 'r', false), fallback: true };
   }
   return best;
 }
