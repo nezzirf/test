@@ -170,7 +170,7 @@ const DAILY_FLOORS = 12, RUN_SECONDS = 30 * 60, VARIANTS = 20;
 const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900, SPRING = 1000;
 const PW = 28, PH = 40;
 const STEP = 1 / 120;
-const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v8';
+const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v9';
 /* [MODE TEST] Passe à false (ou supprime les blocs marqués [MODE TEST]) quand tout est réglé. */
 const TEST_MODE = true;
 
@@ -182,9 +182,9 @@ const THEMES = [
   { id: 'reflexe', day: 'Mardi', name: 'Réflexes', emoji: '⚡', hue: 40, col: '#fde047',
     desc: 'Boules de feu, lasers, scies, plateformes qui clignotent ou s\'écroulent : réagis vite !', whack: true,
     w: { plain: 2, narrow: 1, movH: 1, movV: 1, crumble: 3, trap: 3, fire: 3, laser: 3, saw: 3, blink: 3 } },
-  { id: 'logique', day: 'Mercredi', name: 'Logique', emoji: '🧩', hue: 160, col: '#6ee7b7',
-    desc: 'Les orbes magiques échangent les blocs rouges et bleus : réfléchis avant de sauter !',
-    w: { plain: 3, narrow: 1, movH: 1, movV: 1, color: 5 } },
+  { id: 'logique', day: 'Mercredi', name: 'Logique', emoji: '🧩', hue: 160, col: '#6ee7b7', alt: true, logic: true,
+    desc: 'Leviers, caisses, devinettes et blocs de couleur : observe et réfléchis avant d\'agir !',
+    w: { plain: 3, narrow: 1, movH: 1, movV: 1, colorUp: 3, riddle: 3 } },
   { id: 'precision', day: 'Jeudi', name: 'Précision', emoji: '🎯', hue: 350, col: '#fda4af',
     desc: 'Plateformes minuscules, glace et pics : chaque saut doit être parfait !',
     w: { plain: 2, narrow: 5, movH: 2, movV: 2, iceRun: 3 } },
@@ -196,7 +196,7 @@ const THEMES = [
     w: { plain: 1, narrow: 1, movV: 2, climb: 4, spring: 4 } },
   { id: 'defi', day: 'Dimanche', name: 'Grand Défi', emoji: '👑', hue: 315, col: '#f0abfc', alt: true, mix: true,
     desc: 'Le mélange de tous les pièges de la semaine. Es-tu prêt ?',
-    w: { plain: 2, narrow: 1, movH: 1, movV: 1, crumble: 1, trap: 1, fire: 1, laser: 1, saw: 1, blink: 1, ghost: 1, decoy: 1, color: 1, conv: 1, climb: 1, spring: 1, iceRun: 1 } }
+    w: { plain: 2, narrow: 1, movH: 1, movV: 1, crumble: 1, trap: 1, fire: 1, laser: 1, saw: 1, blink: 1, ghost: 1, decoy: 1, colorUp: 1, riddle: 1, conv: 1, climb: 1, spring: 1, iceRun: 1 } }
 ];
 
 /* ---------- Aléatoire à graine (seed) ---------- */
@@ -251,7 +251,7 @@ function tone(f1, f2, dur, type = 'square', vol = .05, delay = 0) {
 }
 const arp = (notes, step, type, vol) => notes.forEach((f, i) => tone(f, f, .18, type, vol, i * step));
 const MEM_ORDERS = [['simon', 'pairs', 'code'], ['pairs', 'code', 'simon'], ['code', 'simon', 'pairs'], ['pairs', 'simon', 'code'], ['simon', 'code', 'pairs'], ['code', 'pairs', 'simon']];
-const CARD_SYMS = ['🍎', '⭐', '🐸', '🌙', '🍄'], SW_ICON = { button: '🔘', simon: '🧠', pairs: '🃏', code: '🪧', whack: '⚡' };
+const CARD_SYMS = ['🍎', '⭐', '🐸', '🌙', '🍄'], SW_ICON = { button: '🔘', simon: '🧠', pairs: '🃏', code: '🪧', whack: '⚡', levers: '💡', crate: '📦' };
 const PAD_TONES = [262, 330, 392, 523], PAD_COLS = ['#ef4444', '#3b82f6', '#22c55e', '#facc15'];
 const SFX = {
   jump: () => tone(330, 700, .15), djump: () => tone(520, 1200, .22, 'triangle', .08), land: () => tone(140, 70, .07, 'sine', .07),
@@ -311,11 +311,46 @@ function puzzleFor(fi) {
   const f = floorSeq[fi], last = fi === floorSeq.length - 1;
   const r = mulberry32(hashStr(SEED + '#puz' + f))();
   if (THEME.simon) return { key: last || f % 4 === 3, sw: MEM_ORDERS[hashStr(SEED + '#mem') % 6][f % 3] };   // 3 énigmes de mémoire qui alternent
+  if (THEME.logic) return { key: last || r > 1 - (f / 11) * .5, sw: (f + (hashStr(SEED) & 1)) % 2 ? 'levers' : 'crate' };   // leviers et caisse en alternance
   if (THEME.whack) return { key: last || r > 1 - (f / 11) * .6, sw: (f + (hashStr(SEED) & 1)) % 2 ? 'button' : 'whack' };   // tape-éclair un étage sur deux
   if (last) return { key: true, sw: THEME.mix ? (r < .5 ? 'simon' : 'pairs') : 'button' };
-  if (THEME.mix) return r < .2 ? { key: true, sw: null } : r < .4 ? { key: false, sw: 'button' } : r < .6 ? { key: false, sw: 'simon' } : r < .8 ? { key: false, sw: 'pairs' } : { key: false, sw: 'whack' };
+  if (THEME.mix) return r < .2 ? { key: true, sw: null } : r < .4 ? { key: false, sw: 'button' } : r < .6 ? { key: false, sw: 'simon' } : r < .7 ? { key: false, sw: 'pairs' } : r < .8 ? { key: false, sw: 'whack' } : r < .9 ? { key: false, sw: 'levers' } : { key: false, sw: 'crate' };
   const both = (f / 11) * .7;   // plus on monte, plus il y a de chances d'avoir clé + interrupteur
   return r < both ? { key: true, sw: 'button' } : r < both + (1 - both) / 2 ? { key: true, sw: null } : { key: false, sw: 'button' };
+}
+
+function bitc(m) { let c = 0; while (m) { c += m & 1; m >>= 1; } return c; }
+function solveLevers(masks, init, n) {   // plus petit nombre de blocs à taper pour tout allumer
+  const full = (1 << n) - 1; let best = 99;
+  for (let sub = 0; sub < 1 << n; sub++) { let s = init; for (let i = 0; i < n; i++) if (sub >> i & 1) s ^= masks[i]; if (s === full) best = Math.min(best, bitc(sub)); }
+  return best;
+}
+/* Devinettes pour enfant de 10 ans, de plus en plus dures */
+function makeRiddle(rng, D) {
+  const RI = (a, b) => a + Math.floor(rng() * (b - a + 1));
+  const kinds = D < .3 ? ['plus', 'fruit1', 'forme'] : D < .65 ? ['plus', 'moins', 'fruit2', 'forme3'] : ['fois', 'saut', 'fruit2', 'fruit3', 'forme3'];
+  const k = kinds[Math.floor(rng() * kinds.length)];
+  let lines, ans, wrong;
+  if (k === 'plus') { const a = RI(1, 9), d = RI(2, 5); lines = [`${a}, ${a + d}, ${a + 2 * d}, ?`]; ans = a + 3 * d; wrong = [ans + 1, ans - 1, ans + d]; }
+  else if (k === 'moins') { const a = RI(30, 50), d = RI(3, 7); lines = [`${a}, ${a - d}, ${a - 2 * d}, ?`]; ans = a - 3 * d; wrong = [ans - 1, ans + 1, ans - d]; }
+  else if (k === 'fois') { const a = RI(1, 3), r = RI(2, 3); lines = [`${a}, ${a * r}, ${a * r * r}, ?`]; ans = a * r ** 3; wrong = [a * r * r + a * r, ans + r, ans - a]; }
+  else if (k === 'saut') { const a = RI(1, 5); lines = [`${a}, ${a + 1}, ${a + 3}, ${a + 6}, ?`]; ans = a + 10; wrong = [a + 9, a + 12, a + 8]; }
+  else if (k === 'fruit1') { const x = RI(2, 9); lines = [`🍎 + 🍎 = ${2 * x}`, '🍎 = ?']; ans = x; wrong = [2 * x, x + 1, x - 1]; }
+  else if (k === 'fruit2') { const x = RI(2, 7), y = RI(2, 9); lines = [`🍎 + 🍎 = ${2 * x}`, `🍎 + ⭐ = ${x + y}`, '⭐ = ?']; ans = y; wrong = [x + y, x === y ? y + 2 : x, y + 1, y - 1]; }
+  else if (k === 'fruit3') { const x = RI(2, 6), y = RI(x + 2, x + 8); lines = [`🍎 + 🍎 + 🍎 = ${3 * x}`, `⭐ + 🍎 = ${x + y}`, '⭐ − 🍎 = ?']; ans = y - x; wrong = [y, x, ans + 1, ans - 1]; }
+  else {
+    const S = ['🔺', '🔵', '⭐', '🟩', '🌙'], n = k === 'forme3' ? 3 : 2, pat = [];
+    while (pat.length < n) { const c = S[RI(0, S.length - 1)]; if (!pat.includes(c)) pat.push(c); }
+    if (n === 3 && rng() < .5) pat[2] = pat[1];   // ex. 🔺🔵🔵 🔺🔵🔵 …
+    const len = n === 2 ? 5 : 7 + RI(0, 1), seq = []; for (let i = 0; i < len; i++) seq.push(pat[i % n]);
+    lines = [seq.join(' ') + ' ?']; ans = pat[len % n];
+    wrong = S.filter(c => c !== ans);
+  }
+  const opts = [String(ans)], pool = wrong.map(String).filter(w => w !== String(ans) && !(+w < 0));
+  while (opts.length < 3 && pool.length) { const w = pool.splice(Math.floor(rng() * pool.length), 1)[0]; if (!opts.includes(w)) opts.push(w); }
+  while (opts.length < 3) opts.push(String((+ans || 0) + opts.length * 2));
+  for (let i = 2; i > 0; i--) { const j = RI(0, i), t = opts[i]; opts[i] = opts[j]; opts[j] = t; }
+  return { lines, opts, correct: opts.indexOf(String(ans)) };
 }
 
 function genFloor(fi) {
@@ -332,7 +367,8 @@ function genFloor(fi) {
   let cur = mk({ x: 0, y: 440, w: 360, type: 'normal', start: true });
   cps.push({ x: 84, y: 440, on: true });
   let lastCpX = 0, grpN = 0, bridge = null, swPlat = null, simon = null, pairs = null;
-  const mem = [], lamps = [], signs = [], fires = [], lasers = [], saws = []; let whack = null;
+  const mem = [], lamps = [], signs = [], fires = [], lasers = [], saws = []; let whack = null, levers = null, plate = null;
+  const cbtns = [], riddles = [], crates = [], grpInit = [];
   // zone "mémoire" : une lanterne 👁 révèle quelques secondes ce qui est caché juste après
   const newMem = (lp, dur) => { lp.busy = true; const g = { id: mem.length, rev: 0, cd: 0, dur, lx: lp.x + lp.w - 26, x1: 0 }; mem.push(g); lamps.push({ x: g.lx, y: lp.y - 36, g: g.id }); return g; };
   const forceCp = (p, fx) => { if (p.x - lastCpX > 700) { cps.push({ x: p.x + (fx || p.w / 2 - 24), y: p.y, on: false }); p.cp = true; lastCpX = p.x; } };
@@ -485,7 +521,57 @@ function genFloor(fi) {
       for (let i = 0; i < n; i++) put(R(60, 80 + 40 * D), RI(-25, 25), R(110 - 25 * D, 130 - 25 * D), { type: 'blink', per, ph: (i % 2) * .5 });
       put(R(60, 110), RI(-30, 30), R(130, 190));
     },
+    colorUp() {   // blocs rouges/bleus : il faut aller appuyer sur le bon bouton, en haut d'un détour
+      const grp = grpN++; grpInit[grp] = 'r';
+      const nB = 2 + (D > .45 ? 1 : 0), step = 70 + 12 * D;
+      let dy = RI(-20, 20); if (cur.y + dy - step * (nB + 1) < ymin) dy = ymin + step * (nB + 1) - cur.y;
+      const G0 = put(R(60, 110), dy, 400, { busy: true, spiky: true });
+      const R1 = mk({ x: G0.x + 205, y: G0.y - 82, w: 85 - 15 * D, type: 'color', col: 'r', grp });
+      const Lg = mk({ x: G0.x + 25, y: G0.y - 164, w: 125, type: 'normal', busy: true, spiky: true });
+      cbtns.push({ x: Lg.x + 62, y: Lg.y, grp, set: 'b' }, { x: G0.x + 62, y: G0.y, grp, set: 'r' });   // le bouton rouge (remise à zéro) n'est pas sur le chemin
+      forceCp(G0, 108);
+      let px = G0.x + G0.w;
+      for (let i = 0; i < nB; i++) { const b = mk({ x: px + 55 + 15 * D, y: G0.y - step * (i + 1), w: 95 - 20 * D, type: 'color', col: 'b', grp }); px = b.x + b.w; }
+      cur = mk({ x: px + 60, y: G0.y - step * (nB + 1), w: 190, type: 'normal' });
+    },
+    riddle() {   // devinette : trois portes, une seule mène à la suite (reste devant la bonne)
+      const S = put(R(60, 110), RI(-20, 20), 640, { busy: true, spiky: true }); forceCp(S, 26);
+      const rd = makeRiddle(rng, D), E = mk({ x: S.x + S.w + 430, y: S.y, w: 200, type: 'normal' }), doors = [];
+      for (let i = 0; i < 3; i++) doors.push({ x: S.x + 325 + i * 130, y: S.y, label: rd.opts[i], ok: i === rd.correct, t: 0, found: false });
+      riddles.push({ x: S.x + 105, y: S.y, lines: rd.lines, told: false, doors, dest: E });
+      cur = E;
+    },
     // --- énigmes ---
+    levers() {   // ampoules : chaque bloc allume/éteint certaines ampoules, il faut toutes les allumer
+      const n = D < .35 ? 3 : D < .75 ? 4 : 5;
+      const base = put(R(60, 110), RI(-20, 20), 150 + n * 110, { sw: true, spiky: true, busy: true });
+      swPlat = base;
+      bridge = mk({ x: base.x + base.w, y: base.y, w: 420, type: 'bridge', grow: 0, active: false });
+      const full = (1 << n) - 1, minSol = D < .35 ? 2 : D < .75 ? 2 : 3;
+      let masks, init, tries = 0;
+      do {
+        masks = [];
+        for (let i = 0; i < n; i++) { let m; do { m = 0; const k = RI(1, Math.min(3, D < .35 ? 2 : 3)); while (bitc(m) < k) m |= 1 << RI(0, n - 1); } while (masks.includes(m)); masks.push(m); }
+        let sub; do { sub = RI(1, full); } while (!sub);
+        init = full; for (let i = 0; i < n; i++) if (sub >> i & 1) init ^= masks[i];
+      } while ((init === full || solveLevers(masks, init, n) < minSol) && ++tries < 80);
+      const blocks = masks.map((m, i) => ({ x: base.x + 100 + i * 110, y: base.y - 96, mask: m, bump: 0 }));
+      levers = { blocks, state: init, n, done: false, cd: 0, px: base.x + base.w + 210, py: base.y - 150, told: false, base };
+      put(420, 0, R(150, 210), { exact: true });
+    },
+    crate() {   // caisse : le pont n'existe que tant que quelque chose appuie sur la plaque
+      const high = D > .4;
+      const P0 = put(R(60, 110), RI(-20, 20), 470 + (high ? 60 : 0), { sw: true, spiky: true, busy: true });
+      swPlat = P0;
+      let cx0, cy0;
+      if (high) { const U = mk({ x: P0.x + 100, y: P0.y - 112, w: 150, type: 'normal', busy: true, spiky: true, ledge: true }); cx0 = U.x + U.w - 72; cy0 = U.y - 44; }   // de la place à gauche pour pousser
+      else { cx0 = P0.x + 95; cy0 = P0.y - 44; }
+      const c = { x: cx0, y: cy0, w: 44, h: 44, type: 'crate', x0: cx0, y0: cy0, vx: 0, vy: 0, grounded: true, px: cx0, py: cy0, dx: 0, dy: 0, on: null };
+      plats.push(c); crates.push(c);
+      bridge = mk({ x: P0.x + P0.w, y: P0.y, w: 420, type: 'bridge', grow: 0, active: false });
+      plate = { x: P0.x + P0.w - 125, w: 70, y: P0.y, bridge, pressed: false, base: P0, told: false };
+      put(420, 0, R(150, 210), { exact: true });
+    },
     whack() {   // tape-éclair : taper le bloc allumé avant qu'il s'éteigne, plusieurs fois de suite
       const base = put(R(60, 110), RI(-20, 20), 560, { sw: true, spiky: true }), pads = [];
       for (let i = 0; i < 4; i++) pads.push({ x: base.x + 115 + i * 110, y: base.y - 96, pad: i, bump: 0 });
@@ -574,6 +660,8 @@ function genFloor(fi) {
 
   const hints = [];
   if (puz.sw === 'simon') hints.push('retiens la séquence de couleurs 🧠 pour faire apparaître le pont');
+  if (puz.sw === 'levers') hints.push('allume toutes les ampoules 💡 en tapant les blocs (chaque bloc change plusieurs ampoules !) pour faire apparaître le pont');
+  if (puz.sw === 'crate') hints.push('le pont n\'apparaît que si quelque chose appuie sur la plaque… à toi de trouver quoi 📦');
   if (puz.sw === 'whack') hints.push('tape les blocs allumés ⚡ avant qu\'ils s\'éteignent pour faire apparaître le pont');
   if (puz.sw === 'pairs') hints.push('retrouve toutes les paires de cartes 🃏 pour faire apparaître le pont');
   if (puz.sw === 'code') hints.push('mémorise le code du panneau 🪧 puis refais-le en tapant les blocs pour faire apparaître le pont');
@@ -581,8 +669,8 @@ function genFloor(fi) {
   if (puz.key) hints.push('trouve la clé 🔑 pour ouvrir ' + (last ? 'le coffre' : 'la porte'));
   let hint = hints.join(' et ') + ' !'; hint = hint[0].toUpperCase() + hint.slice(1);
   const sw = puz.sw ? { kind: puz.sw, x: swPlat.x + swPlat.w / 2, y: swPlat.y, on: false, bridge } : null;
-  const cst = {}; for (let g = 0; g < grpN; g++) cst[g] = 'b';
-  return { f, fi, last, plats, spikes, traps, coins, orbs, cps, door, key, sw, simon, pairs, whack, mem, lamps, signs, fires, lasers, saws, cst, needKey: puz.key, W: end.x + end.w + 80,
+  const cst = {}; for (let g = 0; g < grpN; g++) cst[g] = grpInit[g] || 'b';
+  return { f, fi, last, plats, spikes, traps, coins, orbs, cps, door, key, sw, simon, pairs, whack, mem, lamps, signs, fires, lasers, saws, levers, plate, crates, cbtns, riddles, grpInit, cst, needKey: puz.key, W: end.x + end.w + 80,
     top: Math.min(0, minY - 260), respawn: cps[0], hint, th: theme(f) };
 }
 
@@ -645,8 +733,9 @@ function loadFloor(i, first) {
 
 function respawn() {
   P = newPlayer(L.respawn.x - PW / 2, L.respawn.y - PH); P.inv = 1;
-  for (const g in L.cst) L.cst[g] = 'b';
+  for (const g in L.cst) L.cst[g] = L.grpInit[g] || 'b';
   for (const o of L.orbs) o.armed = true;
+  for (const c of L.crates) if (!(L.plate && L.plate.passed)) { c.x = c.x0; c.y = c.y0; c.vy = 0; }
   for (const p of L.plats) if (p.type === 'crumble') { p.cr = 0; p.crT = 0; }
   cam.x = Math.max(0, Math.min(L.W - W, P.x - W * .4)); state = 'playing';
 }
@@ -656,7 +745,7 @@ function hurt(why) {
   run.deaths++; shake = 1; flash = .5; SFX.hurt(); state = 'dying'; dieT = .7;
   const cx = P.x + PW / 2, cy = Math.min(P.y + 20, cam.y + H - 10);
   for (let i = 0; i < 18; i++) parts.push({ t: 'dot', x: cx, y: cy, vx: (Math.random() - .5) * 420, vy: -Math.random() * 400, g: 1200, life: .8, max: .8, s: 4 + Math.random() * 5, c: ['#fb7185', '#fde047', '#fff'][i % 3] });
-  pop(cx, cy - 50, why === 'fall' ? 'Oups, ça tombe !' : 'Aïe !', '#fb7185');
+  pop(cx, cy - 50, why === 'fall' ? 'Oups, ça tombe !' : why === 'wrong' ? '❌' : 'Aïe !', '#fb7185');
   updateHUD(true);
 }
 
@@ -695,8 +784,8 @@ function step(dt) {
   updatePlatforms(dt);
   updateSimon(dt);
   for (const g of L.mem) { g.rev = Math.max(0, g.rev - dt); g.cd = Math.max(0, g.cd - dt); }
-  updatePairs(dt); updateWhack(dt);
-  if (L.sw && L.sw.bridge.active && L.sw.bridge.grow < 1) L.sw.bridge.grow = Math.min(1, L.sw.bridge.grow + dt / .9);
+  updatePairs(dt); updateWhack(dt); updateCrates(dt); updateLevers(dt);
+  if (L.sw && L.sw.kind !== 'crate' && L.sw.bridge.active && L.sw.bridge.grow < 1) L.sw.bridge.grow = Math.min(1, L.sw.bridge.grow + dt / .9);
   for (const o of L.orbs) o.cd = Math.max(0, o.cd - dt);
 
   if (state === 'playing') updatePlayer(dt);
@@ -758,6 +847,42 @@ function padHit(i) {
     }
   } else if (s.static) { s.prog = 0; SFX.locked(); shake = .2; showToast('❌ Mauvais code ! Retourne voir le panneau 🪧 si tu as oublié'); }
   else { s.prog = 0; s.retry = 1.3; SFX.locked(); shake = .2; showToast('❌ Raté ! On regarde encore une fois…'); }
+}
+
+/* ---------- Énigmes "Logique" ---------- */
+function updateLevers(dt) {
+  const q = L.levers; if (!q) return;
+  q.cd = Math.max(0, q.cd - dt); for (const b of q.blocks) b.bump = Math.max(0, b.bump - dt);
+}
+function leverHit(i) {
+  const q = L.levers; if (q.done) return;
+  const b = q.blocks[i]; q.state ^= b.mask; SFX.orb(); sparkle(b.x, b.y, 8, '#fde047');
+  if (q.state === (1 << q.n) - 1) { q.done = true; openBridge(q.px, q.py, '💡 Toutes les ampoules sont allumées ! Le pont apparaît !'); }
+}
+function updateCrates(dt) {
+  for (const c of L.crates) {
+    const prevB = c.y + c.h; c.vy = Math.min(MAXFALL, c.vy + GRAV * dt); c.y += c.vy * dt; c.grounded = false; c.on = null;
+    if (c.vy >= 0) {
+      let best = null;
+      for (const pl of L.plats) {
+        if (pl === c || !solidNow(pl) || pl.fake) continue; const pw = platW(pl);
+        if (c.x + c.w - 6 > pl.x && c.x + 6 < pl.x + pw && prevB <= pl.y + 10 && c.y + c.h >= pl.y) { if (!best || pl.y < best.y) best = pl; }
+      }
+      if (best) { if (c.vy > 300) { dust(c.x + c.w / 2, best.y, 6); SFX.land(); } c.y = best.y - c.h; c.vy = 0; c.grounded = true; c.on = best; }
+    }
+    if (c.y > 700) { c.x = c.x0; c.y = c.y0; c.vy = 0; showToast('📦 La caisse est tombée… elle revient à sa place'); }
+  }
+  const pl = L.plate; if (!pl) return;
+  const onPlate = o => o.x + o.w / 2 > pl.x - 6 && o.x + o.w / 2 < pl.x + pl.w + 6;
+  const byCrate = L.crates.some(c => c.grounded && c.on === pl.base && onPlate(c));
+  const byPlayer = P.grounded && P.standing === pl.base && P.x + PW / 2 > pl.x && P.x + PW / 2 < pl.x + pl.w;
+  const was = pl.pressed; pl.pressed = byCrate || byPlayer;
+  if (pl.pressed !== was) { SFX.locked(); if (pl.pressed) ring(pl.x + pl.w / 2, pl.y, '#fde047'); }
+  const b = pl.bridge;
+  if (pl.pressed) { b.active = true; b.grow = Math.min(1, b.grow + dt / .35); }
+  else { b.grow = Math.max(0, b.grow - dt / .35); b.active = b.grow > 0; }
+  if (L.sw.on !== byCrate) { L.sw.on = byCrate; updateHUD(true); }
+  if (P.x > b.x + b.w) pl.passed = true;
 }
 
 /* ---------- Pièges "Réflexes" ---------- */
@@ -849,6 +974,12 @@ function updatePlayer(dt) {
   p.vy = Math.min(MAXFALL, p.vy + GRAV * dt);
 
   p.x += p.vx * dt;
+  for (const c of L.crates) {   // pousser la caisse
+    if (p.y + PH <= c.y + 6 || p.y >= c.y + c.h || p.x + PW <= c.x || p.x >= c.x + c.w) continue;
+    if (p.x + PW / 2 < c.x + c.w / 2) { if (c.grounded) c.x = p.x + PW; else p.x = c.x - PW; }
+    else { if (c.grounded) c.x = p.x - c.w; else p.x = c.x + c.w; }
+    p.vx = Math.max(-150, Math.min(150, p.vx));
+  }
   if (p.x < 0) { p.x = 0; p.vx = 0; }
   if (p.x > L.W - PW) { p.x = L.W - PW; p.vx = 0; }
 
@@ -901,6 +1032,24 @@ function updatePlayer(dt) {
     sg.told = true; showToast(sg.kind === 'code' ? '🪧 Retiens bien ce code couleur, il servira plus loin !' : '🪧 Retiens le chemin : ⬆ plateforme du haut, ⬇ celle du bas');
   }
   if (L.simon && !L.simon.done && p.vy < 0 && L.simon.cd <= 0) for (const b of L.simon.pads) if (Math.abs(b.x - cx) < 28 && Math.abs(b.y - p.y) < 34) { L.simon.cd = .35; b.bump = .2; padHit(b.pad); break; }
+  if (L.levers && !L.levers.done && p.vy < 0 && L.levers.cd <= 0) for (let i = 0; i < L.levers.blocks.length; i++) { const b = L.levers.blocks[i]; if (Math.abs(b.x - cx) < 28 && Math.abs(b.y - p.y) < 34) { L.levers.cd = .3; b.bump = .2; leverHit(i); break; } }
+  if (L.levers && !L.levers.told && p.standing === L.levers.base) { L.levers.told = true; showToast('💡 Chaque bloc allume ou éteint les ampoules dessinées dessus. Allume-les toutes !'); }
+  if (L.plate && !L.plate.told && p.standing === L.plate.base) { L.plate.told = true; showToast('📦 Le pont reste seulement si la plaque est enfoncée… Pousse la caisse !'); }
+  if (p.grounded) for (const bt of L.cbtns) if (Math.abs(bt.x - cx) < 22 && Math.abs(p.y + PH - bt.y) < 6 && L.cst[bt.grp] !== bt.set) {
+    L.cst[bt.grp] = bt.set; SFX.orb(); const col = bt.set === 'r' ? '#f87171' : '#60a5fa'; ring(bt.x, bt.y, col); sparkle(bt.x, bt.y - 10, 12, col);
+  }
+  for (const rd of L.riddles) {
+    if (!rd.told && Math.abs(rd.x - cx) < 160 && Math.abs(p.y + PH - rd.y) < 60) { rd.told = true; showToast('🤔 Trouve la réponse, puis reste immobile devant la bonne porte !'); }
+    for (const d of rd.doors) {
+      const inFront = p.grounded && Math.abs(d.x - cx) < 20 && Math.abs(p.y + PH - d.y) < 4 && Math.abs(p.vx) < 30 && !d.found;
+      d.t = inFront ? d.t + dt : 0;
+      if (d.t >= .8) {
+        d.t = 0;
+        if (d.ok) { SFX.door(); confetti(d.x, d.y - 40, 60, 500, 400); P.x = rd.dest.x + 30; P.y = rd.dest.y - PH; P.vx = P.vy = 0; P.standing = rd.dest; showToast('✅ Bonne réponse !'); sparkle(P.x + PW / 2, P.y, 20); return; }
+        d.found = true; pop(d.x, d.y - 100, 'Mauvaise réponse !', '#fb7185'); hurt('wrong'); return;
+      }
+    }
+  }
   if (L.whack && !L.whack.done && p.vy < 0 && L.whack.cd <= 0) for (const b of L.whack.pads) if (Math.abs(b.x - cx) < 28 && Math.abs(b.y - p.y) < 34) { L.whack.cd = .25; b.bump = .2; whackHit(b.pad); break; }
   if (L.pairs && !L.pairs.done && p.vy < 0) for (let i = 0; i < L.pairs.cards.length; i++) { const c = L.pairs.cards[i]; if (Math.abs(c.x - cx) < 24 && Math.abs(c.y - p.y) < 40) cardHit(i); }
   if (p.grounded) for (const c of L.cps) if (!c.on && Math.abs(c.x - cx) < 44 && Math.abs(p.y + PH - c.y) < 6) {
@@ -1143,6 +1292,12 @@ function drawPlat(p) {
     return;
   }
   const w = p.w;
+  if (p.type === 'crate') {
+    ctx.fillStyle = '#b45309'; rr(x, y, w, p.h, 6); ctx.fill(); ctx.strokeStyle = OUT; ctx.lineWidth = 4; ctx.stroke();
+    ctx.strokeStyle = '#78350f'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x + 6, y + 6); ctx.lineTo(x + w - 6, y + p.h - 6); ctx.moveTo(x + w - 6, y + 6); ctx.lineTo(x + 6, y + p.h - 6); ctx.stroke();
+    ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 2; ctx.strokeRect(x + 4, y + 4, w - 8, p.h - 8);
+    return;
+  }
   if (p.type === 'blink') {
     const u = blinkU(p), on = u < .56, warn = on && u > .4 && Math.floor(time * 14) % 2;
     if (on && !warn) { ctx.fillStyle = '#22d3ee'; rr(x, y, w, h, 8); ctx.fill(); ctx.fillStyle = '#cffafe'; ctx.fillRect(x + 5, y + 4, w - 10, 5); ctx.strokeStyle = OUT; ctx.lineWidth = 4; rr(x, y, w, h, 8); ctx.stroke(); }
@@ -1171,7 +1326,7 @@ function drawPlat(p) {
     ctx.fillStyle = shown ? '#ef4444' : '#7c3aed'; rr(x, y, w, h, 8); ctx.fill();
     ctx.fillStyle = shown ? '#fecaca' : '#ddd6fe'; ctx.fillRect(x + 4, y + 3, w - 8, 6);
     ctx.strokeStyle = OUT; ctx.lineWidth = 4; rr(x, y, w, h, 8); ctx.stroke();
-    if (shown) emoji('☠️', x + w / 2, y + 14, 15); else outText('?', x + w / 2, y + 15, 13, '#fff');
+    if (shown) emoji('☠️', x + w / 2, y + 14, 15); else if (p.label) { ctx.font = '900 22px sans-serif'; outText(p.label, x + w / 2, y - 18, 24, '#fde047'); outText('?', x + w / 2, y + 15, 13, '#fff'); } else outText('?', x + w / 2, y + 15, 13, '#fff');
     return;
   }
   let alpha = 1;
@@ -1338,6 +1493,56 @@ function drawReflex() {   // boules de feu, lasers, scies et blocs du tape-écla
   if (q && !q.done) outText('⚡ ' + q.streak + ' / ' + q.need, q.base.x + q.base.w / 2, q.base.y - 160, 24, '#fde047');
 }
 
+function drawLogic() {   // boutons de couleur, plaque, blocs-leviers, ampoules, panneaux de devinette
+  for (const bt of L.cbtns) {
+    const c = bt.set === 'r' ? '#ef4444' : '#3b82f6', on = L.cst[bt.grp] === bt.set;
+    ctx.fillStyle = '#334155'; rr(bt.x - 22, bt.y - 7, 44, 7, 3); ctx.fill(); ctx.strokeStyle = OUT; ctx.lineWidth = 3; ctx.stroke();
+    ctx.fillStyle = c; rr(bt.x - 15, bt.y - 7 - (on ? 3 : 11), 30, on ? 3 : 11, 5); ctx.fill(); ctx.stroke();
+    if (!on) { ctx.globalAlpha = .9; outText(bt.set === 'r' ? 'ROUGE' : 'BLEU', bt.x, bt.y - 30, 12, c); ctx.globalAlpha = 1; }
+  }
+  const pl = L.plate;
+  if (pl) {
+    ctx.fillStyle = pl.pressed ? '#facc15' : '#a16207'; rr(pl.x, pl.y - (pl.pressed ? 3 : 8), pl.w, pl.pressed ? 3 : 8, 3); ctx.fill(); ctx.strokeStyle = OUT; ctx.lineWidth = 3; ctx.stroke();
+    if (!pl.pressed) emoji('⬇️', pl.x + pl.w / 2, pl.y - 30 + Math.sin(time * 4) * 3, 18);
+  }
+  const q = L.levers;
+  if (q) {
+    const syms = CARD_SYMS;
+    for (const b of q.blocks) {
+      const y = b.y - (b.bump > 0 ? 7 : 0), bits = []; for (let i = 0; i < q.n; i++) if (b.mask >> i & 1) bits.push(i);
+      const bw = Math.max(60, bits.length * 24 + 14);
+      ctx.fillStyle = q.done ? '#a3e635' : '#64748b'; rr(b.x - bw / 2, y - 20, bw, 40, 9); ctx.fill(); ctx.strokeStyle = OUT; ctx.lineWidth = 4; ctx.stroke();
+      bits.forEach((k, j) => emoji(syms[k], b.x - (bits.length - 1) * 12 + j * 24, y + 1, 19));
+    }
+    const pw = q.n * 54 + 16, x0 = q.px - pw / 2;
+    ctx.fillStyle = '#1e293b'; rr(x0, q.py - 34, pw, 68, 12); ctx.fill(); ctx.strokeStyle = OUT; ctx.lineWidth = 4; ctx.stroke();
+    for (let i = 0; i < q.n; i++) {
+      const on = q.state >> i & 1, lx = x0 + 35 + i * 54;
+      if (on) { const g = ctx.createRadialGradient(lx, q.py, 4, lx, q.py, 34); g.addColorStop(0, 'rgba(253,224,71,.8)'); g.addColorStop(1, 'rgba(253,224,71,0)'); ctx.fillStyle = g; ctx.fillRect(lx - 34, q.py - 34, 68, 68); }
+      ctx.beginPath(); ctx.arc(lx, q.py, 21, 0, 7); ctx.fillStyle = on ? '#fde047' : '#334155'; ctx.fill(); ctx.strokeStyle = OUT; ctx.lineWidth = 3; ctx.stroke();
+      ctx.globalAlpha = on ? 1 : .45; emoji(syms[i], lx, q.py + 1, 22); ctx.globalAlpha = 1;
+    }
+    outText('💡 Allume tout !', q.px, q.py - 50, 16, '#fde047');
+  }
+  for (const rd of L.riddles) {
+    if (rd.x < cam.x - 300 || rd.x > cam.x + W + 300) continue;
+    ctx.font = '900 22px "Trebuchet MS",sans-serif';
+    const bw = Math.max(...rd.lines.map(t => ctx.measureText(t).width)) + 36, bh = rd.lines.length * 30 + 18, by = rd.y - 84 - bh;
+    ctx.fillStyle = '#78350f'; ctx.fillRect(rd.x - 4, rd.y - 84, 8, 84); ctx.strokeStyle = OUT; ctx.lineWidth = 3; ctx.strokeRect(rd.x - 4, rd.y - 84, 8, 84);
+    ctx.fillStyle = '#fef3c7'; rr(rd.x - bw / 2, by, bw, bh, 10); ctx.fill(); ctx.lineWidth = 4; ctx.stroke();
+    rd.lines.forEach((t, i) => { ctx.fillStyle = '#1e1b4b'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(t, rd.x, by + 24 + i * 30); });
+    for (const d of rd.doors) {
+      const x = d.x - 30, y = d.y - 84;
+      ctx.fillStyle = '#1e1b4b'; rr(x - 5, y - 5, 70, 89, 30); ctx.fill();
+      ctx.fillStyle = d.found ? '#475569' : '#6d28d9'; rr(x, y, 60, 84, 28); ctx.fill(); ctx.strokeStyle = OUT; ctx.lineWidth = 4; ctx.stroke();
+      ctx.fillStyle = '#fde68a'; ctx.beginPath(); ctx.arc(x + 46, y + 48, 4, 0, 7); ctx.fill();
+      if (d.found) emoji('❌', d.x, y + 42, 26);
+      else { ctx.fillStyle = '#fef3c7'; rr(d.x - 30, y - 42, 60, 34, 8); ctx.fill(); ctx.lineWidth = 3; ctx.stroke(); ctx.font = '900 20px "Trebuchet MS",sans-serif'; ctx.fillStyle = '#1e1b4b'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(d.label, d.x, y - 24); }
+      if (d.t > 0) { ctx.beginPath(); ctx.arc(d.x, y + 42, 22, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * d.t / .8); ctx.strokeStyle = '#fde047'; ctx.lineWidth = 6; ctx.stroke(); }
+    }
+  }
+}
+
 function drawMemory() {   // lanternes, panneaux et cartes du thème Mémoire
   for (const l of L.lamps) {
     if (l.x < cam.x - 60 || l.x > cam.x + W + 60) continue;
@@ -1434,7 +1639,7 @@ function render() {
   for (const p of L.plats) if (p.x + p.w > x0 && p.x < x1) drawPlat(p);
   for (const s of L.spikes) if (s.x + s.w > x0 && s.x < x1) drawSpikeRow(s.x, s.y + s.h, s.w, s.h, '#e5e7eb');
   for (const t of L.traps) if (t.x + t.w > x0 && t.x < x1) drawTrap(t);
-  drawCheckpoints(); drawMemory(); drawReflex(); drawDoor(); drawSwitch(); drawKey(); drawCoins(); drawOrbs();
+  drawCheckpoints(); drawMemory(); drawReflex(); drawLogic(); drawDoor(); drawSwitch(); drawKey(); drawCoins(); drawOrbs();
   drawPlayer();
   drawParticles();
   ctx.restore();
