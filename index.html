@@ -654,11 +654,11 @@ function genFloor(fi) {
       const n = 4 + Math.round(4 * D);
       for (let i = 0; i < n; i++) put(R(60, 110 + 40 * D), RI(-45, 45), R(150 - 40 * D, 200 - 50 * D), { spiky: true, chaseP: true });
       const end = put(R(60, 100), RI(-20, 20), 200, { spiky: true });
-      chasers.push({ xs: st.x + 120, x1: end.x + 60, sp: 185 + 65 * D, x: 0, active: false, done: false, ys: Math.min(st.y, end.y) });
+      chasers.push({ xs: st.x + 120, x1: end.x + 60, sp: 180 + 50 * D, x: 0, active: false, done: false, ys: Math.min(st.y, end.y) });
     },
     boost() {   // propulseur : le seul moyen de franchir ce trou géant
       put(R(60, 110), RI(-20, 20), R(210, 260), { boost: true, spiky: true });
-      put(R(400, 425 + 30 * D), RI(-30, 10), R(150 - 30 * D, 200 - 30 * D), { exact: true });
+      put(R(380, 400 + 20 * D), RI(-30, 10), R(150 - 30 * D, 200 - 30 * D), { exact: true });   // sans propulseur on plafonne à ~345 px, avec on atteint ~450 px
     },
     // ===== SAMEDI (Altitude) =====
     wind() {   // courant d'air : saute dedans pour t'envoler, puis sors sur le côté
@@ -1045,7 +1045,7 @@ function updateNewDays(dt) {
   }
   for (const c of L.chasers) {
     if (c.done) continue;
-    if (!c.active && P.x > c.xs && P.x < c.x1) { c.active = true; c.x = c.xs - 270; showToast('🔥 Le mur de feu arrive : cours !'); }
+    if (!c.active && P.x > c.xs && P.x < c.x1) { c.active = true; c.x = c.xs - 320; showToast('🔥 Le mur de feu arrive : cours !'); }
     if (c.active) { c.x += c.sp * dt; if (P.x > c.x1) { c.done = true; c.active = false; showToast('😅 Ouf, semé !'); } }
   }
 }
