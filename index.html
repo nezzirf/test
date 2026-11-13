@@ -333,8 +333,8 @@ function genFloor(fi) {
   let lastCpX = 0, grpN = 0, bridge = null, swPlat = null, simon = null, pairs = null;
   const mem = [], lamps = [], signs = [];
   // zone "mémoire" : une lanterne 👁 révèle quelques secondes ce qui est caché juste après
-  const newMem = (lp, dur) => { const g = { id: mem.length, rev: 0, dur, lx: lp.x + lp.w - 26, x1: 0 }; mem.push(g); lamps.push({ x: g.lx, y: lp.y - 36, g: g.id }); return g; };
-  const forceCp = p => { if (p.x - lastCpX > 700) { cps.push({ x: p.x + p.w / 2 - 24, y: p.y, on: false }); p.cp = true; lastCpX = p.x; } };
+  const newMem = (lp, dur) => { lp.busy = true; const g = { id: mem.length, rev: 0, cd: 0, dur, lx: lp.x + lp.w - 26, x1: 0 }; mem.push(g); lamps.push({ x: g.lx, y: lp.y - 36, g: g.id }); return g; };
+  const forceCp = (p, fx) => { if (p.x - lastCpX > 700) { cps.push({ x: p.x + (fx || p.w / 2 - 24), y: p.y, on: false }); p.cp = true; lastCpX = p.x; } };
   const keyCand = [];
 
   // pose une plateforme après la plateforme courante (saut garanti faisable)
@@ -393,13 +393,13 @@ function genFloor(fi) {
       put(R(60, 120), RI(-30, 30), R(130, 190));
     },
     ghost() {   // plateformes fantômes : visibles seulement quand la lanterne brille
-      const lp = put(R(60, 110), RI(-20, 20), 150), g = newMem(lp, 3.2 - 1.4 * D); forceCp(lp);
+      const lp = put(R(60, 110), RI(-20, 20), 150), g = newMem(lp, 2.2 - 1.1 * D); forceCp(lp);
       const n = Math.min(4, 2 + Math.round(2 * D) + RI(0, 1));
       for (let i = 0; i < n && cur.x + cur.w - g.lx < 560; i++) put(R(60 + 20 * D, 80 + 35 * D), RI(-20 - 40 * D, 20 + 40 * D), R(120 - 40 * D, 145 - 50 * D), { type: 'ghost', flash: 0, mg: g.id });
       g.x1 = put(R(60, 110), RI(-30, 30), R(130, 190)).x;
     },
     decoy() {   // pont piégé : certaines dalles sont fausses, la lanterne les montre en rouge
-      const lp = put(R(60, 110), RI(-20, 20), 150), g = newMem(lp, 2.4 - 1.2 * D); forceCp(lp);
+      const lp = put(R(60, 110), RI(-20, 20), 150), g = newMem(lp, 2 - D); forceCp(lp);
       const n = 6 + Math.round(5 * D) + RI(0, 1), tiles = []; let x = lp.x + lp.w + 50, runF = 0;
       for (let i = 0; i < n; i++) {
         const fake = i > 0 && i < n - 1 && runF < 2 && rng() < .3 + .25 * D; runF = fake ? runF + 1 : 0;
@@ -410,7 +410,7 @@ function genFloor(fi) {
       g.x1 = put(R(50, 80), RI(-20, 20), R(130, 190)).x;
     },
     fork() {   // chemin fléché : le panneau indique haut/bas, une des deux plateformes est fausse
-      const sp = put(R(60, 110), 350 - cur.y, 200); forceCp(sp);
+      const sp = put(R(60, 110), 350 - cur.y, 320); sp.busy = true; forceCp(sp, 36);
       const n = 2 + Math.round(3 * D) + RI(0, 1), seq = []; let base = sp;
       for (let i = 0; i < n; i++) {
         const up = rng() < .5, x = base.x + base.w + 110; seq.push(up);
@@ -418,19 +418,19 @@ function genFloor(fi) {
         mk({ x, y: sp.y + 65, w: 170, type: 'opt', fake: up, found: false });
         base = mk({ x: x + 170 + 110, y: sp.y, w: 120, type: 'normal' });
       }
-      signs.push({ x: sp.x + 148, y: sp.y, kind: 'arrows', seq, told: false });
+      signs.push({ x: sp.x + sp.w - 30 - (seq.length * 30 + 18) / 2, y: sp.y, kind: 'arrows', seq, told: false });
       cur = base;
     },
     color() {
       const grp = grpN++; let prev = put(R(60, 120), RI(-20, 20), 170), col = 'r';
       const n = 1 + Math.round(4 * D) + (D > .3 ? RI(0, 1) : 0);
       for (let i = 0; i < n; i++) {
-        const gap = R(85, 100 + 35 * D);
-        const g = put(gap, RI(-25 * D, 25 * D), R(130 - 30 * D, 150 - 30 * D), { type: 'color', col, grp, exact: true });
-        orbs.push({ x: prev.x + prev.w + gap / 2, y: Math.min(prev.y, g.y) - 92, grp, cd: 0 });
+        const gap = R(85, 100 + 20 * D);
+        const g = put(gap, RI(-25 * D, 25 * D), R(135 - 25 * D, 155 - 25 * D), { type: 'color', col, grp, exact: true });
+        orbs.push({ x: prev.x + prev.w + gap / 2, y: Math.min(prev.y, g.y) - 92, grp, cd: 0, armed: true });
         prev = g; col = col === 'r' ? 'b' : 'r';
       }
-      put(R(85, 100 + 25 * D), RI(-20, 20), 170, { exact: true });
+      put(R(85, 100 + 20 * D), RI(-20, 20), 170, { exact: true });
     },
     iceRun() {
       const p = put(R(60, 130), RI(-40, 40), R(260, 340) + 80 * D, { type: 'ice' });
@@ -471,8 +471,9 @@ function genFloor(fi) {
       simon = { seq, pads, base, prog: 0, showing: false, showT: 0, showI: 0, done: false, retry: 0, lit: -1, litT: 0, seen: false, pace: .9 - .4 * D };
     },
     code() {   // code secret : le panneau est loin avant, il faut s'en souvenir jusqu'aux plots
-      const cand = plats.filter(p => p.type === 'normal' && !p.spiky && !p.tiny && !p.start && p.w >= 140 && p.x < cur.x - 1000);
+      const cand = plats.filter(p => p.type === 'normal' && !p.spiky && !p.tiny && !p.start && !p.busy && !p.cp && !p.sw && !p.simonBase && !p.spring && !p.conv && p.w >= 140 && p.x < cur.x - 1000);
       const sp = cand.length ? cand.reduce((a, b) => Math.abs(b.x - (cur.x - 2200)) < Math.abs(a.x - (cur.x - 2200)) ? b : a) : plats[0];
+      sp.busy = true;
       SEG.simon();
       simon.static = true; simon.seen = true; simon.seq = simon.seq.slice(0, 3 + Math.floor(f * 3 / 11));
       signs.push({ x: sp.x + sp.w - 60, y: sp.y, kind: 'code', seq: simon.seq, told: false });
@@ -502,7 +503,7 @@ function genFloor(fi) {
       SEG[name]();
     }
     // drapeau (point de contrôle) de temps en temps, sur une plateforme sûre
-    if (cur.type === 'normal' && !cur.spiky && !cur.tiny && cur.w >= 120 && cur.x - lastCpX > 1400 + 1400 * D) {
+    if (cur.type === 'normal' && !cur.spiky && !cur.tiny && !cur.busy && !cur.cp && cur.w >= 120 && cur.x - lastCpX > 1400 + 1400 * D) {
       cps.push({ x: cur.x + cur.w / 2, y: cur.y, on: false }); cur.cp = true; lastCpX = cur.x;
     }
   }
@@ -515,8 +516,8 @@ function genFloor(fi) {
   // clé sur une petite plateforme en hauteur
   let key = null;
   if (puz.key) {
-    let c = keyCand.filter(p => !p.cp && p.x > 800 && p.x < target * .8); if (!c.length) c = plats.filter(p => p.type === 'normal' && !p.start && !p.end && !p.spiky && !p.tiny && !p.cp && p.w >= 90 && p.x > 800);
-    if (!c.length) c = plats.filter(p => p.type === 'normal' && !p.start && !p.end && !p.sw && !p.spring && !p.cp); if (!c.length) c = [plats[0]];
+    let c = keyCand.filter(p => !p.cp && !p.busy && p.x > 800 && p.x < target * .8); if (!c.length) c = plats.filter(p => p.type === 'normal' && !p.start && !p.end && !p.spiky && !p.tiny && !p.cp && !p.busy && p.w >= 90 && p.x > 800);
+    if (!c.length) c = plats.filter(p => p.type === 'normal' && !p.start && !p.end && !p.sw && !p.spring && !p.cp && !p.busy); if (!c.length) c = [plats[0]];
     const base = c[Math.floor(rng() * c.length)];
     const kp = mk({ x: base.x + base.w / 2 - 50, y: base.y - 128, w: 100, type: 'normal', keyplat: true });
     key = { x: kp.x + kp.w / 2, y: kp.y - 34, got: false }; base.hasKey = true;
@@ -605,6 +606,7 @@ function loadFloor(i, first) {
 function respawn() {
   P = newPlayer(L.respawn.x - PW / 2, L.respawn.y - PH); P.inv = 1;
   for (const g in L.cst) L.cst[g] = 'b';
+  for (const o of L.orbs) o.armed = true;
   for (const p of L.plats) if (p.type === 'crumble') { p.cr = 0; p.crT = 0; }
   cam.x = Math.max(0, Math.min(L.W - W, P.x - W * .4)); state = 'playing';
 }
@@ -652,7 +654,7 @@ function step(dt) {
 
   updatePlatforms(dt);
   updateSimon(dt);
-  for (const g of L.mem) g.rev = Math.max(0, g.rev - dt);
+  for (const g of L.mem) { g.rev = Math.max(0, g.rev - dt); g.cd = Math.max(0, g.cd - dt); }
   updatePairs(dt);
   if (L.sw && L.sw.bridge.active && L.sw.bridge.grow < 1) L.sw.bridge.grow = Math.min(1, L.sw.bridge.grow + dt / .9);
   for (const o of L.orbs) o.cd = Math.max(0, o.cd - dt);
@@ -668,7 +670,7 @@ function step(dt) {
   const mg = L.mem.find(g => g.rev > 0 && P.x > g.lx - 300 && P.x < g.x1);   // la caméra montre toute la zone révélée
   if (mg) tx = Math.max(0, Math.min(L.W - W, mg.lx - 130));
   const ty = Math.min(0, Math.max(L.top, P.y + PH / 2 - 330));
-  cam.x += (tx - cam.x) * Math.min(1, dt * 6); cam.y += (ty - cam.y) * Math.min(1, dt * 5);
+  cam.x += (tx - cam.x) * Math.min(1, dt * (mg ? 14 : 6)); cam.y += (ty - cam.y) * Math.min(1, dt * 5);
 }
 
 function updatePlatforms(dt) {
@@ -818,13 +820,15 @@ function updatePlayer(dt) {
   for (const c of L.coins) if (!c.got && Math.abs(c.x - cx) < 26 && Math.abs(c.y - cy) < 30) {
     c.got = true; run.coins++; SFX.coin(); sparkle(c.x, c.y, 8); pop(c.x, c.y - 10, '+50'); updateHUD();
   }
-  for (const o of L.orbs) if (o.cd <= 0 && Math.abs(o.x - cx) < 32 && Math.abs(o.y - cy) < 38) {
-    o.cd = .55; L.cst[o.grp] = L.cst[o.grp] === 'b' ? 'r' : 'b'; SFX.orb();
+  for (const o of L.orbs) {   // rayon vertical : on le traverse forcément en sautant, une seule bascule par passage
+    if (!o.armed) { if (Math.abs(o.x - cx) > 60) o.armed = true; continue; }
+    if (Math.abs(o.x - cx) > 22 || cy < o.y - 200 || cy > o.y + 76) continue;
+    o.armed = false; o.cd = .4; L.cst[o.grp] = L.cst[o.grp] === 'b' ? 'r' : 'b'; SFX.orb();
     ring(o.x, o.y, L.cst[o.grp] === 'r' ? '#f87171' : '#60a5fa'); sparkle(o.x, o.y, 12, L.cst[o.grp] === 'r' ? '#f87171' : '#60a5fa');
   }
   for (const l of L.lamps) if (Math.abs(l.x - cx) < 26 && Math.abs(l.y - cy) < 40) {
-    const g = L.mem[l.g]; if (g.rev <= 0) { SFX.orb(); ring(l.x, l.y, '#fde047'); if (!L.lampTold) { L.lampTold = true; showToast('👁 Mémorise vite : tout va redevenir invisible !'); } }
-    g.rev = g.dur;
+    const g = L.mem[l.g];   // un flash très court, puis la lanterne doit se recharger
+    if (g.rev <= 0 && g.cd <= 0) { g.rev = g.dur; g.cd = g.dur + 3; SFX.orb(); ring(l.x, l.y, '#fde047'); if (!L.lampTold) { L.lampTold = true; showToast('👁 Mémorise vite : ça ne dure qu\'un instant !'); } }
   }
   for (const sg of L.signs) if (!sg.told && Math.abs(sg.x - cx) < 110 && Math.abs(p.y + PH - sg.y) < 70) {
     sg.told = true; showToast(sg.kind === 'code' ? '🪧 Retiens bien ce code couleur, il servira plus loin !' : '🪧 Retiens le chemin : ⬆ plateforme du haut, ⬇ celle du bas');
@@ -1204,7 +1208,10 @@ function drawCoins() {
 
 function drawOrbs() {
   for (const o of L.orbs) {
+    if (o.x < cam.x - 60 || o.x > cam.x + W + 60) continue;
     const next = L.cst[o.grp] === 'b' ? '#ef4444' : '#3b82f6', y = o.y + Math.sin(time * 3 + o.x) * 4, r = 20 - (o.cd > 0 ? 5 : 0);
+    const bm = ctx.createLinearGradient(0, o.y - 200, 0, o.y + 76); bm.addColorStop(0, 'rgba(255,255,255,0)'); bm.addColorStop(.6, next); bm.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.globalAlpha = .3 + .1 * Math.sin(time * 6); ctx.fillStyle = bm; ctx.fillRect(o.x - 5, o.y - 200, 10, 276); ctx.globalAlpha = 1;
     const g = ctx.createRadialGradient(o.x, y, 4, o.x, y, 46); g.addColorStop(0, next); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.globalAlpha = .5; ctx.fillStyle = g; ctx.fillRect(o.x - 46, y - 46, 92, 92); ctx.globalAlpha = 1;
     ctx.save(); ctx.translate(o.x, y); ctx.rotate(time * 2);
     ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI); ctx.fillStyle = '#ef4444'; ctx.fill();
@@ -1218,11 +1225,12 @@ function drawOrbs() {
 function drawMemory() {   // lanternes, panneaux et cartes du thème Mémoire
   for (const l of L.lamps) {
     if (l.x < cam.x - 60 || l.x > cam.x + W + 60) continue;
-    const on = L.mem[l.g].rev > 0, y = l.y + Math.sin(time * 3 + l.x) * 3;
+    const mgp = L.mem[l.g], on = mgp.rev > 0, wait = !on && mgp.cd > 0, y = l.y + Math.sin(time * 3 + l.x) * 3;
     const g = ctx.createRadialGradient(l.x, y, 3, l.x, y, on ? 70 : 40); g.addColorStop(0, on ? 'rgba(253,224,71,.8)' : 'rgba(196,181,253,.6)'); g.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = g; ctx.fillRect(l.x - 70, y - 70, 140, 140);
-    ctx.beginPath(); ctx.arc(l.x, y, 16, 0, 7); ctx.fillStyle = on ? '#fde047' : '#6d28d9'; ctx.fill(); ctx.strokeStyle = OUT; ctx.lineWidth = 3; ctx.stroke();
-    emoji('👁️', l.x, y + 1, 18);
+    ctx.beginPath(); ctx.arc(l.x, y, 16, 0, 7); ctx.fillStyle = on ? '#fde047' : wait ? '#475569' : '#6d28d9'; ctx.fill(); ctx.strokeStyle = OUT; ctx.lineWidth = 3; ctx.stroke();
+    ctx.globalAlpha = wait ? .35 : 1; emoji('👁️', l.x, y + 1, 18); ctx.globalAlpha = 1;
+    if (wait) { ctx.beginPath(); ctx.arc(l.x, y, 21, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (1 - mgp.cd / 3)); ctx.strokeStyle = '#fde047'; ctx.lineWidth = 4; ctx.stroke(); }
   }
   for (const sg of L.signs) {
     if (sg.x < cam.x - 200 || sg.x > cam.x + W + 200) continue;
