@@ -170,7 +170,7 @@ const DAILY_FLOORS = 12, RUN_SECONDS = 30 * 60, VARIANTS = 20;
 const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900, SPRING = 1000;
 const PW = 28, PH = 40;
 const STEP = 1 / 120;
-const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v7';
+const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v8';
 /* [MODE TEST] Passe à false (ou supprime les blocs marqués [MODE TEST]) quand tout est réglé. */
 const TEST_MODE = true;
 
@@ -180,8 +180,8 @@ const THEMES = [
     desc: 'Paires de cartes, codes secrets, ponts piégés, chemins fléchés… tout se joue dans ta tête !',
     w: { plain: 3, narrow: 1, movH: 1, movV: 1, ghost: 3, decoy: 3, fork: 3 } },
   { id: 'reflexe', day: 'Mardi', name: 'Réflexes', emoji: '⚡', hue: 40, col: '#fde047',
-    desc: 'Plateformes qui s\'écroulent et pics qui surgissent : réagis vite !',
-    w: { plain: 2, narrow: 1, movH: 2, movV: 1, crumble: 4, trap: 4 } },
+    desc: 'Boules de feu, lasers, scies, plateformes qui clignotent ou s\'écroulent : réagis vite !', whack: true,
+    w: { plain: 2, narrow: 1, movH: 1, movV: 1, crumble: 3, trap: 3, fire: 3, laser: 3, saw: 3, blink: 3 } },
   { id: 'logique', day: 'Mercredi', name: 'Logique', emoji: '🧩', hue: 160, col: '#6ee7b7',
     desc: 'Les orbes magiques échangent les blocs rouges et bleus : réfléchis avant de sauter !',
     w: { plain: 3, narrow: 1, movH: 1, movV: 1, color: 5 } },
@@ -196,7 +196,7 @@ const THEMES = [
     w: { plain: 1, narrow: 1, movV: 2, climb: 4, spring: 4 } },
   { id: 'defi', day: 'Dimanche', name: 'Grand Défi', emoji: '👑', hue: 315, col: '#f0abfc', alt: true, mix: true,
     desc: 'Le mélange de tous les pièges de la semaine. Es-tu prêt ?',
-    w: { plain: 2, narrow: 1, movH: 1, movV: 1, crumble: 1, trap: 1, ghost: 1, decoy: 1, color: 1, conv: 1, climb: 1, spring: 1, iceRun: 1 } }
+    w: { plain: 2, narrow: 1, movH: 1, movV: 1, crumble: 1, trap: 1, fire: 1, laser: 1, saw: 1, blink: 1, ghost: 1, decoy: 1, color: 1, conv: 1, climb: 1, spring: 1, iceRun: 1 } }
 ];
 
 /* ---------- Aléatoire à graine (seed) ---------- */
@@ -251,7 +251,7 @@ function tone(f1, f2, dur, type = 'square', vol = .05, delay = 0) {
 }
 const arp = (notes, step, type, vol) => notes.forEach((f, i) => tone(f, f, .18, type, vol, i * step));
 const MEM_ORDERS = [['simon', 'pairs', 'code'], ['pairs', 'code', 'simon'], ['code', 'simon', 'pairs'], ['pairs', 'simon', 'code'], ['simon', 'code', 'pairs'], ['code', 'pairs', 'simon']];
-const CARD_SYMS = ['🍎', '⭐', '🐸', '🌙', '🍄'], SW_ICON = { button: '🔘', simon: '🧠', pairs: '🃏', code: '🪧' };
+const CARD_SYMS = ['🍎', '⭐', '🐸', '🌙', '🍄'], SW_ICON = { button: '🔘', simon: '🧠', pairs: '🃏', code: '🪧', whack: '⚡' };
 const PAD_TONES = [262, 330, 392, 523], PAD_COLS = ['#ef4444', '#3b82f6', '#22c55e', '#facc15'];
 const SFX = {
   jump: () => tone(330, 700, .15), djump: () => tone(520, 1200, .22, 'triangle', .08), land: () => tone(140, 70, .07, 'sine', .07),
@@ -311,8 +311,9 @@ function puzzleFor(fi) {
   const f = floorSeq[fi], last = fi === floorSeq.length - 1;
   const r = mulberry32(hashStr(SEED + '#puz' + f))();
   if (THEME.simon) return { key: last || f % 4 === 3, sw: MEM_ORDERS[hashStr(SEED + '#mem') % 6][f % 3] };   // 3 énigmes de mémoire qui alternent
+  if (THEME.whack) return { key: last || r > 1 - (f / 11) * .6, sw: (f + (hashStr(SEED) & 1)) % 2 ? 'button' : 'whack' };   // tape-éclair un étage sur deux
   if (last) return { key: true, sw: THEME.mix ? (r < .5 ? 'simon' : 'pairs') : 'button' };
-  if (THEME.mix) return r < .25 ? { key: true, sw: null } : r < .5 ? { key: false, sw: 'button' } : r < .75 ? { key: false, sw: 'simon' } : { key: false, sw: 'pairs' };
+  if (THEME.mix) return r < .2 ? { key: true, sw: null } : r < .4 ? { key: false, sw: 'button' } : r < .6 ? { key: false, sw: 'simon' } : r < .8 ? { key: false, sw: 'pairs' } : { key: false, sw: 'whack' };
   const both = (f / 11) * .7;   // plus on monte, plus il y a de chances d'avoir clé + interrupteur
   return r < both ? { key: true, sw: 'button' } : r < both + (1 - both) / 2 ? { key: true, sw: null } : { key: false, sw: 'button' };
 }
@@ -331,7 +332,7 @@ function genFloor(fi) {
   let cur = mk({ x: 0, y: 440, w: 360, type: 'normal', start: true });
   cps.push({ x: 84, y: 440, on: true });
   let lastCpX = 0, grpN = 0, bridge = null, swPlat = null, simon = null, pairs = null;
-  const mem = [], lamps = [], signs = [];
+  const mem = [], lamps = [], signs = [], fires = [], lasers = [], saws = []; let whack = null;
   // zone "mémoire" : une lanterne 👁 révèle quelques secondes ce qui est caché juste après
   const newMem = (lp, dur) => { lp.busy = true; const g = { id: mem.length, rev: 0, cd: 0, dur, lx: lp.x + lp.w - 26, x1: 0 }; mem.push(g); lamps.push({ x: g.lx, y: lp.y - 36, g: g.id }); return g; };
   const forceCp = (p, fx) => { if (p.x - lastCpX > 700) { cps.push({ x: p.x + (fx || p.w / 2 - 24), y: p.y, on: false }); p.cp = true; lastCpX = p.x; } };
@@ -381,14 +382,18 @@ function genFloor(fi) {
     },
     crumble() {
       const n = 2 + Math.round(4 * D) + RI(0, 1);
-      for (let i = 0; i < n; i++) put(R(40, 70 + 70 * D), RI(-10 - 30 * D, 10 + 30 * D), R(100 - 25 * D, 125 - 30 * D), { type: 'crumble', cr: 0, crT: 0, delay: .9 - .6 * D });
+      for (let i = 0; i < n; i++) put(R(40, 70 + 70 * D), RI(-10 - 30 * D, 10 + 30 * D), R(100 - 25 * D, 125 - 30 * D), { type: 'crumble', cr: 0, crT: 0, delay: .9 - .65 * D });
+      if (T.whack && D > .45) for (let i = plats.length - n; i < plats.length; i++) {   // en haut de la tour : une boule de feu entre deux plateformes fragiles
+        const a = plats[i - 1], c = plats[i], G = c.x - a.x - a.w;
+        if (G >= 60 && rng() < D * .6) fires.push({ x: a.x + a.w + G / 2, y0: Math.max(a.y, c.y) + 150, amp: 420, per: R(2.5, 2.8) - .9 * D, ph: rng() });
+      }
       put(R(60, 110), RI(-30, 30), R(130, 190));
     },
     trap() {
       const n = 1 + (D > .35 && rng() < D ? 1 : 0) + (D > .75 && rng() < .5 ? 1 : 0);
       for (let i = 0; i < n; i++) {
         const p = put(R(60, 120), RI(-30, 30), R(240, 290) + 90 * D, { spiky: true });
-        traps.push({ x: p.x + 70, y: p.y, w: Math.floor((p.w - 140) / 20) * 20, per: R(3.2, 3.6) - 1.5 * D, ph: rng() });
+        traps.push({ x: p.x + 70, y: p.y, w: Math.floor((p.w - 140) / 20) * 20, per: R(3.2, 3.6) - 1.8 * D, ph: rng() });
       }
       put(R(60, 120), RI(-30, 30), R(130, 190));
     },
@@ -454,7 +459,41 @@ function genFloor(fi) {
       const up = cur.y - 240 > ymin;
       put(R(30, 60 + 70 * D), up ? -R(120 + 50 * D, 170 + 60 * D) : R(40, 120), R(200 - 100 * D, 240 - 100 * D), { exact: true }, 235);
     },
+    fire() {   // boules de feu qui jaillissent du vide : il faut sauter au bon moment
+      const n = 1 + Math.round(3 * D) + RI(0, 1);
+      for (let i = 0; i < n; i++) {
+        const prev = cur, G = R(120, 150 + 30 * D);
+        const p = put(G, RI(-20, 20), R(125 - 35 * D, 165 - 45 * D), { exact: true, spiky: true });
+        fires.push({ x: prev.x + prev.w + G / 2, y0: Math.max(prev.y, p.y) + 150, amp: 420, per: R(2.3, 2.6) - D, ph: rng() });
+      }
+      put(R(60, 110), RI(-30, 30), R(130, 190));
+    },
+    laser() {   // rayons qui s'allument et s'éteignent : impossible de sauter par-dessus
+      const n = 1 + Math.round(2 * D) + (D > .5 ? RI(0, 1) : 0);
+      const p = put(R(60, 120), RI(-30, 30), 150 + n * 170, { spiky: true }), per = R(2.1, 2.4) - .9 * D, ph0 = rng();
+      for (let i = 0; i < n; i++) lasers.push({ x: p.x + 160 + i * 170, y: p.y, per, ph: ph0 + i * .37 });
+      put(R(60, 120), RI(-30, 30), R(130, 190));
+    },
+    saw() {   // scies qui vont et viennent sur la plateforme
+      const p = put(R(60, 120), RI(-30, 30), R(300, 380) + 60 * D, { spiky: true }), k = D > .5 && rng() < .75 ? 2 : 1;
+      const ph0 = rng();   // deux scies en miroir : elles se croisent au milieu, on peut sauter les deux d'un coup
+      for (let i = 0; i < k; i++) saws.push({ x0: p.x + 55, x1: p.x + p.w - 55, y: p.y - 15, sp: 140 + 190 * D, ph: ph0 + i * .5 });
+      put(R(60, 120), RI(-30, 30), R(130, 190));
+    },
+    blink() {   // plateformes qui clignotent en rythme, une sur deux
+      const n = 3 + Math.round(3 * D) + RI(0, 1), per = R(2.4, 2.7) - 1.1 * D;
+      for (let i = 0; i < n; i++) put(R(60, 80 + 40 * D), RI(-25, 25), R(110 - 25 * D, 130 - 25 * D), { type: 'blink', per, ph: (i % 2) * .5 });
+      put(R(60, 110), RI(-30, 30), R(130, 190));
+    },
     // --- énigmes ---
+    whack() {   // tape-éclair : taper le bloc allumé avant qu'il s'éteigne, plusieurs fois de suite
+      const base = put(R(60, 110), RI(-20, 20), 560, { sw: true, spiky: true }), pads = [];
+      for (let i = 0; i < 4; i++) pads.push({ x: base.x + 115 + i * 110, y: base.y - 96, pad: i, bump: 0 });
+      swPlat = base;
+      bridge = mk({ x: swPlat.x + swPlat.w, y: swPlat.y, w: 420, type: 'bridge', grow: 0, active: false });
+      put(420, 0, R(150, 210), { exact: true });
+      whack = { pads, base, target: -1, lastT: -1, t: 0, max: 1, wait: .7, streak: 0, need: 3 + Math.round(5 * D), win: 1.05 - .6 * D, done: false, told: false, cd: 0 };
+    },
     button() {
       swPlat = put(R(60, 110), RI(-20, 20), 220, { sw: true, spiky: true });
       bridge = mk({ x: swPlat.x + swPlat.w, y: swPlat.y, w: 420, type: 'bridge', grow: 0, active: false });
@@ -535,6 +574,7 @@ function genFloor(fi) {
 
   const hints = [];
   if (puz.sw === 'simon') hints.push('retiens la séquence de couleurs 🧠 pour faire apparaître le pont');
+  if (puz.sw === 'whack') hints.push('tape les blocs allumés ⚡ avant qu\'ils s\'éteignent pour faire apparaître le pont');
   if (puz.sw === 'pairs') hints.push('retrouve toutes les paires de cartes 🃏 pour faire apparaître le pont');
   if (puz.sw === 'code') hints.push('mémorise le code du panneau 🪧 puis refais-le en tapant les blocs pour faire apparaître le pont');
   if (puz.sw === 'button') hints.push('active l\'interrupteur 🔴 pour faire apparaître le pont');
@@ -542,7 +582,7 @@ function genFloor(fi) {
   let hint = hints.join(' et ') + ' !'; hint = hint[0].toUpperCase() + hint.slice(1);
   const sw = puz.sw ? { kind: puz.sw, x: swPlat.x + swPlat.w / 2, y: swPlat.y, on: false, bridge } : null;
   const cst = {}; for (let g = 0; g < grpN; g++) cst[g] = 'b';
-  return { f, fi, last, plats, spikes, traps, coins, orbs, cps, door, key, sw, simon, pairs, mem, lamps, signs, cst, needKey: puz.key, W: end.x + end.w + 80,
+  return { f, fi, last, plats, spikes, traps, coins, orbs, cps, door, key, sw, simon, pairs, whack, mem, lamps, signs, fires, lasers, saws, cst, needKey: puz.key, W: end.x + end.w + 80,
     top: Math.min(0, minY - 260), respawn: cps[0], hint, th: theme(f) };
 }
 
@@ -655,7 +695,7 @@ function step(dt) {
   updatePlatforms(dt);
   updateSimon(dt);
   for (const g of L.mem) { g.rev = Math.max(0, g.rev - dt); g.cd = Math.max(0, g.cd - dt); }
-  updatePairs(dt);
+  updatePairs(dt); updateWhack(dt);
   if (L.sw && L.sw.bridge.active && L.sw.bridge.grow < 1) L.sw.bridge.grow = Math.min(1, L.sw.bridge.grow + dt / .9);
   for (const o of L.orbs) o.cd = Math.max(0, o.cd - dt);
 
@@ -720,6 +760,32 @@ function padHit(i) {
   else { s.prog = 0; s.retry = 1.3; SFX.locked(); shake = .2; showToast('❌ Raté ! On regarde encore une fois…'); }
 }
 
+/* ---------- Pièges "Réflexes" ---------- */
+function fireY(f) { const u = (time / f.per + f.ph) % 1; return u < .6 ? f.y0 - f.amp * Math.sin(Math.PI * u / .6) : f.y0 + 60; }
+function laserState(l) { const u = (time / l.per + l.ph) % 1; return u < .45 ? 0 : u < .6 ? 1 : 2; }   // 0 éteint, 1 avertissement, 2 allumé
+function sawX(s) { const d = (time * s.sp / (s.x1 - s.x0) / 2 + s.ph) % 1; return s.x0 + (s.x1 - s.x0) * (d < .5 ? d * 2 : 2 - d * 2); }
+function blinkU(p) { return (time / p.per + p.ph) % 1; }   // solide tant que < .56
+
+/* ---------- Énigme "Réflexes" : tape-éclair ---------- */
+function updateWhack(dt) {
+  const q = L.whack; if (!q || q.done) return;
+  q.cd = Math.max(0, q.cd - dt); for (const b of q.pads) b.bump = Math.max(0, b.bump - dt);
+  const b = q.base, on = P.x + PW > b.x && P.x < b.x + b.w && P.y + PH <= b.y + 4;
+  if (!on) { q.target = -1; q.wait = .6; return; }
+  if (!q.told) { q.told = true; showToast('⚡ Tape le bloc allumé avant qu\'il s\'éteigne, ' + q.need + ' fois de suite !'); }
+  if (q.target < 0) {
+    q.wait -= dt;
+    if (q.wait <= 0) { let j; do { j = Math.floor(Math.random() * 4); } while (j === q.lastT); q.target = q.lastT = j; q.t = q.max = q.win + Math.abs(q.pads[j].x - (P.x + PW / 2)) / MOVE; SFX.pad(j); }
+  } else { q.t -= dt; if (q.t <= 0) { q.target = -1; q.wait = .6; if (q.streak) pop(P.x + PW / 2, P.y - 30, 'Trop tard !', '#fb7185'); q.streak = 0; SFX.locked(); } }
+}
+function whackHit(i) {
+  const q = L.whack, b = q.pads[i]; if (q.target < 0) return;
+  if (i === q.target) {
+    q.streak++; q.target = -1; q.wait = .3; SFX.coin(); sparkle(b.x, b.y, 10, PAD_COLS[i]); pop(b.x, b.y - 34, q.streak + '/' + q.need, '#fff');
+    if (q.streak >= q.need) { q.done = true; openBridge(b.x, b.y, '🌉 Quels réflexes ! Le pont magique apparaît !'); }
+  } else { q.streak = 0; q.target = -1; q.wait = .6; SFX.locked(); shake = .2; pop(b.x, b.y - 34, 'Raté !', '#fb7185'); }
+}
+
 /* ---------- Énigme "Mémoire" : jeu des paires ---------- */
 function openBridge(x, y, msg) {
   L.sw.on = true; L.sw.bridge.active = true; SFX.sw(); shake = .35; confetti(x, y, 80, 600, 450); showToast(msg); updateHUD(true);
@@ -746,6 +812,7 @@ function solidNow(p) {
   if (p.type === 'bridge') return p.active;
   if (p.type === 'color') return L.cst[p.grp] === p.col;
   if (p.type === 'crumble') return p.cr !== 2;
+  if (p.type === 'blink') return blinkU(p) < .56;
   return true;
 }
 function trapExt(t) {   // 0 = pics rentrés, 1 = pics sortis
@@ -834,6 +901,7 @@ function updatePlayer(dt) {
     sg.told = true; showToast(sg.kind === 'code' ? '🪧 Retiens bien ce code couleur, il servira plus loin !' : '🪧 Retiens le chemin : ⬆ plateforme du haut, ⬇ celle du bas');
   }
   if (L.simon && !L.simon.done && p.vy < 0 && L.simon.cd <= 0) for (const b of L.simon.pads) if (Math.abs(b.x - cx) < 28 && Math.abs(b.y - p.y) < 34) { L.simon.cd = .35; b.bump = .2; padHit(b.pad); break; }
+  if (L.whack && !L.whack.done && p.vy < 0 && L.whack.cd <= 0) for (const b of L.whack.pads) if (Math.abs(b.x - cx) < 28 && Math.abs(b.y - p.y) < 34) { L.whack.cd = .25; b.bump = .2; whackHit(b.pad); break; }
   if (L.pairs && !L.pairs.done && p.vy < 0) for (let i = 0; i < L.pairs.cards.length; i++) { const c = L.pairs.cards[i]; if (Math.abs(c.x - cx) < 24 && Math.abs(c.y - p.y) < 40) cardHit(i); }
   if (p.grounded) for (const c of L.cps) if (!c.on && Math.abs(c.x - cx) < 44 && Math.abs(p.y + PH - c.y) < 6) {
     c.on = true; L.respawn = c; SFX.cp(); confetti(c.x, c.y - 50, 30, 300, 300); pop(c.x, c.y - 80, 'Drapeau ! 🚩', '#86efac');
@@ -850,6 +918,9 @@ function updatePlayer(dt) {
   const hx = p.x + 6, hy = p.y + 10, hw = PW - 12, hh = PH - 10;
   for (const s of L.spikes) if (hx < s.x + s.w - 3 && hx + hw > s.x + 3 && hy < s.y + s.h && hy + hh > s.y + 5) { hurt('spike'); return; }
   for (const t of L.traps) if (hx < t.x + t.w - 3 && hx + hw > t.x + 3 && hy + hh > t.y - 16 && hy < t.y && trapExt(t) > .6) { hurt('spike'); return; }
+  for (const f of L.fires) if (Math.abs(f.x - cx) < 24 && Math.abs(fireY(f) - cy) < 32) { hurt('spike'); return; }
+  for (const l of L.lasers) if (Math.abs(l.x - cx) < 14 && p.y + PH <= l.y + 6 && p.y > l.y - 470 && laserState(l) === 2) { hurt('spike'); return; }
+  for (const sw of L.saws) if (Math.abs(sawX(sw) - cx) < 25 && p.y + PH > sw.y - 14 && p.y < sw.y + 16) { hurt('spike'); return; }
   if (p.y > 640) { hurt('fall'); return; }
   // porte / trésor
   const d = L.door;
@@ -1072,6 +1143,12 @@ function drawPlat(p) {
     return;
   }
   const w = p.w;
+  if (p.type === 'blink') {
+    const u = blinkU(p), on = u < .56, warn = on && u > .4 && Math.floor(time * 14) % 2;
+    if (on && !warn) { ctx.fillStyle = '#22d3ee'; rr(x, y, w, h, 8); ctx.fill(); ctx.fillStyle = '#cffafe'; ctx.fillRect(x + 5, y + 4, w - 10, 5); ctx.strokeStyle = OUT; ctx.lineWidth = 4; rr(x, y, w, h, 8); ctx.stroke(); }
+    else { ctx.save(); ctx.setLineDash([8, 8]); ctx.strokeStyle = '#22d3ee'; ctx.globalAlpha = on ? .9 : .4; ctx.lineWidth = 3; rr(x, y, w, h, 8); ctx.stroke(); ctx.restore(); }
+    return;
+  }
   if (p.type === 'color') {
     const on = L.cst[p.grp] === p.col, c = p.col === 'r' ? '#ef4444' : '#3b82f6';
     if (on) { ctx.fillStyle = c; rr(x, y, w, h, 8); ctx.fill(); ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.fillRect(x + 5, y + 4, w - 10, 5); ctx.strokeStyle = OUT; ctx.lineWidth = 4; rr(x, y, w, h, 8); ctx.stroke(); }
@@ -1223,6 +1300,44 @@ function drawOrbs() {
   }
 }
 
+function drawReflex() {   // boules de feu, lasers, scies et blocs du tape-éclair
+  const x0 = cam.x - 80, x1 = cam.x + W + 80;
+  for (const f of L.fires) {
+    if (f.x < x0 || f.x > x1) continue;
+    const u = (time / f.per + f.ph) % 1, y = fireY(f);
+    if (u > .85) { const g = ctx.createRadialGradient(f.x, f.y0 - 20, 4, f.x, f.y0 - 20, 70); g.addColorStop(0, 'rgba(251,146,60,.8)'); g.addColorStop(1, 'rgba(251,146,60,0)'); ctx.fillStyle = g; ctx.fillRect(f.x - 70, f.y0 - 90, 140, 140); }
+    if (u < .6) {
+      const g = ctx.createRadialGradient(f.x, y, 3, f.x, y, 44); g.addColorStop(0, 'rgba(253,224,71,.7)'); g.addColorStop(1, 'rgba(249,115,22,0)'); ctx.fillStyle = g; ctx.fillRect(f.x - 44, y - 44, 88, 88);
+      ctx.beginPath(); ctx.arc(f.x, y, 17, 0, 7); ctx.fillStyle = '#f97316'; ctx.fill(); ctx.strokeStyle = OUT; ctx.lineWidth = 3; ctx.stroke();
+      ctx.beginPath(); ctx.arc(f.x, y, 9, 0, 7); ctx.fillStyle = '#fde047'; ctx.fill();
+    }
+  }
+  for (const l of L.lasers) {
+    if (l.x < x0 || l.x > x1) continue;
+    const st = laserState(l);
+    if (st === 2) { ctx.fillStyle = 'rgba(244,63,94,.35)'; ctx.fillRect(l.x - 11, l.y - 470, 22, 470); ctx.fillStyle = '#fb7185'; ctx.fillRect(l.x - 5, l.y - 470, 10, 470); ctx.fillStyle = '#fff'; ctx.fillRect(l.x - 2, l.y - 470, 4, 470); }
+    else if (st === 1 && Math.floor(time * 16) % 2) { ctx.fillStyle = 'rgba(253,224,71,.8)'; ctx.fillRect(l.x - 1.5, l.y - 470, 3, 470); }
+    ctx.fillStyle = '#334155'; rr(l.x - 14, l.y - 9, 28, 9, 3); ctx.fill(); ctx.strokeStyle = OUT; ctx.lineWidth = 3; ctx.stroke();
+    ctx.beginPath(); ctx.arc(l.x, l.y - 9, 5, 0, 7); ctx.fillStyle = st === 2 ? '#f43f5e' : st === 1 ? '#fde047' : '#64748b'; ctx.fill(); ctx.stroke();
+  }
+  for (const sw of L.saws) {
+    const x = sawX(sw); if (x < x0 || x > x1) continue;
+    ctx.save(); ctx.translate(x, sw.y); ctx.rotate(time * 14);
+    ctx.beginPath(); for (let i = 0; i < 16; i++) { const a = i * Math.PI / 8, r = i % 2 ? 12 : 19; ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r); } ctx.closePath();
+    ctx.fillStyle = '#cbd5e1'; ctx.fill(); ctx.strokeStyle = OUT; ctx.lineWidth = 3; ctx.lineJoin = 'round'; ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, 0, 5, 0, 7); ctx.fillStyle = '#ef4444'; ctx.fill(); ctx.restore();
+  }
+  const q = L.whack;
+  if (q) for (const b of q.pads) {
+    const lit = q.target === b.pad, c = PAD_COLS[b.pad], y = b.y - (b.bump > 0 ? 7 : 0);
+    if (lit) { const g = ctx.createRadialGradient(b.x, y, 5, b.x, y, 90); g.addColorStop(0, c); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.globalAlpha = .8; ctx.fillStyle = g; ctx.fillRect(b.x - 90, y - 90, 180, 180); ctx.globalAlpha = 1; }
+    ctx.fillStyle = lit || q.done ? c : '#475569'; rr(b.x - 30, y - 20, 60, 40, 9); ctx.fill();
+    ctx.strokeStyle = lit ? '#fff' : OUT; ctx.lineWidth = 4; rr(b.x - 30, y - 20, 60, 40, 9); ctx.stroke();
+    if (lit) { ctx.fillStyle = '#0f172a'; ctx.fillRect(b.x - 30, y - 34, 60, 7); ctx.fillStyle = '#fde047'; ctx.fillRect(b.x - 29, y - 33, 58 * Math.max(0, q.t / q.max), 5); }
+  }
+  if (q && !q.done) outText('⚡ ' + q.streak + ' / ' + q.need, q.base.x + q.base.w / 2, q.base.y - 160, 24, '#fde047');
+}
+
 function drawMemory() {   // lanternes, panneaux et cartes du thème Mémoire
   for (const l of L.lamps) {
     if (l.x < cam.x - 60 || l.x > cam.x + W + 60) continue;
@@ -1319,7 +1434,7 @@ function render() {
   for (const p of L.plats) if (p.x + p.w > x0 && p.x < x1) drawPlat(p);
   for (const s of L.spikes) if (s.x + s.w > x0 && s.x < x1) drawSpikeRow(s.x, s.y + s.h, s.w, s.h, '#e5e7eb');
   for (const t of L.traps) if (t.x + t.w > x0 && t.x < x1) drawTrap(t);
-  drawCheckpoints(); drawMemory(); drawDoor(); drawSwitch(); drawKey(); drawCoins(); drawOrbs();
+  drawCheckpoints(); drawMemory(); drawReflex(); drawDoor(); drawSwitch(); drawKey(); drawCoins(); drawOrbs();
   drawPlayer();
   drawParticles();
   ctx.restore();
