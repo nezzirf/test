@@ -170,7 +170,7 @@ const DAILY_FLOORS = 12, RUN_SECONDS = 30 * 60, VARIANTS = 20;
 const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900, SPRING = 1000;
 const PW = 28, PH = 40;
 const STEP = 1 / 120;
-const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v11';
+const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v12';
 /* [MODE TEST] Passe à false (ou supprime les blocs marqués [MODE TEST]) quand tout est réglé. */
 const TEST_MODE = true;
 
@@ -186,14 +186,14 @@ const THEMES = [
     desc: 'Leviers, caisses, devinettes et blocs de couleur : observe et réfléchis avant d\'agir !',
     w: { plain: 3, narrow: 1, movH: 1, movV: 1, colorUp: 3, riddle: 3 } },
   { id: 'precision', day: 'Jeudi', name: 'Précision', emoji: '🎯', hue: 350, col: '#fda4af',
-    desc: 'Plateformes minuscules, glace et pics : chaque saut doit être parfait !',
-    w: { plain: 2, narrow: 5, movH: 2, movV: 2, iceRun: 3 } },
+    desc: 'Plafonds de pics, plateformes en orbite, cibles minuscules : chaque saut doit être parfait !', prec: true,
+    w: { plain: 2, narrow: 3, movH: 1, movV: 1, iceRun: 2, ceil: 3, orbit: 3 } },
   { id: 'vitesse', day: 'Vendredi', name: 'Vitesse', emoji: '🏃', hue: 200, col: '#7dd3fc',
-    desc: 'Tapis roulants et grands sauts : fonce sans jamais t\'arrêter !',
-    w: { plain: 2, narrow: 1, movH: 2, conv: 5, crumble: 2 } },
+    desc: 'Mur de feu qui te poursuit, propulseurs, course contre la montre : fonce !', speed: true,
+    w: { plain: 2, narrow: 1, movH: 1, conv: 3, crumble: 1, chase: 3, boost: 3 } },
   { id: 'altitude', day: 'Samedi', name: 'Altitude', emoji: '🚀', hue: 225, col: '#a5b4fc', alt: true,
-    desc: 'Ressorts géants et escaliers dans le ciel : grimpe le plus haut possible !',
-    w: { plain: 1, narrow: 1, movV: 2, climb: 4, spring: 4 } },
+    desc: 'Courants d\'air, ascenseurs, ressorts et étoiles dans le ciel : grimpe le plus haut possible !', sky: true,
+    w: { plain: 1, narrow: 1, movV: 1, climb: 3, spring: 2, wind: 3, lift: 3 } },
   { id: 'defi', day: 'Dimanche', name: 'Grand Défi', emoji: '👑', hue: 315, col: '#f0abfc', alt: true, mix: true,
     desc: 'Le mélange de tous les pièges de la semaine. Es-tu prêt ?',
     w: { plain: 2, narrow: 1, movH: 1, movV: 1, crumble: 1, trap: 1, fire: 1, laser: 1, saw: 1, blink: 1, ghost: 1, decoy: 1, colorUp: 1, riddle: 1, conv: 1, climb: 1, spring: 1, iceRun: 1 } }
@@ -251,7 +251,7 @@ function tone(f1, f2, dur, type = 'square', vol = .05, delay = 0) {
 }
 const arp = (notes, step, type, vol) => notes.forEach((f, i) => tone(f, f, .18, type, vol, i * step));
 const MEM_ORDERS = [['simon', 'pairs', 'code'], ['pairs', 'code', 'simon'], ['code', 'simon', 'pairs'], ['pairs', 'simon', 'code'], ['simon', 'code', 'pairs'], ['code', 'pairs', 'simon']];
-const CARD_SYMS = ['🍎', '⭐', '🐸', '🌙', '🍄'], SW_ICON = { button: '🔘', simon: '🧠', pairs: '🃏', code: '🪧', whack: '⚡', levers: '💡', crate: '📦' };
+const CARD_SYMS = ['🍎', '⭐', '🐸', '🌙', '🍄'], SW_ICON = { button: '🔘', simon: '🧠', pairs: '🃏', code: '🪧', whack: '⚡', levers: '💡', crate: '📦', targets: '🎯', race: '⏱️', stars: '⭐' };
 const PAD_TONES = [262, 330, 392, 523], PAD_COLS = ['#ef4444', '#3b82f6', '#22c55e', '#facc15'];
 const SFX = {
   jump: () => tone(330, 700, .15), djump: () => tone(520, 1200, .22, 'triangle', .08), land: () => tone(140, 70, .07, 'sine', .07),
@@ -311,6 +311,10 @@ function puzzleFor(fi) {
   const f = floorSeq[fi], last = fi === floorSeq.length - 1;
   const r = mulberry32(hashStr(SEED + '#puz' + f))();
   if (THEME.simon) return { key: last || f % 4 === 3, sw: MEM_ORDERS[hashStr(SEED + '#mem') % 6][f % 3] };   // 3 énigmes de mémoire qui alternent
+  if (THEME.prec || THEME.speed || THEME.sky) {   // énigme propre au jour, en alternance avec l'interrupteur
+    const sp = THEME.prec ? 'targets' : THEME.speed ? 'race' : 'stars';
+    return { key: last || r > 1 - (f / 11) * .5, sw: (f + (hashStr(SEED) & 1)) % 2 ? 'button' : sp };
+  }
   if (THEME.logic) return { key: last || r > 1 - (f / 11) * .5, sw: (f + (hashStr(SEED) & 1)) % 2 ? 'levers' : 'crate' };   // leviers et caisse en alternance
   if (THEME.whack) return { key: last || r > 1 - (f / 11) * .6, sw: (f + (hashStr(SEED) & 1)) % 2 ? 'button' : 'whack' };   // tape-éclair un étage sur deux
   if (last) return { key: true, sw: THEME.mix ? (r < .5 ? 'simon' : 'pairs') : 'button' };
@@ -447,7 +451,8 @@ function genFloor(fi) {
   cps.push({ x: 84, y: 440, on: true });
   let lastCpX = 0, grpN = 0, bridge = null, swPlat = null, simon = null, pairs = null;
   const mem = [], lamps = [], signs = [], fires = [], lasers = [], saws = []; let whack = null, levers = null, plate = null;
-  const cbtns = [], riddles = [], crates = [], grpInit = [], cpuz = [], tblocks = [];
+  const cbtns = [], riddles = [], crates = [], grpInit = [], cpuz = [], tblocks = [], winds = [], chasers = [];
+  let targets = null, race = null, stars = null;
   // zone "mémoire" : une lanterne 👁 révèle quelques secondes ce qui est caché juste après
   const newMem = (lp, dur) => { lp.busy = true; const g = { id: mem.length, rev: 0, cd: 0, dur, lx: lp.x + lp.w - 26, x1: 0 }; mem.push(g); lamps.push({ x: g.lx, y: lp.y - 36, g: g.id }); return g; };
   const forceCp = (p, fx) => { if (p.x - lastCpX > 700) { cps.push({ x: p.x + (fx || p.w / 2 - 24), y: p.y, on: false }); p.cp = true; lastCpX = p.x; } };
@@ -627,7 +632,86 @@ function genFloor(fi) {
       riddles.push({ x: S.x + 105, y: S.y, lines: rd.lines, told: false, doors, dest: E });
       cur = E;
     },
+    // ===== JEUDI (Précision) =====
+    ceil() {   // couloir sous un plafond de pics : seulement de tout petits sauts (appuie à peine sur saut)
+      const n = 3 + Math.round(3 * D) + RI(0, 1);
+      let prev = put(R(60, 100), RI(-15, 15), 150, { spiky: true });
+      const y = prev.y;
+      for (let i = 0; i < n; i++) prev = put(R(48, 62 + 14 * D), 0, R(80 - 20 * D, 115 - 30 * D), { spiky: true, tiny: true, exact: true });
+      const end = put(R(50, 66), 0, 160, { spiky: true, exact: true });
+      const x0 = plats[plats.length - n - 2].x + 70, x1 = end.x + 30;
+      for (let x = x0; x < x1; x += 120) spikes.push({ x, y: y - 100 - 18, w: Math.min(120, x1 - x), h: 18, down: true });
+    },
+    orbit() {   // plateforme qui tourne en rond au-dessus du vide : saute au bon moment
+      const prev = cur, G = R(270, 300 + 50 * D), rad = 70 + 25 * D, w = 90 - 25 * D;
+      const p = put(G, RI(-25, 25), R(150, 200), { exact: true });
+      mk({ x: 0, y: 0, w, type: 'mover', mv: true, orbit: true, bx: prev.x + prev.w + G / 2 - w / 2, by: (prev.y + p.y) / 2, ax: rad, ay: rad, sp: .8 + .7 * D, ph: R(0, 6) });
+      if (D > .55 && rng() < .6) addSpikes(p, 1);
+    },
+    // ===== VENDREDI (Vitesse) =====
+    chase() {   // un mur de feu te poursuit : pas le temps d'hésiter !
+      const st = put(R(60, 110), RI(-20, 20), 220, { spiky: true });
+      const n = 4 + Math.round(4 * D);
+      for (let i = 0; i < n; i++) put(R(60, 110 + 40 * D), RI(-45, 45), R(150 - 40 * D, 200 - 50 * D), { spiky: true, chaseP: true });
+      const end = put(R(60, 100), RI(-20, 20), 200, { spiky: true });
+      chasers.push({ xs: st.x + 120, x1: end.x + 60, sp: 185 + 65 * D, x: 0, active: false, done: false, ys: Math.min(st.y, end.y) });
+    },
+    boost() {   // propulseur : le seul moyen de franchir ce trou géant
+      put(R(60, 110), RI(-20, 20), R(210, 260), { boost: true, spiky: true });
+      put(R(400, 425 + 30 * D), RI(-30, 10), R(150 - 30 * D, 200 - 30 * D), { exact: true });
+    },
+    // ===== SAMEDI (Altitude) =====
+    wind() {   // courant d'air : saute dedans pour t'envoler, puis sors sur le côté
+      let h = R(260, 300 + 90 * D); const A = put(R(60, 110), RI(-20, 20), 160, { spiky: true });
+      h = Math.min(h, A.y - ymin - 40); if (h < 240) { SEG.climb(); return; }
+      const zx = A.x + A.w + R(25, 45), zw = 92 - 22 * D;
+      winds.push({ x: zx, w: zw, yTop: A.y - h, yBot: A.y + 260 });
+      cur = mk({ x: zx + zw + R(45, 70 + 30 * D), y: A.y - h + R(20, 45), w: R(130 - 30 * D, 180 - 40 * D), type: 'normal' });
+    },
+    lift() {   // ascenseur : il monte quand tu es dessus… et redescend vite en haut de la tour
+      let h = R(225, 260 + 70 * D); const A = put(R(60, 110), RI(-20, 20), 150, { spiky: true });
+      h = Math.min(h, A.y - ymin - 40); if (h < 225) { SEG.climb(); return; }
+      const lf = mk({ x: A.x + A.w + R(50, 80), y: A.y, w: 100 - 20 * D, type: 'lift', lift: true, mv: true, y0: A.y, y1: A.y - h, up: 100 + 40 * D, wait: 1.6 - D, topT: 0 });
+      cur = mk({ x: lf.x + lf.w + R(60, 95 + 30 * D), y: A.y - h - R(0, 40), w: R(130 - 20 * D, 180 - 30 * D), type: 'normal' });
+    },
     // --- énigmes ---
+    targets() {   // JEUDI : atterrir sur toutes les petites cibles suspendues
+      const B = put(R(60, 110), RI(-20, 20), 560, { sw: true, spiky: true, busy: true }); swPlat = B;
+      bridge = mk({ x: B.x + B.w, y: B.y, w: 420, type: 'bridge', grow: 0, active: false });
+      const n = 3 + Math.round(2 * D), list = [], step = 470 / n;
+      for (let i = 0; i < n; i++) {
+        const w = 46 - 16 * D, x = B.x + 50 + i * step + 22 + R(0, Math.max(0, step - w - 44)), y = B.y - R(95, 120 + 60 * D);
+        const moving = D > .45 && rng() < .55;   // chaque cible reste dans sa case, même quand elle bouge
+        list.push(mk({ x, y, w, type: 'target', lit: false, mv: moving, bx: x, by: y, ax: moving ? 20 : 0, ay: 0, sp: 1 + D, ph: R(0, 6) }));
+      }
+      targets = { list, done: false, base: B, told: false };
+      put(420, 0, R(150, 210), { exact: true });
+    },
+    race() {   // VENDREDI : appuie sur le bouton, les plateformes n'apparaissent que quelques secondes
+      const B = put(R(60, 110), RI(-20, 20), 260, { sw: true, spiky: true, busy: true }); swPlat = B;
+      const n = 4 + Math.round(3 * D), list = [];
+      for (let i = 0; i < n; i++) list.push(put(R(70, 110 + 40 * D), RI(-50, 50), R(90 - 15 * D, 120 - 20 * D), { type: 'timed' }));
+      const Q = put(R(70, 120), RI(-30, 30), 200);
+      const T = (Q.x - B.x - B.w) / MOVE * (1.9 - .6 * D) + 1.2;
+      race = { base: B, bx: B.x + B.w - 60, T: Math.round(T * 10) / 10, t: 0, list, goal: Q, done: false, told: false };
+    },
+    stars() {   // SAMEDI : attraper les étoiles du ciel avec le courant d'air, le ressort et l'ascenseur
+      const B = put(R(60, 110), RI(-20, 20), 640, { sw: true, spiky: true, busy: true }); swPlat = B;
+      bridge = mk({ x: B.x + B.w, y: B.y, w: 420, type: 'bridge', grow: 0, active: false });
+      const room = Math.min(330, B.y - ymin - 40), list = [];
+      const wx = B.x + 90, wTop = B.y - room;
+      winds.push({ x: wx, w: 70, yTop: wTop, yBot: B.y + 10 });
+      list.push({ x: wx + 35 + 85, y: wTop - 45, got: false });
+      const sp = mk({ x: B.x + 300, y: B.y - 40, w: 90, type: 'normal', spring: true, springT: 0, spiky: true, busy: true });
+      list.push({ x: sp.x + 45 + (rng() < .5 ? -70 : 70), y: sp.y - 215 - 30 * D, got: false });
+      if (D > .4) {
+        const lh = Math.min(260, room - 20);
+        const lf = mk({ x: B.x + 500, y: B.y - 30, w: 80, type: 'lift', lift: true, mv: true, y0: B.y - 30, y1: B.y - 30 - lh, up: 100 + 40 * D, wait: 1.6 - D, topT: 0 });
+        list.push({ x: lf.x + 40 - 80, y: lf.y1 - 70 - 30 * D, got: false });
+      }
+      stars = { list, done: false, base: B, told: false };
+      put(420, 0, R(150, 210), { exact: true });
+    },
     levers() {   // ampoules : chaque bloc allume/éteint certaines ampoules, il faut toutes les allumer
       const n = D < .35 ? 3 : D < .75 ? 4 : 5;
       const base = put(R(60, 110), RI(-20, 20), 150 + n * 110, { sw: true, spiky: true, busy: true });
@@ -746,6 +830,9 @@ function genFloor(fi) {
 
   const hints = [];
   if (puz.sw === 'simon') hints.push('retiens la séquence de couleurs 🧠 pour faire apparaître le pont');
+  if (puz.sw === 'targets') hints.push('atterris sur toutes les cibles 🎯 pour faire apparaître le pont');
+  if (puz.sw === 'race') hints.push('appuie sur le bouton ⏱️ puis fonce : les plateformes disparaissent vite !');
+  if (puz.sw === 'stars') hints.push('attrape toutes les étoiles ⭐ du ciel pour faire apparaître le pont');
   if (puz.sw === 'levers') hints.push('allume toutes les ampoules 💡 en tapant les blocs (chaque bloc change plusieurs ampoules !) pour faire apparaître le pont');
   if (puz.sw === 'crate') hints.push('le pont n\'apparaît que si quelque chose appuie sur la plaque… à toi de trouver quoi 📦');
   if (puz.sw === 'whack') hints.push('tape les blocs allumés ⚡ avant qu\'ils s\'éteignent pour faire apparaître le pont');
@@ -754,9 +841,9 @@ function genFloor(fi) {
   if (puz.sw === 'button') hints.push('active l\'interrupteur 🔴 pour faire apparaître le pont');
   if (puz.key) hints.push('trouve la clé 🔑 pour ouvrir ' + (last ? 'le coffre' : 'la porte'));
   let hint = hints.join(' et ') + ' !'; hint = hint[0].toUpperCase() + hint.slice(1);
-  const sw = puz.sw ? { kind: puz.sw, x: swPlat.x + swPlat.w / 2, y: swPlat.y, on: false, bridge } : null;
+  const sw = puz.sw ? { kind: puz.sw, x: swPlat.x + swPlat.w / 2, y: swPlat.y, on: false, bridge: puz.sw === 'race' ? null : bridge } : null;
   const cst = {}; for (let g = 0; g < grpN; g++) cst[g] = grpInit[g] || 'b';
-  return { f, fi, last, plats, spikes, traps, coins, orbs, cps, door, key, sw, simon, pairs, whack, mem, lamps, signs, fires, lasers, saws, levers, plate, crates, cbtns, riddles, grpInit, cpuz, tblocks, cst, needKey: puz.key, W: end.x + end.w + 80,
+  return { f, fi, last, plats, spikes, traps, coins, orbs, cps, door, key, sw, simon, pairs, whack, mem, lamps, signs, fires, lasers, saws, levers, plate, crates, cbtns, riddles, grpInit, cpuz, tblocks, winds, chasers, targets, race, stars, cst, needKey: puz.key, W: end.x + end.w + 80,
     top: Math.min(0, minY - 260), respawn: cps[0], hint, th: theme(f) };
 }
 
@@ -822,6 +909,9 @@ function respawn() {
   for (const g in L.cst) L.cst[g] = L.grpInit[g] || 'b';
   for (const o of L.orbs) o.armed = true;
   for (const c of L.crates) if (!(L.plate && L.plate.passed)) { c.x = c.x0; c.y = c.y0; c.vy = 0; }
+  if (L.race && !L.race.done) L.race.t = 0;
+  for (const c of L.chasers) if (!c.done) c.active = false;
+  for (const p of L.plats) if (p.lift) { p.y = p.y0; p.topT = 0; }
   for (const p of L.plats) if (p.type === 'crumble') { p.cr = 0; p.crT = 0; }
   cam.x = Math.max(0, Math.min(L.W - W, P.x - W * .4)); state = 'playing';
 }
@@ -872,7 +962,8 @@ function step(dt) {
   for (const g of L.mem) { g.rev = Math.max(0, g.rev - dt); g.cd = Math.max(0, g.cd - dt); }
   updatePairs(dt); updateWhack(dt); updateCrates(dt); updateLevers(dt);
   for (const tb of L.tblocks) { tb.cd = Math.max(0, tb.cd - dt); tb.bump = Math.max(0, tb.bump - dt); }
-  if (L.sw && L.sw.kind !== 'crate' && L.sw.bridge.active && L.sw.bridge.grow < 1) L.sw.bridge.grow = Math.min(1, L.sw.bridge.grow + dt / .9);
+  updateNewDays(dt);
+  if (L.sw && L.sw.bridge && L.sw.kind !== 'crate' && L.sw.bridge.active && L.sw.bridge.grow < 1) L.sw.bridge.grow = Math.min(1, L.sw.bridge.grow + dt / .9);
   for (const o of L.orbs) o.cd = Math.max(0, o.cd - dt);
 
   if (state === 'playing') updatePlayer(dt);
@@ -891,10 +982,17 @@ function step(dt) {
 
 function updatePlatforms(dt) {
   for (const p of L.plats) {
-    if (p.mv) {
+    if (p.lift) {   // ascenseur : monte quand on est dessus, redescend sinon (ou après une courte pause en haut)
+      p.px = p.x; p.py = p.y;
+      const on = P && P.standing === p;
+      if (on && p.y <= p.y1 + .5) p.topT += dt; else if (!on) p.topT = 0;
+      const goUp = on && p.topT < p.wait;
+      p.y = goUp ? Math.max(p.y1, p.y - p.up * dt) : Math.min(p.y0, p.y + (p.topT >= p.wait ? 220 : 160) * dt);
+      p.dx = 0; p.dy = p.y - p.py;
+    } else if (p.mv) {
       p.px = p.x; p.py = p.y;
       const t = time * p.sp + p.ph;
-      p.x = p.bx + p.ax * Math.sin(t); p.y = p.by + p.ay * Math.sin(t);
+      p.x = p.bx + p.ax * (p.orbit ? Math.cos(t) : Math.sin(t)); p.y = p.by + p.ay * Math.sin(t);
       p.dx = p.x - p.px; p.dy = p.y - p.py;
     } else if (p.type === 'crumble' && p.cr) {
       p.crT -= dt;
@@ -937,6 +1035,21 @@ function padHit(i) {
 }
 
 /* ---------- Énigmes "Logique" ---------- */
+/* ---------- Jeudi / vendredi / samedi ---------- */
+function updateNewDays(dt) {
+  const rc = L.race;
+  if (rc && !rc.done) {
+    const was = rc.t > 0; rc.t = Math.max(0, rc.t - dt);
+    if (was && rc.t <= 0) SFX.locked();
+    if (rc.t > 0 && rc.t < 1.5 && Math.floor(rc.t * 4) !== Math.floor((rc.t + dt) * 4)) tone(880, 880, .06, 'square', .04);
+  }
+  for (const c of L.chasers) {
+    if (c.done) continue;
+    if (!c.active && P.x > c.xs && P.x < c.x1) { c.active = true; c.x = c.xs - 270; showToast('🔥 Le mur de feu arrive : cours !'); }
+    if (c.active) { c.x += c.sp * dt; if (P.x > c.x1) { c.done = true; c.active = false; showToast('😅 Ouf, semé !'); } }
+  }
+}
+
 function updateLevers(dt) {
   const q = L.levers; if (!q) return;
   q.cd = Math.max(0, q.cd - dt); for (const b of q.blocks) b.bump = Math.max(0, b.bump - dt);
@@ -1020,6 +1133,7 @@ function cardHit(i) {
 
 function platW(p) { return p.type === 'bridge' ? p.w * p.grow : p.w; }
 function solidNow(p) {
+  if (p.type === 'timed') return !!(L.race && L.race.t > 0);
   if (p.fake) return false;
   if (p.type === 'bridge') return p.active;
   if (p.type === 'color') return L.cst[p.grp] === p.col;
@@ -1044,6 +1158,9 @@ function updatePlayer(dt) {
   const target = dir * MOVE;
   const acc = p.grounded ? (ice ? (dir ? 480 : 260) : 3400) : 2400;
   if (p.vx < target) p.vx = Math.min(target, p.vx + acc * dt); else if (p.vx > target) p.vx = Math.max(target, p.vx - acc * dt);
+  if (p.grounded && p.standing && p.standing.boost && p.x + PW / 2 > p.standing.x + p.standing.w - 85 && !p.boostT) { p.boostT = .6; SFX.spring(); ring(p.x + PW / 2, p.y + PH, '#fde047'); }
+  if (p.boostT > 0) { p.boostT = Math.max(0, p.boostT - dt); p.vx = 620; p.face = 1; if (Math.random() < .5) dust(p.x, p.y + PH - 6, 1); }
+  else if (p.grounded && !(p.standing && p.standing.boost)) p.boostT = 0;
 
   // saut (coyote time + tampon + double saut)
   p.coyote = p.grounded ? .11 : Math.max(0, p.coyote - dt);
@@ -1058,6 +1175,7 @@ function updatePlayer(dt) {
     }
   }
   if (!keys.jump && !p.cut && p.vy < -260) { p.vy *= .5; p.cut = true; }
+  for (const wz of L.winds) if (p.x + PW > wz.x + 6 && p.x < wz.x + wz.w - 6 && p.y + PH > wz.yTop && p.y + PH < wz.yBot) { p.vy = Math.max(-430, p.vy - 3100 * dt); p.airJumps = 1; p.inWind = true; }
   p.vy = Math.min(MAXFALL, p.vy + GRAV * dt);
 
   p.x += p.vx * dt;
@@ -1088,6 +1206,11 @@ function updatePlayer(dt) {
       if (p.vy > 300) { p.sx = 1.3; p.sy = .72; SFX.land(); dust(p.x + PW / 2, best.y, 6); }
       p.y = best.y - PH; p.vy = 0; p.grounded = true; p.standing = best; p.airJumps = 1;
       if (best.type === 'crumble' && best.cr === 0) { best.cr = 1; best.crT = best.delay; }
+      if (best.type === 'target' && !best.lit && L.targets) {
+        best.lit = true; SFX.coin(); sparkle(best.x + best.w / 2, best.y, 14, '#86efac');
+        const q = L.targets, n = q.list.filter(t => t.lit).length; pop(best.x + best.w / 2, best.y - 30, n + '/' + q.list.length, '#fff');
+        if (n === q.list.length) { q.done = true; openBridge(best.x, best.y, '🎯 Toutes les cibles ! Le pont apparaît !'); }
+      }
       if (best.type === 'ghost') best.flash = .5;
       if (best.simonBase && L.simon && !L.simon.seen) startShow();   // la séquence se joue à la première arrivée (et après chaque erreur)
       if (best.spring) {
@@ -1142,6 +1265,17 @@ function updatePlayer(dt) {
       }
     }
   }
+  const rc = L.race;
+  if (rc && !rc.done) {
+    if (p.grounded && p.standing === rc.base && Math.abs(cx - rc.bx) < 22 && rc.t <= 0) { rc.t = rc.T; SFX.sw(); ring(rc.bx, rc.base.y, '#fde047'); showToast('⏱️ ' + rc.T.toFixed(1) + ' secondes : fonce !'); }
+    if (p.grounded && p.standing === rc.goal) { rc.done = true; rc.t = 0; L.sw.on = true; updateHUD(true); confetti(cx, p.y, 60, 500, 400); showToast('⏱️ Bravo, juste à temps !'); }
+  }
+  if (L.stars && !L.stars.done) for (const st of L.stars.list) if (!st.got && Math.abs(st.x - cx) < 26 && Math.abs(st.y - cy) < 32) {
+    st.got = true; SFX.key(); sparkle(st.x, st.y, 16); const n = L.stars.list.filter(s => s.got).length; pop(st.x, st.y - 30, n + '/' + L.stars.list.length, '#fde047');
+    if (n === L.stars.list.length) { L.stars.done = true; openBridge(st.x, st.y, '⭐ Toutes les étoiles ! Le pont apparaît !'); }
+  }
+  if (L.targets && !L.targets.told && p.standing === L.targets.base) { L.targets.told = true; showToast('🎯 Atterris sur chaque petite cible, sans tomber à côté !'); }
+  if (L.stars && !L.stars.told && p.standing === L.stars.base) { L.stars.told = true; showToast('⭐ Courant d\'air, ressort, ascenseur : trouve comment attraper chaque étoile !'); }
   if (L.whack && !L.whack.done && p.vy < 0 && L.whack.cd <= 0) for (const b of L.whack.pads) if (Math.abs(b.x - cx) < 28 && Math.abs(b.y - p.y) < 34) { L.whack.cd = .25; b.bump = .2; whackHit(b.pad); break; }
   if (L.pairs && !L.pairs.done && p.vy < 0) for (let i = 0; i < L.pairs.cards.length; i++) { const c = L.pairs.cards[i]; if (Math.abs(c.x - cx) < 24 && Math.abs(c.y - p.y) < 40) cardHit(i); }
   if (p.grounded) for (const c of L.cps) if (!c.on && Math.abs(c.x - cx) < 44 && Math.abs(p.y + PH - c.y) < 6) {
@@ -1162,6 +1296,7 @@ function updatePlayer(dt) {
   for (const f of L.fires) if (Math.abs(f.x - cx) < 24 && Math.abs(fireY(f) - cy) < 32) { hurt('spike'); return; }
   for (const l of L.lasers) if (Math.abs(l.x - cx) < 14 && p.y + PH <= l.y + 6 && p.y > l.y - 470 && laserState(l) === 2) { hurt('spike'); return; }
   for (const sw of L.saws) if (Math.abs(sawX(sw) - cx) < 25 && p.y + PH > sw.y - 14 && p.y < sw.y + 16) { hurt('spike'); return; }
+  for (const c of L.chasers) if (c.active && p.x < c.x) { hurt('spike'); return; }
   if (p.y > 640) { hurt('fall'); return; }
   // porte / trésor
   const d = L.door;
@@ -1384,6 +1519,25 @@ function drawPlat(p) {
     return;
   }
   const w = p.w;
+  if (p.type === 'target') {
+    const c = p.lit ? '#22c55e' : '#f43f5e';
+    ctx.fillStyle = '#fff'; rr(x, y, w, 14, 6); ctx.fill(); ctx.strokeStyle = OUT; ctx.lineWidth = 3; ctx.stroke();
+    ctx.fillStyle = c; ctx.fillRect(x + w / 2 - w / 6, y + 2, w / 3, 10); ctx.fillRect(x + 3, y + 5, 4, 4); ctx.fillRect(x + w - 7, y + 5, 4, 4);
+    if (!p.lit) emoji('🎯', x + w / 2, y - 16 + Math.sin(time * 4 + x) * 3, 16);
+    return;
+  }
+  if (p.type === 'timed') {
+    const rc = L.race, on = rc && rc.t > 0, warn = on && rc.t < 1.5 && Math.floor(time * 12) % 2;
+    if (on && !warn) { ctx.fillStyle = '#f59e0b'; rr(x, y, w, h, 8); ctx.fill(); ctx.fillStyle = '#fde68a'; ctx.fillRect(x + 4, y + 4, w - 8, 5); ctx.strokeStyle = OUT; ctx.lineWidth = 4; rr(x, y, w, h, 8); ctx.stroke(); }
+    else { ctx.save(); ctx.setLineDash([8, 8]); ctx.strokeStyle = '#f59e0b'; ctx.globalAlpha = .6; ctx.lineWidth = 3; rr(x, y, w, h, 8); ctx.stroke(); ctx.restore(); }
+    return;
+  }
+  if (p.lift) {
+    ctx.strokeStyle = 'rgba(148,163,184,.5)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x + 8, p.y1 - 10); ctx.lineTo(x + 8, p.y0 + 20); ctx.moveTo(x + w - 8, p.y1 - 10); ctx.lineTo(x + w - 8, p.y0 + 20); ctx.stroke();
+    ctx.fillStyle = '#0ea5e9'; rr(x, y, w, h, 8); ctx.fill(); ctx.fillStyle = '#bae6fd'; ctx.fillRect(x + 4, y + 4, w - 8, 5); ctx.strokeStyle = OUT; ctx.lineWidth = 4; rr(x, y, w, h, 8); ctx.stroke();
+    outText('⇧', x + w / 2, y + 15, 14, '#fff');
+    return;
+  }
   if (p.type === 'crate') {
     ctx.fillStyle = '#b45309'; rr(x, y, w, p.h, 6); ctx.fill(); ctx.strokeStyle = OUT; ctx.lineWidth = 4; ctx.stroke();
     ctx.strokeStyle = '#78350f'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x + 6, y + 6); ctx.lineTo(x + w - 6, y + p.h - 6); ctx.moveTo(x + w - 6, y + 6); ctx.lineTo(x + 6, y + p.h - 6); ctx.stroke();
@@ -1585,6 +1739,32 @@ function drawReflex() {   // boules de feu, lasers, scies et blocs du tape-écla
   if (q && !q.done) outText('⚡ ' + q.streak + ' / ' + q.need, q.base.x + q.base.w / 2, q.base.y - 160, 24, '#fde047');
 }
 
+function drawNewDays() {   // courants d'air, mur de feu, cibles, chrono, étoiles, propulseurs
+  for (const wz of L.winds) {
+    if (wz.x + wz.w < cam.x - 40 || wz.x > cam.x + W + 40) continue;
+    const g = ctx.createLinearGradient(0, wz.yTop - 40, 0, wz.yBot); g.addColorStop(0, 'rgba(165,243,252,0)'); g.addColorStop(.2, 'rgba(165,243,252,.28)'); g.addColorStop(1, 'rgba(165,243,252,.08)');
+    ctx.fillStyle = g; ctx.fillRect(wz.x, wz.yTop - 40, wz.w, wz.yBot - wz.yTop + 40);
+    ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 2;
+    for (let i = 0; i < 6; i++) { const yy = wz.yBot - ((time * 260 + i * 97) % (wz.yBot - wz.yTop + 40)), xx = wz.x + 10 + (i * 23) % (wz.w - 20); ctx.beginPath(); ctx.moveTo(xx, yy); ctx.lineTo(xx, yy - 26); ctx.stroke(); }
+  }
+  for (const c of L.chasers) if (c.active) {
+    const g = ctx.createLinearGradient(c.x - 160, 0, c.x + 30, 0); g.addColorStop(0, 'rgba(239,68,68,.85)'); g.addColorStop(.8, 'rgba(249,115,22,.75)'); g.addColorStop(1, 'rgba(253,224,71,0)');
+    ctx.fillStyle = g; ctx.fillRect(c.x - 400, cam.y - 20, 430, H + 40);
+    for (let i = 0; i < 8; i++) { const yy = cam.y + i * 70 + Math.sin(time * 8 + i) * 12; ctx.beginPath(); ctx.ellipse(c.x + 4 + Math.sin(time * 11 + i) * 6, yy, 14, 26, 0, 0, 7); ctx.fillStyle = '#fde047'; ctx.fill(); }
+  }
+  for (const p of L.plats) if (p.boost && p.x + p.w > cam.x && p.x < cam.x + W) {
+    const x = p.x + p.w - 85; ctx.fillStyle = '#facc15'; ctx.fillRect(x, p.y - 4, 85, 6);
+    for (let i = 0; i < 3; i++) { const xx = x + 12 + i * 24 + ((time * 60) % 24); ctx.beginPath(); ctx.moveTo(xx, p.y - 22); ctx.lineTo(xx + 12, p.y - 14); ctx.lineTo(xx, p.y - 6); ctx.strokeStyle = '#facc15'; ctx.lineWidth = 4; ctx.stroke(); }
+  }
+  const rc = L.race;
+  if (rc) {
+    const b = rc.base; ctx.fillStyle = '#334155'; rr(rc.bx - 22, b.y - 7, 44, 7, 3); ctx.fill(); ctx.strokeStyle = OUT; ctx.lineWidth = 3; ctx.stroke();
+    const on = rc.t > 0; ctx.fillStyle = rc.done ? '#22c55e' : on ? '#f59e0b' : '#ef4444'; rr(rc.bx - 15, b.y - 7 - (on ? 4 : 11), 30, on ? 4 : 11, 5); ctx.fill(); ctx.stroke();
+    if (!rc.done) outText(on ? rc.t.toFixed(1) + ' s' : '⏱️ ' + rc.T.toFixed(1) + ' s', rc.bx, b.y - 44, on ? 26 : 16, on && rc.t < 1.5 ? '#fb7185' : '#fde047');
+  }
+  if (L.stars) for (const st of L.stars.list) if (!st.got) { const y = st.y + Math.sin(time * 3 + st.x) * 5; const g = ctx.createRadialGradient(st.x, y, 2, st.x, y, 34); g.addColorStop(0, 'rgba(253,224,71,.8)'); g.addColorStop(1, 'rgba(253,224,71,0)'); ctx.fillStyle = g; ctx.fillRect(st.x - 34, y - 34, 68, 68); star(st.x, y, 15, '#fde047'); ctx.strokeStyle = OUT; ctx.lineWidth = 2; ctx.stroke(); }
+}
+
 function drawLogic() {   // boutons de couleur, plaque, blocs-leviers, ampoules, panneaux de devinette
   for (const bt of L.cbtns) {
     const c = bt.set === 'r' ? '#ef4444' : '#3b82f6', on = L.cst[bt.grp] === bt.set;
@@ -1736,7 +1916,13 @@ function render() {
   ctx.translate(-Math.round(cam.x), -Math.round(cam.y));
   const x0 = cam.x - 60, x1 = cam.x + W + 60;
   for (const p of L.plats) if (p.x + p.w > x0 && p.x < x1) drawPlat(p);
-  for (const s of L.spikes) if (s.x + s.w > x0 && s.x < x1) drawSpikeRow(s.x, s.y + s.h, s.w, s.h, '#e5e7eb');
+  for (const s of L.spikes) if (s.x + s.w > x0 && s.x < x1) {
+    if (s.down) {   // plafond de pics
+      ctx.fillStyle = '#334155'; ctx.fillRect(s.x, s.y - 16, s.w, 16); ctx.strokeStyle = OUT; ctx.lineWidth = 3; ctx.strokeRect(s.x, s.y - 16, s.w, 16);
+      for (let i = 0; i < Math.round(s.w / 20); i++) { const sx = s.x + i * 20; ctx.beginPath(); ctx.moveTo(sx, s.y); ctx.lineTo(sx + 10, s.y + s.h); ctx.lineTo(sx + 20, s.y); ctx.closePath(); ctx.fillStyle = '#e5e7eb'; ctx.fill(); ctx.stroke(); }
+    } else drawSpikeRow(s.x, s.y + s.h, s.w, s.h, '#e5e7eb');
+  }
+  drawNewDays();
   for (const t of L.traps) if (t.x + t.w > x0 && t.x < x1) drawTrap(t);
   drawCheckpoints(); drawMemory(); drawReflex(); drawLogic(); drawDoor(); drawSwitch(); drawKey(); drawCoins(); drawOrbs();
   drawPlayer();
