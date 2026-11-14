@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>La Tour Chrono-Magique</title>
+<title>Soen : L'Épreuve de la Tour</title>
 <!-- Tailwind (CDN) pour le design. Le jeu lui-même (canvas) fonctionne même hors-ligne. -->
 <script src="https://cdn.tailwindcss.com/3.4.17"></script>
 <!-- three.js : uniquement pour afficher le chien en 3D (si ça ne charge pas, un chien dessiné le remplace) -->
@@ -66,7 +66,7 @@
     <div class="text-center" style="width:840px">
       <div class="flex justify-center items-end gap-3" style="height:92px"><span class="text-5xl floaty">🧙‍♂️</span><span class="text-5xl floaty" style="animation-delay:.4s">🏰</span>
         <div class="relative"><canvas id="dogTitle" width="120" height="120" style="width:92px;height:92px"></canvas><span class="absolute bg-white text-slate-900 rounded-full px-2 text-xs font-black border-2 border-slate-900" style="left:84px;top:18px;white-space:nowrap">Ouaf ! Au secours !</span></div></div>
-      <h1 class="title-glow text-6xl font-black text-amber-300 leading-none" style="-webkit-text-stroke:2px #1e1b4b">La Tour Chrono-Magique</h1>
+      <h1 class="title-glow text-6xl font-black text-amber-300 leading-none" style="-webkit-text-stroke:2px #1e1b4b">Soen : L'Épreuve de la Tour</h1>
       <div id="todayCard" class="mt-3 inline-block border-4 border-slate-900 rounded-3xl px-6 py-2 text-slate-900">
         <div id="todayTheme" class="text-3xl font-black"></div>
         <div id="todayDesc" class="text-base font-bold"></div>
@@ -163,7 +163,7 @@
 
 <script>
 /* ======================================================================
-   LA TOUR CHRONO-MAGIQUE — jeu de plateforme quotidien (JS pur + canvas)
+   SOEN : L'ÉPREUVE DE LA TOUR — jeu de plateforme quotidien (JS pur + canvas)
    Un thème par jour de la semaine, 20 variantes par thème (cycle de 20 semaines)
    ====================================================================== */
 const W = 960, H = 540;
@@ -175,7 +175,7 @@ const DAILY_FLOORS = 12, RUN_SECONDS = 30 * 60, VARIANTS = 20;
 const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900, SPRING = 1000;
 const PW = 28, PH = 40;
 const STEP = 1 / 120;
-const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v17';
+const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v18';
 /* [MODE TEST] Passe à false (ou supprime les blocs marqués [MODE TEST]) quand tout est réglé. */
 const TEST_MODE = true;
 
@@ -1451,7 +1451,7 @@ function updateCountdown() {
 }
 function shareResult() {
   const s = loadSave(); if (!s) return;
-  const txt = `🏰 La Tour Chrono-Magique ${s.date}\n${s.theme} (variante ${s.variant}/${VARIANTS})\n${STATUS_TXT[s.status] || ''}\n🏰 ${s.floors}/${s.total} étages · ⏱ ${fmt(s.time)} · 💫 ${s.deaths} chutes · ⭐ ${s.score}`;
+  const txt = `🏰 Soen : L'Épreuve de la Tour ${s.date}\n${s.theme} (variante ${s.variant}/${VARIANTS})\n${STATUS_TXT[s.status] || ''}\n🏰 ${s.floors}/${s.total} étages · ⏱ ${fmt(s.time)} · 💫 ${s.deaths} chutes · ⭐ ${s.score}`;
   try { navigator.clipboard.writeText(txt).then(() => showToast('📋 Résultat copié !'), () => prompt('Copie ton résultat :', txt)); } catch (e) { prompt('Copie ton résultat :', txt); }
 }
 
