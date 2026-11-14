@@ -295,7 +295,7 @@ const DAILY_FLOORS = 12, RUN_SECONDS = 30 * 60, VARIANTS = 20;
 const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900, SPRING = 1000;
 const PW = 28, PH = 40;
 const STEP = 1 / 120;
-const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v34';
+const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v35';
 /* [MODE TEST] Passe à false (ou supprime les blocs marqués [MODE TEST]) quand tout est réglé. */
 const TEST_MODE = true;
 
@@ -411,6 +411,7 @@ function mapKey(e) {
   return null;
 }
 addEventListener('keydown', e => {
+  if (e.code === 'Escape' && padCfg.cap) { padStopCap(); return; }
   if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
   const m = mapKey(e);
   if (state === 'balade' && !e.repeat) { if (m) balInput(m); else if (e.code === 'ArrowDown' || e.code === 'KeyS') balInput('down'); }
@@ -516,7 +517,8 @@ function padCfgLive() {   // allume les actions appuyées, pour vérifier son r�
 }
 /* Application Fire TV / Android : l'application reçoit les touches (manette ou télécommande) et les transmet ici */
 const appKeys = {};
-window.soenKey = (k, down) => { appKeys[k] = !!down; pad.connected = true; if (down) pad.used = true; };
+let lastAppKey = '', lastAppKeyT = 0;
+window.soenKey = (k, down) => { appKeys[k] = !!down; pad.connected = true; if (down) { pad.used = true; lastAppKey = k; lastAppKeyT = performance.now(); } };
 window.soenAppPause = () => { if (state === 'playing' || state === 'balade') togglePause(); };   // l'application passe en arrière-plan
 function readPads() {
   const st = { left: false, right: false, up: false, down: false, jump: false, ok: false, back: false, pause: false };
@@ -548,7 +550,7 @@ function readPads() {
   return st;
 }
 function pollPads(dt) {
-  if (padCfg.cap) { padCapPoll(dt); pad.prev = readPads(); return; }   // réglage des touches en cours
+  if (padCfg.cap) { if (appKeys.b) { padStopCap(); return; } padCapPoll(dt); pad.prev = readPads(); return; }   // réglage des touches en cours
   if (!pad.connected) return;
   const st = readPads(), pr = pad.prev, press = k => st[k] && !pr[k]; pad.last = st;
   if (Object.values(st).some(Boolean)) pad.used = true;
@@ -567,7 +569,7 @@ function pollPads(dt) {
     // menus : on se déplace entre les boutons de l'écran affiché
     const btns = [...document.querySelectorAll('.screen:not(.off) [data-act]')].filter(el => el.offsetParent);
     if (btns.length) {
-      if (pad.focus < 0 || pad.focus >= btns.length) pad.focus = 0;
+      if (pad.focus < 0 || pad.focus >= btns.length) pad.focus = Math.max(0, btns.findIndex(el => el.classList.contains('pulse2') || el.dataset.act === 'resume' || el.dataset.act === 'shopBack'));
       const dir = st.right || st.down ? 1 : st.left || st.up ? -1 : 0;
       pad.repeat = Math.max(0, pad.repeat - dt);
       if (dir && (pad.repeat <= 0 || !(pr.left || pr.right || pr.up || pr.down))) { pad.focus = (pad.focus + dir + btns.length) % btns.length; pad.repeat = .28; }
@@ -1865,6 +1867,7 @@ function renderTest() {
 
 function initTitle() {
   for (const el of document.querySelectorAll('.testOnly')) el.classList.toggle('off', !TEST_MODE);
+  if (window.SOEN_APP) for (const el of document.querySelectorAll('[data-act=padCfg]')) el.style.display = 'none';   // l'application gère déjà la manette
   const di = dayInfo(), t = di.theme;
   dayHue = t.hue;
   $('todayCard').style.background = t.col;
@@ -2953,7 +2956,7 @@ function frame(ts) {
   if (TEST_MODE) {   // [MODE TEST] images par seconde, pour mesurer sur la télé
     fpsN++; fpsT += dt; if (fpsT >= .5) { fpsV = Math.round(fpsN / fpsT); fpsN = 0; fpsT = 0; }
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.font = '900 15px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
-    const t = fpsV + ' images/s' + (LIGHT ? ' · léger' : ''); ctx.fillStyle = 'rgba(15,23,42,.7)'; ctx.fillRect(6, H - 26, ctx.measureText(t).width + 12, 21);
+    const t = fpsV + ' images/s' + (LIGHT ? ' · léger' : '') + (performance.now() - lastAppKeyT < 1500 ? ' · 🎮 ' + lastAppKey : ''); ctx.fillStyle = 'rgba(15,23,42,.7)'; ctx.fillRect(6, H - 26, ctx.measureText(t).width + 12, 21);
     ctx.fillStyle = fpsV >= 50 ? '#86efac' : fpsV >= 30 ? '#fde047' : '#fca5a5'; ctx.fillText(t, 12, H - 8);
   }
   if (run && state !== 'title' && state !== 'closed') updateTimer();
