@@ -65,7 +65,6 @@
         <div id="deathBox" class="bg-slate-900/70 border-4 border-slate-900 rounded-2xl px-3 py-1 text-lg font-black tabular-nums" title="Chutes">💫 0</div>
       </div>
       <div class="flex gap-2 items-center">
-        <div id="heartBox" class="off bg-slate-900/70 border-4 border-slate-900 rounded-2xl px-2 py-1 text-lg font-black tabular-nums" title="Cœurs trouvés pour la balade">❤️ 0/2</div>
         <div id="puz" class="bg-slate-900/70 border-4 border-slate-900 rounded-2xl px-3 py-1 text-xl font-black"></div>
         <div id="scoreBox" class="bg-amber-400 text-slate-900 border-4 border-slate-900 rounded-2xl px-3 py-1 text-xl font-black tabular-nums">🪙 0</div>
         <button data-act="quit" class="btn bg-sky-400 text-slate-900 px-2 text-xl" style="pointer-events:auto" title="Retour au menu">🏠</button>
@@ -75,6 +74,7 @@
     </div>
     <div style="position:absolute;left:0;right:0;top:0;display:flex;flex-direction:column;align-items:center">
       <div id="timer" class="bg-slate-900/80 text-white border-4 border-amber-300 rounded-2xl px-5 py-1 text-3xl font-black tabular-nums">⏳ 30:00</div>
+      <div id="heartBox" class="off mt-1 bg-slate-900/80 border-2 border-rose-300 rounded-full px-3 text-sm font-black tabular-nums" title="Cœurs trouvés pour la balade">❤️ 0/2</div>
       <div id="trainTag" class="off mt-1 bg-fuchsia-500 border-2 border-slate-900 rounded-full px-3 text-xs font-black tracking-widest">ENTRAÎNEMENT</div>
     </div>
   </div>
@@ -115,6 +115,7 @@
         <span class="bg-slate-900/70 rounded-xl px-2 py-1 border-2 border-slate-700" style="white-space:nowrap">␣ ou ⬆️ : sauter (2× = double)</span>
         <span class="bg-slate-900/70 rounded-xl px-2 py-1 border-2 border-slate-700" style="white-space:nowrap">P : pause</span>
         <button data-act="padCfg" class="btn bg-sky-300 hover:bg-sky-200 text-slate-900 text-sm px-2 py-1" style="white-space:nowrap">🎮 Régler ma manette</button>
+        <button id="btnLight" data-act="light" class="btn bg-sky-300 hover:bg-sky-200 text-slate-900 text-sm px-2 py-1" style="white-space:nowrap">📺 Mode télé léger</button>
       </div>
       <div class="mt-3 flex justify-center gap-3 items-center">
         <button data-act="play" class="btn bg-amber-400 hover:bg-amber-300 text-slate-900 text-3xl px-6 py-3 pulse2" style="white-space:nowrap">▶ Jouer le Run du Jour</button>
@@ -291,9 +292,16 @@ const DAILY_FLOORS = 12, RUN_SECONDS = 30 * 60, VARIANTS = 20;
 const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900, SPRING = 1000;
 const PW = 28, PH = 40;
 const STEP = 1 / 120;
-const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v31';
+const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v32';
 /* [MODE TEST] Passe à false (ou supprime les blocs marqués [MODE TEST]) quand tout est réglé. */
 const TEST_MODE = true;
+
+/* ---------- Mode télé léger ----------
+   Les navigateurs des télés sont peu puissants : le héros et le chien sont « photographiés » une seule fois en 3D
+   (une série d'images par animation), puis le jeu ne fait plus qu'afficher ces images. Les effets de lueur sont coupés. */
+const LIGHT_KEY = 'soen.modeTele', IS_TV = /smart-?tv|tizen|web0s|webos|netcast|hbbtv|bravia|aftb|aftm|aftt|crkey|android tv|googletv|opera tv|vidaa|nettv|viera|philipstv|tv safari|large screen/i.test(navigator.userAgent || '');
+let lightPref = null; try { lightPref = localStorage.getItem(LIGHT_KEY); } catch (e) { }
+let LIGHT = lightPref ? lightPref === 'on' : IS_TV;
 
 /* ---------- Les 7 thèmes de la semaine (index 0 = lundi) ---------- */
 const THEMES = [
@@ -1239,6 +1247,7 @@ function hurt(why) {
 
 /* ---------- Particules ---------- */
 function confetti(x, y, n, spread = 500, up = 500) {
+  if (LIGHT) n = Math.ceil(n * .35);
   const cols = ['#f43f5e', '#fbbf24', '#34d399', '#38bdf8', '#a78bfa', '#fb923c', '#fff'];
   for (let i = 0; i < n && parts.length < 900; i++)
     parts.push({ t: 'conf', x, y, vx: (Math.random() - .5) * spread, vy: -Math.random() * up - 100, g: 900, life: 2 + Math.random() * 1.5, max: 3, s: 7 + Math.random() * 7, c: cols[i % cols.length], r: Math.random() * 6, vr: (Math.random() - .5) * 14 });
@@ -1796,6 +1805,7 @@ document.addEventListener('click', e => {
   else if (a === 'resume' || a === 'balPause') togglePause();
   else if (a === 'mute') toggleMute();
   else if (a === 'shop') openShop();
+  else if (a === 'light') { LIGHT = !LIGHT; lightPref = LIGHT ? 'on' : 'off'; try { localStorage.setItem(LIGHT_KEY, lightPref); } catch (err) { } applyLight(); }
   else if (a === 'padCfg') { state = 'padcfg'; padCfg.cap = null; renderPadCfg(); showScreen('padCfgScr'); }
   else if (a === 'padAll') padStartCap(PAD_ACTS.map(q => q.k));
   else if (a === 'padSet') padStartCap([b.dataset.k]);
@@ -2083,7 +2093,7 @@ function initDog3D() {
       cam.updateMatrixWorld(); const foot = new THREE.Vector3(c.x, box.min.y, c.z).project(cam);   // où tombent les pattes dans l'image
       const cb = new THREE.PerspectiveCamera(30, 1, R * .01, R * 100); cb.position.set(c.x, c.y + R * 1.0, c.z - R * 2.3); cb.lookAt(c); cb.updateMatrixWorld();   // vue de dos, pour la balade
       const fb = new THREE.Vector3(c.x, box.min.y, c.z).project(cb);
-      Object.assign(Dog3D, { ready: true, canvas: r.domElement, r, scene, cam, mixer, footFrac: (1 - foot.y) / 2, camBack: cb, footBack: (1 - fb.y) / 2 });
+      Object.assign(Dog3D, { ready: true, canvas: r.domElement, r, scene, cam, mixer, dur: Math.max(.1, ...gltf.animations.map(a => a.duration)), footFrac: (1 - foot.y) / 2, camBack: cb, footBack: (1 - fb.y) / 2 });
     }, () => { });
   } catch (e) { }
 }
@@ -2092,13 +2102,15 @@ function drawDog(c, x, y, size, mode, flip) {
   const happy = mode === 'happy';
   if (Dog3D.ready) {
     const now = performance.now() / 1000, dt = Math.min(.1, now - (Dog3D.last || now)); Dog3D.last = now;
-    if (mode !== 'still') Dog3D.mixer.update(dt * (happy ? 1.7 : 1.1));   // immobile : on ne fait pas avancer l'animation
-    Dog3D.r.render(Dog3D.scene, Dog3D.cam);
+    let img = Dog3D.canvas;
+    if (LIGHT && bakeDog()) { if (mode !== 'still') Dog3D.lt += dt * (happy ? 1.7 : 1.1); img = mode === 'still' ? Dog3D.still : Dog3D.side[Math.floor(Dog3D.lt / Dog3D.dur * BAKE_N) % BAKE_N]; }
+    else { if (mode !== 'still') Dog3D.mixer.update(dt * (happy ? 1.7 : 1.1));   // immobile : on ne fait pas avancer l'animation
+      Dog3D.r.render(Dog3D.scene, Dog3D.cam); }
     const hop = happy ? Math.abs(Math.sin(time * 7)) * 14 : 0;
     c.save(); if (flip) { c.translate(x, 0); c.scale(-1, 1); c.translate(-x, 0); }
     c.fillStyle = 'rgba(0,0,0,.28)'; c.beginPath(); c.ellipse(x, y - 1, size * .3 * (1 - hop / 40), 5, 0, 0, 7); c.fill();   // ombre au sol
     c.shadowColor = 'rgba(255,240,200,.9)'; c.shadowBlur = 8;
-    c.drawImage(Dog3D.canvas, x - size / 2, y - size * Dog3D.footFrac - hop, size, size); drawDogAcc(c, x - size / 2, y - size * Dog3D.footFrac - hop, size, 'side'); c.restore();   // pattes posées exactement sur le sol
+    c.drawImage(img, x - size / 2, y - size * Dog3D.footFrac - hop, size, size); drawDogAcc(c, x - size / 2, y - size * Dog3D.footFrac - hop, size, 'side'); c.restore();   // pattes posées exactement sur le sol
   } else {   // secours si three.js n'a pas pu se charger
     c.font = Math.round(size * .6) + 'px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'bottom';
     c.fillText('🐶', x, y - (happy ? Math.abs(Math.sin(time * 7)) * 14 : mode === 'walk' ? Math.abs(Math.sin(time * 10)) * 4 : 0));
@@ -2404,14 +2416,39 @@ function drawHero(c, x, y, h, dir, mode, sx, sy) {
   const run = mode === 'run', sway = run ? Math.sin(time * 13) * .1 : 0;
   H.stride = (H.stride || 0) + (run ? dt * 13 : 0);   // la foulée avance seulement quand il court
   H.uSwing.value = run ? Math.sin(H.stride) * .6 : mode === 'air' ? .35 : H.uSwing.value * .8;   // en l'air : jambes écartées ; à l'arrêt : retour au repos
-  H.pivot.rotation.set(0, H.yaw + sway, 0); H.pivot.position.y = 0;
-  H.r.render(H.scene, H.cam);
+  let img = H.canvas;
+  if (LIGHT && bakeHero()) { const f = H.frames[dir > 0 ? 0 : 1]; img = run ? f.run[Math.floor(((H.stride % 6.2832) + 6.2832) % 6.2832 / 6.2832 * BAKE_N) % BAKE_N] : mode === 'air' ? f.air : f.idle; }
+  else { H.pivot.rotation.set(0, H.yaw + sway, 0); H.pivot.position.y = 0; H.r.render(H.scene, H.cam); }
   const size = h / H.hFrac, bob = run ? Math.abs(Math.cos(H.stride)) * 3 : 0, tilt = run ? dir * .1 : mode === 'air' ? dir * .06 : 0;
   c.save();
   c.fillStyle = 'rgba(0,0,0,.25)'; if (mode !== 'air') { c.beginPath(); c.ellipse(x, y - 1, h * .22, 4, 0, 0, 7); c.fill(); }
   c.translate(x, y - bob); c.rotate(tilt); c.scale(sx || 1, sy || 1);
-  c.drawImage(H.canvas, -size / 2, -size * H.footFrac, size, size);
+  c.drawImage(img, -size / 2, -size * H.footFrac, size, size);
   c.restore();
+}
+/* Mode télé léger : on prépare une fois pour toutes les images des animations */
+const BAKE_N = 12;
+function snapGL(r) { const cv2 = document.createElement('canvas'); cv2.width = cv2.height = 256; cv2.getContext('2d').drawImage(r.domElement, 0, 0); return cv2; }
+function bakeHero() {
+  const H = Hero3D; if (H.frames) return true; if (!H.ready) return false;
+  H.frames = [1, -1].map(dir => {
+    const pose = (u, sway) => { H.uSwing.value = u; H.pivot.rotation.set(0, (dir > 0 ? .95 : -.95) + sway, 0); H.r.render(H.scene, H.cam); return snapGL(H.r); };
+    return { run: Array.from({ length: BAKE_N }, (_, i) => { const a = i / BAKE_N * 6.2832; return pose(Math.sin(a) * .6, Math.sin(a) * .1); }), idle: pose(0, 0), air: pose(.35, 0) };
+  });
+  return true;
+}
+function bakeDog() {
+  const D = Dog3D; if (D.side) return true; if (!D.ready) return false;
+  const shot = (t, cam) => { D.mixer.setTime(t); D.r.render(D.scene, cam); return snapGL(D.r); };
+  D.still = shot(.3, D.cam);
+  D.side = Array.from({ length: BAKE_N }, (_, i) => shot(i / BAKE_N * D.dur, D.cam));
+  D.back = D.camBack ? Array.from({ length: BAKE_N }, (_, i) => shot(i / BAKE_N * D.dur, D.camBack)) : D.side;
+  D.lt = 0; return true;
+}
+function applyLight() {   // coupe (ou remet) les effets de lueur, très lents sur les télés
+  if (LIGHT) Object.defineProperty(ctx, 'shadowBlur', { configurable: true, get() { return 0; }, set() { } });
+  else delete ctx.shadowBlur;
+  const el = $('btnLight'); if (el) el.textContent = '📺 Mode télé léger : ' + (LIGHT ? 'oui' : 'non') + (lightPref ? '' : ' (auto)');
 }
 
 function drawPlayer() {
@@ -2455,6 +2492,7 @@ function drawParticles() {
   }
 }
 
+let VIGNETTE = null;
 function render() {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   if (bal && (state === 'balade' || state === 'balEnd' || (state === 'paused' && prevState === 'balade'))) { balRender(); return; }
@@ -2479,7 +2517,7 @@ function render() {
   drawParticles();
   ctx.restore();
   if (flash > 0) { ctx.fillStyle = `rgba(244,63,94,${flash * .5})`; ctx.fillRect(0, 0, W, H); }
-  const vg = ctx.createRadialGradient(W / 2, H / 2, 280, W / 2, H / 2, 620); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.4)');
+  const vg = VIGNETTE || (VIGNETTE = ctx.createRadialGradient(W / 2, H / 2, 280, W / 2, H / 2, 620)); if (!vg.done) { vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.4)'); vg.done = true; }
   ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
   if (fade > 0) { ctx.fillStyle = `rgba(10,6,40,${Math.min(1, fade)})`; ctx.fillRect(0, 0, W, H); }
 }
@@ -2724,10 +2762,12 @@ function balDrawDog() {
   ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(b.lean * .16 + (b.over === 'ko' ? Math.min(1.5, b.overT * 2) : 0)); ctx.scale(1 + (1 - sq) * .3, sq);
   if (Dog3D.ready && Dog3D.camBack) {
     const now = performance.now() / 1000, dt = Math.min(.1, now - (Dog3D.last || now)); Dog3D.last = now;
-    if (state === 'balade' && !b.over) Dog3D.mixer.update(dt * (b.y > 0 ? .6 : 2.4));
-    Dog3D.r.render(Dog3D.scene, Dog3D.camBack);
+    let img = Dog3D.canvas;
+    if (LIGHT && bakeDog()) { if (state === 'balade' && !b.over) Dog3D.lt += dt * (b.y > 0 ? .6 : 2.4); img = Dog3D.back[Math.floor(Dog3D.lt / Dog3D.dur * BAKE_N) % BAKE_N]; }
+    else { if (state === 'balade' && !b.over) Dog3D.mixer.update(dt * (b.y > 0 ? .6 : 2.4));
+      Dog3D.r.render(Dog3D.scene, Dog3D.camBack); }
     if (b.pw.sprint > 0) { ctx.shadowColor = '#fb923c'; ctx.shadowBlur = 30; }
-    ctx.drawImage(Dog3D.canvas, -size / 2, -size * Dog3D.footBack, size, size); ctx.shadowBlur = 0;
+    ctx.drawImage(img, -size / 2, -size * Dog3D.footBack, size, size); ctx.shadowBlur = 0;
     drawDogAcc(ctx, -size / 2, -size * Dog3D.footBack, size, 'back');
   } else { ctx.font = Math.round(g.s * 1.3) + 'px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillText('🐶', 0, 0); }
   ctx.restore();
@@ -2891,7 +2931,7 @@ function drawTrailBit(c, kind, x, y, s, a, k) {
 /* ======================================================================
    BOUCLE PRINCIPALE
    ====================================================================== */
-let last = performance.now(), accT = 0, cdT = 0;
+let last = performance.now(), accT = 0, cdT = 0, fpsN = 0, fpsT = 0, fpsV = 0;
 function frame(ts) {
   requestAnimationFrame(frame);
   const dt = Math.min(.1, (ts - last) / 1000); last = ts;
@@ -2899,6 +2939,12 @@ function frame(ts) {
   if (state !== 'paused') { accT += dt; let n = 0; while (accT >= STEP && n++ < 20) { step(STEP); accT -= STEP; } }
   else accT = 0;
   render();
+  if (TEST_MODE) {   // [MODE TEST] images par seconde, pour mesurer sur la télé
+    fpsN++; fpsT += dt; if (fpsT >= .5) { fpsV = Math.round(fpsN / fpsT); fpsN = 0; fpsT = 0; }
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.font = '900 15px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+    const t = fpsV + ' images/s' + (LIGHT ? ' · léger' : ''); ctx.fillStyle = 'rgba(15,23,42,.7)'; ctx.fillRect(6, H - 26, ctx.measureText(t).width + 12, 21);
+    ctx.fillStyle = fpsV >= 50 ? '#86efac' : fpsV >= 30 ? '#fde047' : '#fca5a5'; ctx.fillText(t, 12, H - 8);
+  }
   if (run && state !== 'title' && state !== 'closed') updateTimer();
   if (state === 'closed') { cdT -= dt; if (cdT <= 0) { cdT = .5; updateCountdown(); } }
   const ht = $('heroTitle'); if (ht && ht.offsetParent) { const c3 = ht.getContext('2d'); c3.clearRect(0, 0, ht.width, ht.height); if (Hero3D.ready) drawHero(c3, ht.width / 2, ht.height - 4, ht.height * .9, 1, 'idle'); else { c3.font = '70px sans-serif'; c3.textAlign = 'center'; c3.textBaseline = 'bottom'; c3.fillText('🧙‍♂️', ht.width / 2, ht.height - 6); } }
@@ -2917,7 +2963,7 @@ window.fitStage && window.fitStage();
 
 /* ---------- Démarrage ---------- */
 initDog3D(); initHero3D();
-initTitle();
+initTitle(); applyLight();
 (function boot() {
   const s = loadSave();
   if (s) showClosed(s); else { state = 'title'; showScreen('title'); }
