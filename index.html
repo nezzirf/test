@@ -295,7 +295,7 @@ const DAILY_FLOORS = 12, RUN_SECONDS = 30 * 60, VARIANTS = 20;
 const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900, SPRING = 1000;
 const PW = 28, PH = 40;
 const STEP = 1 / 120;
-const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v35';
+const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v36';
 /* [MODE TEST] Passe à false (ou supprime les blocs marqués [MODE TEST]) quand tout est réglé. */
 const TEST_MODE = true;
 
@@ -516,14 +516,22 @@ function padCfgLive() {   // allume les actions appuyées, pour vérifier son r�
   for (const a of PAD_ACTS) { const el = $('padRow_' + a.k); if (el) el.style.borderColor = st[a.k] ? '#fde047' : ''; }
 }
 /* Application Fire TV / Android : l'application reçoit les touches (manette ou télécommande) et les transmet ici */
-const appKeys = {};
+const appKeys = {}; let appPresses = 0, appSeen = false;
+if (window.SoenAndroid) pad.connected = true;   // dans l'application, on lit toujours l'état des touches
 let lastAppKey = '', lastAppKeyT = 0;
 window.soenKey = (k, down) => { appKeys[k] = !!down; pad.connected = true; if (down) { pad.used = true; lastAppKey = k; lastAppKeyT = performance.now(); } };
 window.soenAppPause = () => { if (state === 'playing' || state === 'balade') togglePause(); };   // l'application passe en arrière-plan
 function readPads() {
   const st = { left: false, right: false, up: false, down: false, jump: false, ok: false, back: false, pause: false };
   if (window.SOEN_APP) {   // A / centre = sauter + valider · B / retour = sauter + revenir · X, Y, haut = sauter
-    const k = appKeys; st.left = !!k.left; st.right = !!k.right; st.up = !!k.up; st.down = !!k.down; st.pause = !!k.pause;
+    const k = Object.assign({}, appKeys), A = window.SoenAndroid;
+    if (A && A.state) {   // l'application garde l'état des touches : on le lit à chaque image
+      let m = 0, n = 0; try { m = A.state(); n = A.presses(); } catch (e) { }
+      if (n !== appPresses) { appPresses = n; pad.connected = true; pad.used = true; lastAppKeyT = performance.now(); lastAppKey = 'appui ' + n; if (!appSeen) { appSeen = true; try { A.seen(); } catch (e) { } } }
+      if (m & 257) k.left = true; if (m & 514) k.right = true; if (m & 1028) k.up = true; if (m & 2056) k.down = true;
+      if (m & 16) k.a = true; if (m & 32) k.b = true; if (m & 64) k.x = true; if (m & 128) k.pause = true;
+      if (m) pad.connected = true;
+    } st.left = !!k.left; st.right = !!k.right; st.up = !!k.up; st.down = !!k.down; st.pause = !!k.pause;
     st.ok = !!k.a; st.back = !!k.b; st.jump = !!(k.a || k.b || k.x || k.up);
   }
   const gps = navigator.getGamepads ? navigator.getGamepads() : [];
