@@ -114,7 +114,7 @@
         <span class="bg-slate-900/70 rounded-xl px-2 py-1 border-2 border-slate-700" style="white-space:nowrap">⬅️ ➡️ ou Q · D : bouger</span>
         <span class="bg-slate-900/70 rounded-xl px-2 py-1 border-2 border-slate-700" style="white-space:nowrap">␣ ou ⬆️ : sauter (2× = double)</span>
         <span class="bg-slate-900/70 rounded-xl px-2 py-1 border-2 border-slate-700" style="white-space:nowrap">P : pause</span>
-        <span class="bg-slate-900/70 rounded-xl px-2 py-1 border-2 border-slate-700" style="white-space:nowrap">🎮 Switch : stick, A/B saut, ⊕ pause</span>
+        <button data-act="padCfg" class="btn bg-sky-300 hover:bg-sky-200 text-slate-900 text-sm px-2 py-1" style="white-space:nowrap">🎮 Régler ma manette</button>
       </div>
       <div class="mt-3 flex justify-center gap-3 items-center">
         <button data-act="play" class="btn bg-amber-400 hover:bg-amber-300 text-slate-900 text-3xl px-6 py-3 pulse2" style="white-space:nowrap">▶ Jouer le Run du Jour</button>
@@ -202,6 +202,30 @@
   </div>
 
   <!-- ============ VICTOIRE / FIN ============ -->
+  <!-- ============ RÉGLAGE DE LA MANETTE ============ -->
+  <div id="padCfgScr" class="screen off" style="background:rgba(10,6,40,.92)">
+    <div class="text-center relative" style="width:760px">
+      <h2 class="text-4xl font-black text-amber-300">🎮 Régler ma manette</h2>
+      <p class="text-sm font-bold text-indigo-100">Ça marche avec n'importe quelle manette. Clique sur <b>« Tout régler »</b> puis appuie sur la touche demandée pour chaque action.<br>Le réglage est gardé pour cette manette. Les cadres s'allument en jaune quand tu appuies : pratique pour vérifier !</p>
+      <div id="padList" class="mt-2 text-sm font-bold bg-slate-900/70 border-2 border-slate-700 rounded-xl px-3 py-1"></div>
+      <div id="padRows" class="mt-2 grid grid-cols-2 gap-2 text-white"></div>
+      <div class="mt-3 flex justify-center gap-3">
+        <button data-act="padAll" class="btn bg-amber-400 hover:bg-amber-300 text-slate-900 text-xl px-5 py-2">🎮 Tout régler</button>
+        <button data-act="padReset" class="btn bg-rose-300 hover:bg-rose-200 text-slate-900 text-lg px-4 py-2">♻️ Réglage automatique</button>
+        <button data-act="home" class="btn bg-sky-300 hover:bg-sky-200 text-slate-900 text-xl px-5 py-2">⬅ Retour</button>
+      </div>
+      <div id="padAsk" class="off absolute inset-0 flex flex-col items-center justify-center rounded-3xl border-8 border-amber-300" style="background:rgba(15,23,42,.97)">
+        <div class="text-2xl font-black text-indigo-100">Appuie sur la touche de ta manette pour :</div>
+        <div id="padAskTxt" class="text-5xl font-black text-amber-300 my-4 pulse2"></div>
+        <div class="text-sm font-bold text-indigo-200">(un bouton, la croix ou le joystick)</div>
+        <div class="mt-4 flex gap-3">
+          <button data-act="padSkip" class="btn bg-sky-300 hover:bg-sky-200 text-slate-900 text-lg px-4 py-2">⏭ Passer</button>
+          <button data-act="padStop" class="btn bg-rose-300 hover:bg-rose-200 text-slate-900 text-lg px-4 py-2">✖ Arrêter</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ============ BOUTIQUE ============ -->
   <div id="shop" class="screen off" style="background:rgba(10,6,40,.9)">
     <div class="text-center" style="width:930px">
@@ -267,7 +291,7 @@ const DAILY_FLOORS = 12, RUN_SECONDS = 30 * 60, VARIANTS = 20;
 const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900, SPRING = 1000;
 const PW = 28, PH = 40;
 const STEP = 1 / 120;
-const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v30';
+const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v31';
 /* [MODE TEST] Passe à false (ou supprime les blocs marqués [MODE TEST]) quand tout est réglé. */
 const TEST_MODE = true;
 
@@ -400,13 +424,92 @@ addEventListener('blur', () => { keys.left = keys.right = keys.jump = kb.left = 
    Jeu : stick gauche ou croix pour bouger, A / B / X / Y pour sauter, ⊕ (ou ⊖) pour la pause.
    Menus : stick ou croix pour choisir un bouton, A pour valider, B pour revenir à l'accueil. */
 const pad = { connected: false, held: {}, prev: {}, focus: -1, repeat: 0, used: false };
-addEventListener('gamepadconnected', e => { pad.connected = true; showToast('🎮 Manette connectée : ' + (/joy-?con/i.test(e.gamepad.id) ? 'Joy-Con' : /pro controller/i.test(e.gamepad.id) ? 'Pro Controller' : 'manette') + ' !'); });
+addEventListener('gamepadconnected', e => { pad.connected = true; if (state === 'padcfg') renderPadCfg(); showToast('🎮 Manette connectée : ' + (/joy-?con/i.test(e.gamepad.id) ? 'Joy-Con' : /pro controller/i.test(e.gamepad.id) ? 'Pro Controller' : 'manette') + ' !'); });
 addEventListener('gamepaddisconnected', () => { pad.connected = [...(navigator.getGamepads ? navigator.getGamepads() : [])].some(Boolean); });
+/* ---------- Réglage des touches : n'importe quelle manette ----------
+   On appuie sur la touche voulue pour chaque action ; le réglage est gardé pour cette manette (reconnue par son nom). */
+const PAD_KEY = 'soen.manettes.v1';
+const PAD_ACTS = [
+  { k: 'left', icon: '⬅️', name: 'Aller à gauche' }, { k: 'right', icon: '➡️', name: 'Aller à droite' },
+  { k: 'up', icon: '⬆️', name: 'Haut (menus, balade)' }, { k: 'down', icon: '⬇️', name: 'Bas (menus, se baisser)' },
+  { k: 'jump', icon: '🦘', name: 'Sauter' }, { k: 'pause', icon: '⏸', name: 'Pause' },
+  { k: 'ok', icon: '✅', name: 'Valider (menus)' }, { k: 'back', icon: '↩️', name: 'Retour (menus)' }
+];
+let padMaps = {}; try { padMaps = JSON.parse(localStorage.getItem(PAD_KEY)) || {}; } catch (e) { }
+const padCfg = { cap: null, queue: [], rest: null, wait: 0, live: {} };
+const btnOn = b => !!b && (b.pressed || b.value > .5);
+function padPressed(g, e) {   // la touche réglée « e » est-elle appuyée sur la manette « g » ?
+  const ax = g.axes || [];
+  if (e.t === 'b') return btnOn(g.buttons[e.i]);
+  if (e.t === 'a') return (ax[e.i] || 0) * e.s > .5;
+  return ax[e.i] !== undefined && Math.abs(ax[e.i] - e.v) < .12;   // croix codée sur un seul axe
+}
+function padLabel(e) {
+  if (!e) return '— pas réglé —';
+  if (e.t === 'b') return 'Bouton ' + e.i;
+  if (e.t === 'a') return 'Joystick (axe ' + e.i + (e.s < 0 ? ' −' : ' +') + ')';
+  return 'Croix (axe ' + e.i + ' : ' + e.v.toFixed(2) + ')';
+}
+function padSnap() { return [...(navigator.getGamepads ? navigator.getGamepads() : [])].filter(Boolean).map(g => ({ id: g.id, idx: g.index, b: g.buttons.map(btnOn), a: [...(g.axes || [])] })); }
+function padStartCap(list) {
+  padCfg.base = padSnap();   // état des axes au départ (une gâchette peut reposer à -1)
+  padCfg.queue = list.slice(); padCfg.cap = null; padNextCap();
+}
+function padNextCap() {
+  padCfg.cap = padCfg.queue.shift() || null; padCfg.rest = null; padCfg.wait = .25;
+  renderPadCfg();
+}
+function padStopCap() { padCfg.queue = []; padCfg.cap = null; renderPadCfg(); }
+function padCapPoll(dt) {   // attend qu'on appuie sur une touche pour l'action en cours de réglage
+  if (!padCfg.cap) return;
+  const snap = padSnap();
+  if (padCfg.wait > 0) {   // on attend que tout soit relâché (boutons, croix, joystick) avant de prendre l'état « au repos »
+    const neutral = g => { const b0 = (padCfg.base || []).find(q => q.idx === g.idx); return !g.b.some(Boolean) && g.a.every((v, i) => Math.abs(v) < .3 || Math.abs(v) > 1.05 || (b0 && Math.abs(v - b0.a[i]) < .05)); };
+    if (!snap.every(neutral)) { padCfg.wait = .25; return; }
+    padCfg.wait -= dt; if (padCfg.wait <= 0) padCfg.rest = snap; return;
+  }
+  if (!padCfg.rest) return;
+  for (const g of snap) {
+    const r = padCfg.rest.find(q => q.idx === g.idx && q.id === g.id); if (!r) { padCfg.rest.push(g); continue; }
+    let e = null;
+    g.b.forEach((on, i) => { if (!e && on && !r.b[i]) e = { t: 'b', i }; });
+    if (!e) g.a.forEach((v, i) => {
+      if (e || Math.abs(v - r.a[i]) < .5) return;
+      if (Math.abs(r.a[i]) < .2) { if (Math.abs(v) > .7) e = { t: 'a', i, s: Math.sign(v) }; }   // joystick
+      else if (Math.abs(v) <= 1.05) e = { t: 'x', i, v };   // croix codée sur un axe (ou gâchette) ; au-delà de 1, c'est la position « relâchée »
+    });
+    if (e) {
+      const m = padMaps[g.id] = padMaps[g.id] || {}; m[padCfg.cap] = e;
+      try { localStorage.setItem(PAD_KEY, JSON.stringify(padMaps)); } catch (err) { }
+      pad.connected = true; tone(660, 990, .08, 'triangle', .06);
+      padNextCap(); return;
+    }
+  }
+}
+function renderPadCfg() {
+  const gps = [...(navigator.getGamepads ? navigator.getGamepads() : [])].filter(Boolean);
+  const g = gps[0], m = g ? padMaps[g.id] : null;
+  $('padList').innerHTML = gps.length ? gps.map(q => `🎮 <b>${q.id.replace(/\(.*?\)/g, '').slice(0, 48)}</b> — ${padMaps[q.id] ? '<span class="text-emerald-300">réglage perso</span>' : '<span class="text-amber-300">réglage automatique</span>'}`).join('<br>')
+    : '<span class="text-rose-300">Aucune manette détectée : branche-la (ou allume-la), puis appuie sur une de ses touches.</span>';
+  $('padRows').innerHTML = PAD_ACTS.map(a => `<div id="padRow_${a.k}" class="flex items-center gap-2 bg-slate-900/70 border-2 border-slate-700 rounded-xl px-2 py-1">
+    <span class="text-xl">${a.icon}</span><span class="font-black flex-1 text-left">${a.name}</span>
+    <span class="font-bold text-sm text-indigo-200" style="white-space:nowrap">${!g ? '' : m ? padLabel(m[a.k]) : 'automatique'}</span>
+    <button data-act="padSet" data-k="${a.k}" class="btn bg-sky-300 hover:bg-sky-200 text-slate-900 text-sm px-2">Changer</button></div>`).join('');
+  const ask = $('padAsk');
+  if (padCfg.cap) { const a = PAD_ACTS.find(q => q.k === padCfg.cap); ask.classList.remove('off'); $('padAskTxt').textContent = `${a.icon} ${a.name}`; }
+  else ask.classList.add('off');
+}
+function padCfgLive() {   // allume les actions appuyées, pour vérifier son réglage
+  const st = pad.last || {};
+  for (const a of PAD_ACTS) { const el = $('padRow_' + a.k); if (el) el.style.borderColor = st[a.k] ? '#fde047' : ''; }
+}
 function readPads() {
   const st = { left: false, right: false, up: false, down: false, jump: false, ok: false, back: false, pause: false };
   const gps = navigator.getGamepads ? navigator.getGamepads() : [];
   for (const g of gps) {
     if (!g) continue;
+    const cm = padMaps[g.id];
+    if (cm) { for (const a of PAD_ACTS) if (cm[a.k] && padPressed(g, cm[a.k])) st[a.k] = true; pad.connected = true; continue; }   // réglage perso
     const b = i => !!(g.buttons[i] && g.buttons[i].pressed), ax = g.axes || [];
     let x = ax[0] || 0, y = ax[1] || 0;
     if (g.mapping === 'standard') {   // Pro Controller, deux Joy-Con, et la plupart des navigateurs
@@ -426,8 +529,9 @@ function readPads() {
   return st;
 }
 function pollPads(dt) {
+  if (padCfg.cap) { padCapPoll(dt); pad.prev = readPads(); return; }   // réglage des touches en cours
   if (!pad.connected) return;
-  const st = readPads(), pr = pad.prev, press = k => st[k] && !pr[k];
+  const st = readPads(), pr = pad.prev, press = k => st[k] && !pr[k]; pad.last = st;
   if (Object.values(st).some(Boolean)) pad.used = true;
   pad.held = { left: st.left, right: st.right, jump: st.jump };
   // en jeu
@@ -1053,7 +1157,7 @@ function genFloor(fi) {
 /* ======================================================================
    ÉTAT DU JEU
    ====================================================================== */
-let state = 'title';   // title | playing | dying | clear | paused | end | closed | balade | balEnd | shop
+let state = 'title';   // title | playing | dying | clear | paused | end | closed | balade | balEnd | shop | padcfg
 let prevState = 'title';
 let heartFloors = null;   // [étage de départ du 1er cœur, étage de départ du 2e cœur] (null à l'entraînement)
 let L = null, P = null;
@@ -1692,6 +1796,12 @@ document.addEventListener('click', e => {
   else if (a === 'resume' || a === 'balPause') togglePause();
   else if (a === 'mute') toggleMute();
   else if (a === 'shop') openShop();
+  else if (a === 'padCfg') { state = 'padcfg'; padCfg.cap = null; renderPadCfg(); showScreen('padCfgScr'); }
+  else if (a === 'padAll') padStartCap(PAD_ACTS.map(q => q.k));
+  else if (a === 'padSet') padStartCap([b.dataset.k]);
+  else if (a === 'padSkip') padNextCap();
+  else if (a === 'padStop') padStopCap();
+  else if (a === 'padReset') { const g = [...(navigator.getGamepads ? navigator.getGamepads() : [])].filter(Boolean); g.forEach(q => delete padMaps[q.id]); try { localStorage.setItem(PAD_KEY, JSON.stringify(padMaps)); } catch (err) { } renderPadCfg(); }
   else if (a === 'shopBack') closeShop();
   else if (a === 'buyP') buyPower(b.dataset.id);
   else if (a === 'buyD') buyDeco(b.dataset.id);
@@ -2792,6 +2902,7 @@ function frame(ts) {
   if (run && state !== 'title' && state !== 'closed') updateTimer();
   if (state === 'closed') { cdT -= dt; if (cdT <= 0) { cdT = .5; updateCountdown(); } }
   const ht = $('heroTitle'); if (ht && ht.offsetParent) { const c3 = ht.getContext('2d'); c3.clearRect(0, 0, ht.width, ht.height); if (Hero3D.ready) drawHero(c3, ht.width / 2, ht.height - 4, ht.height * .9, 1, 'idle'); else { c3.font = '70px sans-serif'; c3.textAlign = 'center'; c3.textBaseline = 'bottom'; c3.fillText('🧙‍♂️', ht.width / 2, ht.height - 6); } }
+  if (state === 'padcfg') { if (!padCfg.cap) padCfgLive(); cdT -= dt; if (cdT <= 0) { cdT = 1; if (!padCfg.cap) renderPadCfg(); } }
   const sdg = $('shopDog'); if (sdg && sdg.offsetParent) {   // aperçu du chien déguisé dans la boutique
     const c4 = sdg.getContext('2d'), tr = loadBank().eq.trail; c4.clearRect(0, 0, sdg.width, sdg.height);
     if (tr) for (let i = 0; i < (tr === 'rainbow' ? 30 : 7); i++) { const u = ((time * .9 + i / (tr === 'rainbow' ? 30 : 7)) % 1); drawTrailBit(c4, tr, sdg.width * .62 + u * sdg.width * .4, sdg.height * .66 + (tr === 'rainbow' ? 0 : Math.sin(i * 2.3 + time * 3) * 10), 26, 1 - u, i); }
