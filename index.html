@@ -67,6 +67,7 @@
       <div class="flex gap-2 items-center">
         <div id="puz" class="bg-slate-900/70 border-4 border-slate-900 rounded-2xl px-3 py-1 text-xl font-black"></div>
         <div id="scoreBox" class="bg-amber-400 text-slate-900 border-4 border-slate-900 rounded-2xl px-3 py-1 text-xl font-black tabular-nums">🪙 0</div>
+        <button data-act="quit" class="btn bg-sky-400 text-slate-900 px-2 text-xl" style="pointer-events:auto" title="Retour au menu">🏠</button>
         <button id="btnPause" class="btn bg-sky-400 text-slate-900 px-2 text-xl" style="pointer-events:auto" title="Pause (P)">⏸</button>
         <button id="btnMute" class="btn bg-sky-400 text-slate-900 px-2 text-xl" style="pointer-events:auto" title="Son (M)">🔊</button>
       </div>
@@ -170,7 +171,22 @@
     <div class="text-center bg-indigo-900/95 border-8 border-slate-900 rounded-[2rem] px-10 py-6">
       <div class="text-5xl font-black text-amber-300">⏸ Pause</div>
       <p class="mt-2 font-bold text-indigo-100">Le chrono est arrêté.</p>
-      <button data-act="resume" class="btn mt-4 bg-amber-400 hover:bg-amber-300 text-slate-900 text-2xl px-6 py-2">▶ Reprendre</button>
+      <div class="mt-4 flex justify-center gap-3">
+        <button data-act="resume" class="btn bg-amber-400 hover:bg-amber-300 text-slate-900 text-2xl px-6 py-2">▶ Reprendre</button>
+        <button data-act="quit" class="btn bg-sky-300 hover:bg-sky-200 text-slate-900 text-2xl px-6 py-2">🏠 Menu</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ QUITTER LA PARTIE ============ -->
+  <div id="quitAsk" class="screen off" style="background:rgba(10,6,40,.8)">
+    <div class="text-center bg-indigo-900/95 border-8 border-slate-900 rounded-[2rem] px-10 py-6" style="max-width:640px">
+      <div class="text-4xl font-black text-amber-300">🏠 Retourner au menu ?</div>
+      <p id="quitMsg" class="mt-2 font-bold text-indigo-100"></p>
+      <div class="mt-4 flex justify-center gap-3">
+        <button data-act="resume" class="btn bg-amber-400 hover:bg-amber-300 text-slate-900 text-2xl px-6 py-2">▶ Continuer à jouer</button>
+        <button data-act="quitYes" class="btn bg-rose-400 hover:bg-rose-300 text-slate-900 text-2xl px-6 py-2">🏠 Oui, au menu</button>
+      </div>
     </div>
   </div>
 
@@ -203,7 +219,7 @@ const DAILY_FLOORS = 12, RUN_SECONDS = 30 * 60, VARIANTS = 20;
 const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900, SPRING = 1000;
 const PW = 28, PH = 40;
 const STEP = 1 / 120;
-const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v23';
+const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v24';
 /* [MODE TEST] Passe à false (ou supprime les blocs marqués [MODE TEST]) quand tout est réglé. */
 const TEST_MODE = true;
 
@@ -1558,6 +1574,17 @@ document.addEventListener('click', e => {
   else if (a === 'testGo') startRun(false, 0, { theme: testSel.theme, variant: testSel.variant, floor: +b.dataset.i });
   else if (a === 'testReset') { try { localStorage.removeItem(SAVE_KEY); } catch (err) { } state = 'title'; showScreen('title'); }
   else if (a === 'resume') togglePause();
+  else if (a === 'quit') {   // retour au menu : on met la partie en pause et on demande confirmation
+    if (state === 'playing' || state === 'dying' || state === 'clear') { prevState = state; state = 'paused'; }
+    if (state === 'paused') { $('quitMsg').textContent = isDaily ? 'Attention : ta tentative du jour sera terminée (le score atteint est gardé). Tu ne pourras pas la reprendre avant demain.' : 'Ta partie d\'entraînement sera arrêtée.'; showScreen('quitAsk'); }
+  }
+  else if (a === 'quitYes') {
+    keys.left = keys.right = keys.jump = false;
+    if (isDaily && run) saveProgress('started');
+    $('hud').classList.add('off'); $('banner').classList.add('off'); $('toast').classList.add('off');
+    run = null; L = null; state = 'title';
+    const sv = isDaily ? loadSave() : null; if (sv) showClosed(sv); else showScreen('title');
+  }
   else if (a === 'share') shareResult();
   else if (a === 'closed') { const s = loadSave(); if (s) showClosed(s); }
   else if (a === 'home') { const s = loadSave(); if (s) showClosed(s); else { state = 'title'; showScreen('title'); } }
@@ -2081,14 +2108,33 @@ function initHero3D() {
     scene.add(new THREE.HemisphereLight(0xffffff, 0x555566, 1.05)); const dl = new THREE.DirectionalLight(0xffffff, .8); dl.position.set(3, 3, 2); scene.add(dl);
     new THREE.GLTFLoader().parse(buf.buffer, '', gltf => {
       const model = gltf.scene, pivot = new THREE.Group();
-      model.traverse(o => { if (o.isMesh) { const t = o.material && o.material.map; o.material = new THREE.MeshToonMaterial(t ? { map: t } : { color: 0x60a5fa }); } });
+      const uSwing = { value: 0 };
+      model.traverse(o => { if (o.isMesh) {
+        const t = o.material && o.material.map; o.material = new THREE.MeshToonMaterial(t ? { map: t } : { color: 0x60a5fa });
+        // le modèle n'a pas de squelette : on fait pivoter les jambes (autour des hanches) et les bras (autour des épaules)
+        o.material.onBeforeCompile = sh => {
+          sh.uniforms.uSwing = uSwing;
+          sh.vertexShader = `uniform float uSwing;
+            vec3 heroPose(vec3 v) {
+              float side = clamp(v.z / 0.018, -1.0, 1.0);
+              float leg = smoothstep(-0.12, -0.19, v.y);                                   // 1 sous les hanches
+              float arm = smoothstep(0.112, 0.128, abs(v.z)) * smoothstep(0.17, 0.10, v.y) * step(-0.24, v.y) * (1.0 - leg);
+              float aL = uSwing * side * leg, aA = -uSwing * 0.4 * sign(v.z) * arm;
+              vec2 hip = vec2(-0.03, -0.15), sho = vec2(-0.03, 0.15);
+              vec2 d = v.xy - hip; v.xy = hip + vec2(cos(aL) * d.x - sin(aL) * d.y, sin(aL) * d.x + cos(aL) * d.y);
+              d = v.xy - sho; v.xy = sho + vec2(cos(aA) * d.x - sin(aA) * d.y, sin(aA) * d.x + cos(aA) * d.y);
+              return v;
+            }
+            ` + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n transformed = heroPose(transformed);');
+        };
+      } });
       const box = new THREE.Box3().setFromObject(model), c = new THREE.Vector3(), sz = new THREE.Vector3(); box.getCenter(c); box.getSize(sz);
       model.position.set(-c.x, -box.min.y, -c.z);   // pieds au centre du pivot
       pivot.add(model); scene.add(pivot);
       const R = Math.max(sz.x, sz.y, sz.z), cam = new THREE.PerspectiveCamera(26, 1, R * .01, R * 100);
       cam.position.set(R * 2.6, sz.y * .5, 0); cam.lookAt(0, sz.y * .5, 0); cam.updateMatrixWorld();   // vue de face ; le pivot tourne vers la gauche / la droite
       const foot = new THREE.Vector3(0, 0, 0).project(cam), head = new THREE.Vector3(0, sz.y, 0).project(cam);
-      Object.assign(Hero3D, { ready: true, canvas: r.domElement, r, scene, cam, pivot, footFrac: (1 - foot.y) / 2, hFrac: (head.y - foot.y) / 2 });
+      Object.assign(Hero3D, { ready: true, canvas: r.domElement, r, scene, cam, pivot, uSwing, footFrac: (1 - foot.y) / 2, hFrac: (head.y - foot.y) / 2 });
     }, () => { Hero3D.loading = false; });
   } catch (e) { Hero3D.loading = false; }
 }
@@ -2097,10 +2143,12 @@ function drawHero(c, x, y, h, dir, mode, sx, sy) {
   const H = Hero3D, now = performance.now() / 1000, dt = Math.min(.1, now - (H.last || now)); H.last = now;
   const target = dir > 0 ? .95 : -.95;   // il se tourne en 3D vers où il va (trois quarts)
   H.yaw += (target - H.yaw) * Math.min(1, dt * 12);
-  const run = mode === 'run', sway = run ? Math.sin(time * 13) * .14 : 0;
+  const run = mode === 'run', sway = run ? Math.sin(time * 13) * .1 : 0;
+  H.stride = (H.stride || 0) + (run ? dt * 13 : 0);   // la foulée avance seulement quand il court
+  H.uSwing.value = run ? Math.sin(H.stride) * .6 : mode === 'air' ? .35 : H.uSwing.value * .8;   // en l'air : jambes écartées ; à l'arrêt : retour au repos
   H.pivot.rotation.set(0, H.yaw + sway, 0); H.pivot.position.y = 0;
   H.r.render(H.scene, H.cam);
-  const size = h / H.hFrac, bob = run ? Math.abs(Math.sin(time * 13)) * 4 : 0, tilt = run ? dir * .1 : mode === 'air' ? dir * .06 : 0;
+  const size = h / H.hFrac, bob = run ? Math.abs(Math.cos(H.stride)) * 3 : 0, tilt = run ? dir * .1 : mode === 'air' ? dir * .06 : 0;
   c.save();
   c.fillStyle = 'rgba(0,0,0,.25)'; if (mode !== 'air') { c.beginPath(); c.ellipse(x, y - 1, h * .22, 4, 0, 0, 7); c.fill(); }
   c.translate(x, y - bob); c.rotate(tilt); c.scale(sx || 1, sy || 1);
