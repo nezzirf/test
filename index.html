@@ -295,7 +295,7 @@ const DAILY_FLOORS = 12, RUN_SECONDS = 30 * 60, VARIANTS = 20;
 const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900, SPRING = 1000;
 const PW = 28, PH = 40;
 const STEP = 1 / 120;
-const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v36';
+const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v37';
 /* [MODE TEST] Passe à false (ou supprime les blocs marqués [MODE TEST]) quand tout est réglé. */
 const TEST_MODE = true;
 
@@ -2122,7 +2122,7 @@ function initDog3D() {
 // dessine le chien (pattes au point x,y) ; happy = il saute de joie
 function drawDog(c, x, y, size, mode, flip) {
   const happy = mode === 'happy';
-  if (Dog3D.ready) {
+  if (dog3DOk()) {
     const now = performance.now() / 1000, dt = Math.min(.1, now - (Dog3D.last || now)); Dog3D.last = now;
     let img = Dog3D.canvas;
     if (LIGHT && bakeDog()) { if (mode !== 'still') Dog3D.lt += dt * (happy ? 1.7 : 1.1); img = mode === 'still' ? Dog3D.still : Dog3D.side[Math.floor(Dog3D.lt / Dog3D.dur * BAKE_N) % BAKE_N]; }
@@ -2450,13 +2450,35 @@ function drawHero(c, x, y, h, dir, mode, sx, sy) {
 }
 /* Mode télé léger : on prépare une fois pour toutes les images des animations */
 const BAKE_N = 12;
-function snapGL(r) { const cv2 = document.createElement('canvas'); cv2.width = cv2.height = 256; cv2.getContext('2d').drawImage(r.domElement, 0, 0); return cv2; }
+function snapGL(r) {   // copie l'image 3D en lisant directement ses pixels (marche aussi sur les puces où la copie classique sort vide)
+  const w = 256, h = 256, cv2 = document.createElement('canvas'); cv2.width = cv2.height = w;
+  const c = cv2.getContext('2d'), px = new Uint8Array(w * h * 4); let filled = 0;
+  try { const gl = r.getContext(); gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, px); } catch (e) { }
+  const img = c.createImageData(w, h), d = img.data;
+  for (let y = 0; y < h; y++) {
+    const src = (h - 1 - y) * w * 4, dst = y * w * 4;   // l'image WebGL est à l'envers
+    for (let x = 0; x < w * 4; x += 4) {
+      const a = px[src + x + 3]; if (!a) continue; filled++;
+      const k = 255 / a; d[dst + x] = Math.min(255, px[src + x] * k); d[dst + x + 1] = Math.min(255, px[src + x + 1] * k); d[dst + x + 2] = Math.min(255, px[src + x + 2] * k); d[dst + x + 3] = a;
+    }
+  }
+  if (filled > 50) c.putImageData(img, 0, 0);
+  else {   // essai avec la copie classique
+    c.drawImage(r.domElement, 0, 0); filled = 0;
+    try { const q = c.getImageData(0, 0, w, h).data; for (let i = 3; i < q.length; i += 16) if (q[i]) filled++; } catch (e) { filled = 99; }
+  }
+  cv2.blank = filled <= 50; return cv2;
+}
+// la 3D est-elle utilisable ? (sinon : héros et chien dessinés en 2D, jamais invisibles)
+function hero3DOk() { return Hero3D.ready && (!LIGHT || (bakeHero() && !Hero3D.blank)); }
+function dog3DOk() { return Dog3D.ready && (!LIGHT || (bakeDog() && !Dog3D.blank)); }
 function bakeHero() {
   const H = Hero3D; if (H.frames) return true; if (!H.ready) return false;
   H.frames = [1, -1].map(dir => {
     const pose = (u, sway) => { H.uSwing.value = u; H.pivot.rotation.set(0, (dir > 0 ? .95 : -.95) + sway, 0); H.r.render(H.scene, H.cam); return snapGL(H.r); };
     return { run: Array.from({ length: BAKE_N }, (_, i) => { const a = i / BAKE_N * 6.2832; return pose(Math.sin(a) * .6, Math.sin(a) * .1); }), idle: pose(0, 0), air: pose(.35, 0) };
   });
+  H.blank = H.frames[0].idle.blank && H.frames[0].run[0].blank;
   return true;
 }
 function bakeDog() {
@@ -2465,6 +2487,7 @@ function bakeDog() {
   D.still = shot(.3, D.cam);
   D.side = Array.from({ length: BAKE_N }, (_, i) => shot(i / BAKE_N * D.dur, D.cam));
   D.back = D.camBack ? Array.from({ length: BAKE_N }, (_, i) => shot(i / BAKE_N * D.dur, D.camBack)) : D.side;
+  D.blank = D.still.blank && D.side[0].blank;
   D.lt = 0; return true;
 }
 function applyLight() {   // coupe (ou remet) les effets de lueur, très lents sur les télés
@@ -2476,7 +2499,7 @@ function applyLight() {   // coupe (ou remet) les effets de lueur, très lents s
 function drawPlayer() {
   const p = P; if (p.hidden || state === 'dying') return;
   if (p.inv > 0 && Math.floor(time * 14) % 2) return;
-  if (Hero3D.ready) {   // le héros 3D (la zone de collision reste la même : 28×40)
+  if (hero3DOk()) {   // le héros 3D (la zone de collision reste la même : 28×40)
     drawHero(ctx, p.x + PW / 2, p.y + PH, 74, p.face, !p.grounded ? 'air' : Math.abs(p.vx) > 30 ? 'run' : 'idle', p.sx, p.sy);
     return;
   }
@@ -2782,7 +2805,7 @@ function balDrawDog() {
   ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(g.x, g.y, g.s * .55 * (1 - b.y * .2), g.s * .13, 0, 0, 7); ctx.fill();
   if (b.inv > 0 && Math.floor(b.inv * 12) % 2 === 0 && !b.over) return;   // clignote après un choc
   ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(b.lean * .16 + (b.over === 'ko' ? Math.min(1.5, b.overT * 2) : 0)); ctx.scale(1 + (1 - sq) * .3, sq);
-  if (Dog3D.ready && Dog3D.camBack) {
+  if (dog3DOk() && Dog3D.camBack) {
     const now = performance.now() / 1000, dt = Math.min(.1, now - (Dog3D.last || now)); Dog3D.last = now;
     let img = Dog3D.canvas;
     if (LIGHT && bakeDog()) { if (state === 'balade' && !b.over) Dog3D.lt += dt * (b.y > 0 ? .6 : 2.4); img = Dog3D.back[Math.floor(Dog3D.lt / Dog3D.dur * BAKE_N) % BAKE_N]; }
@@ -2964,12 +2987,12 @@ function frame(ts) {
   if (TEST_MODE) {   // [MODE TEST] images par seconde, pour mesurer sur la télé
     fpsN++; fpsT += dt; if (fpsT >= .5) { fpsV = Math.round(fpsN / fpsT); fpsN = 0; fpsT = 0; }
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.font = '900 15px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
-    const t = fpsV + ' images/s' + (LIGHT ? ' · léger' : '') + (performance.now() - lastAppKeyT < 1500 ? ' · 🎮 ' + lastAppKey : ''); ctx.fillStyle = 'rgba(15,23,42,.7)'; ctx.fillRect(6, H - 26, ctx.measureText(t).width + 12, 21);
+    const t = fpsV + ' images/s' + (LIGHT ? ' · léger' : '') + ' · 3D ' + (hero3DOk() && dog3DOk() ? 'ok' : Hero3D.ready || Dog3D.ready ? 'vide → 2D' : 'absente') + (performance.now() - lastAppKeyT < 1500 ? ' · 🎮 ' + lastAppKey : ''); ctx.fillStyle = 'rgba(15,23,42,.7)'; ctx.fillRect(6, H - 26, ctx.measureText(t).width + 12, 21);
     ctx.fillStyle = fpsV >= 50 ? '#86efac' : fpsV >= 30 ? '#fde047' : '#fca5a5'; ctx.fillText(t, 12, H - 8);
   }
   if (run && state !== 'title' && state !== 'closed') updateTimer();
   if (state === 'closed') { cdT -= dt; if (cdT <= 0) { cdT = .5; updateCountdown(); } }
-  const ht = $('heroTitle'); if (ht && ht.offsetParent) { const c3 = ht.getContext('2d'); c3.clearRect(0, 0, ht.width, ht.height); if (Hero3D.ready) drawHero(c3, ht.width / 2, ht.height - 4, ht.height * .9, 1, 'idle'); else { c3.font = '70px sans-serif'; c3.textAlign = 'center'; c3.textBaseline = 'bottom'; c3.fillText('🧙‍♂️', ht.width / 2, ht.height - 6); } }
+  const ht = $('heroTitle'); if (ht && ht.offsetParent) { const c3 = ht.getContext('2d'); c3.clearRect(0, 0, ht.width, ht.height); if (hero3DOk()) drawHero(c3, ht.width / 2, ht.height - 4, ht.height * .9, 1, 'idle'); else { c3.font = '70px sans-serif'; c3.textAlign = 'center'; c3.textBaseline = 'bottom'; c3.fillText('🧙‍♂️', ht.width / 2, ht.height - 6); } }
   if (state === 'padcfg') { if (!padCfg.cap) padCfgLive(); cdT -= dt; if (cdT <= 0) { cdT = 1; if (!padCfg.cap) renderPadCfg(); } }
   const sdg = $('shopDog'); if (sdg && sdg.offsetParent) {   // aperçu du chien déguisé dans la boutique
     const c4 = sdg.getContext('2d'), tr = loadBank().eq.trail; c4.clearRect(0, 0, sdg.width, sdg.height);
