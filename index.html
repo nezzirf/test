@@ -239,7 +239,7 @@ const DAILY_FLOORS = 12, RUN_SECONDS = 30 * 60, VARIANTS = 20;
 const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900, SPRING = 1000;
 const PW = 28, PH = 40;
 const STEP = 1 / 120;
-const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v28';
+const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v29';
 /* [MODE TEST] Passe à false (ou supprime les blocs marqués [MODE TEST]) quand tout est réglé. */
 const TEST_MODE = true;
 
@@ -985,7 +985,9 @@ function genFloor(fi) {
       run.heartHost[grp] = fi;
       const base = c[Math.floor(hr() * c.length)], cx = base.x + base.w / 2, side = hr() < .5 ? 1 : -1; let top = null;
       for (let i = 0; i < 4; i++) top = mk({ x: cx + (i % 2 ? 1 : -1) * side * Math.min(40, base.w / 2 - 36) - 36, y: base.y - 115 * (i + 1), w: 72, type: 'normal', keyplat: true, tiny: true });
-      heart = { x: top.x + top.w / 2, y: top.y - 36, got: !!(run && run.heartGot && run.heartGot[fi]) }; base.busy = true;
+      heart = { x: top.x + top.w / 2, y: top.y - 36, got: !!(run && run.heartGot && run.heartGot[fi]), bx: base.x, bw: base.w, by: base.y, t: 0, in: false, told: false, zap: 0,
+        T1: 1.9 - .5 * D, T2: 1.2 + .4 * D };   // T1 : l'œil dort (on grimpe) · T2 : l'œil regarde (on ne bouge plus)
+      base.busy = true;
     }
   }
 
@@ -1013,7 +1015,7 @@ function genFloor(fi) {
   if (puz.key) hints.push(last ? 'trouve la clé 🔑 : elle fera descendre la plateforme de notre chien 🐶' : 'trouve la clé 🔑 pour ouvrir l\'escalier');
   if (last && !puz.key) hints.push('rejoins notre chien 🐶 tout en haut');
   let hint = hints.join(' et ') + ' !'; hint = hint[0].toUpperCase() + hint.slice(1);
-  if (heart && !heart.got) hint += ' ❤️ Un cœur est caché en hauteur à cet étage !';
+  if (heart && !heart.got) hint += ' ❤️ Un cœur est caché en hauteur à cet étage, gardé par un œil : 1, 2, 3… soleil !';
   const sw = puz.sw ? { kind: puz.sw, x: swPlat.x + swPlat.w / 2, y: swPlat.y, on: false, bridge: puz.sw === 'race' ? null : bridge } : null;
   const cst = {}; for (let g = 0; g < grpN; g++) cst[g] = grpInit[g] || 'b';
   return { f, fi, last, plats, spikes, traps, coins, orbs, cps, door, key, sw, simon, pairs, whack, mem, lamps, signs, fires, lasers, saws, levers, plate, crates, cbtns, riddles, grpInit, cpuz, tblocks, winds, chasers, targets, race, stars, cst, heart, heartOk, needKey: puz.key, dog, W: Wend,
@@ -1141,7 +1143,7 @@ function step(dt) {
   for (const g of L.mem) { g.rev = Math.max(0, g.rev - dt); g.cd = Math.max(0, g.cd - dt); }
   updatePairs(dt); updateWhack(dt); updateCrates(dt); updateLevers(dt);
   for (const tb of L.tblocks) { tb.cd = Math.max(0, tb.cd - dt); tb.bump = Math.max(0, tb.bump - dt); }
-  updateNewDays(dt);
+  updateNewDays(dt); updateHeartTrap(dt);
   if (L.sw && L.sw.bridge && L.sw.kind !== 'crate' && L.sw.bridge.active && L.sw.bridge.grow < 1) L.sw.bridge.grow = Math.min(1, L.sw.bridge.grow + dt / .9);
   for (const o of L.orbs) o.cd = Math.max(0, o.cd - dt);
 
@@ -1225,6 +1227,22 @@ function padHit(i) {
 function resetTargets(msg) {   // toutes les cibles s'éteignent : il faut les enchaîner sans toucher le sol
   for (const t of L.targets.list) t.lit = false;
   SFX.locked(); shake = .25; if (msg) showToast(msg);
+}
+/* Le gardien du cœur : « 1, 2, 3… soleil ! ». Tant que l'œil dort, on grimpe ; quand il s'ouvre, il ne faut plus bouger, sinon retour en bas de la petite tour. */
+function heartEye(h) { const ph = h.t % (h.T1 + h.T2), open = ph >= h.T1; return { open, ph, count: open ? 0 : Math.min(3, 1 + Math.floor(ph / h.T1 * 3)), since: ph - h.T1, left: open ? h.T1 + h.T2 - ph : h.T1 - ph }; }
+function updateHeartTrap(dt) {
+  const h = L.heart; if (!h || h.got) return;
+  h.zap = Math.max(0, h.zap - dt);
+  const cx = P.x + PW / 2, inZone = state === 'playing' && cx > h.bx - 30 && cx < h.bx + h.bw + 30 && P.y + PH < h.by - 50 && P.y + PH > h.y - 140;
+  if (!inZone) { h.in = false; h.t = 0; return; }
+  if (!h.in) { h.in = true; h.t = 0; if (!h.told) { h.told = true; showToast('👁 1, 2, 3… SOLEIL ! Quand l\'œil s\'ouvre, ne bouge plus !'); } }
+  const was = heartEye(h).open; h.t += dt; const e = heartEye(h);
+  if (e.open && !was) tone(880, 440, .18, 'square', .06);
+  else if (!e.open && Math.floor((e.ph - dt) / h.T1 * 3) !== Math.floor(e.ph / h.T1 * 3)) tone(520 + e.count * 60, 520 + e.count * 60, .06, 'triangle', .05);
+  if (e.open && e.since > .3 && (!P.grounded || Math.abs(P.vx) > 15 || keys.left || keys.right)) {   // vu en train de bouger !
+    sparkle(cx, P.y + PH / 2, 14, '#f87171'); P.x = h.bx + h.bw / 2 - PW / 2; P.y = h.by - PH; P.vx = P.vy = 0; P.jbuf = 0;
+    h.zap = .6; h.in = false; h.t = 0; SFX.hurt(); shake = Math.max(shake, .5); showToast('👁 Vu ! Tu as bougé : retour en bas de la petite tour.');
+  }
 }
 function updateNewDays(dt) {
   const rc = L.race;
@@ -1983,9 +2001,22 @@ function drawKey() {
 }
 
 function drawCoins() {
-  if (L.heart && !L.heart.got) {   // cœur caché
-    const h = L.heart, k = 1 + Math.sin(time * 5) * .1, y = h.y + Math.sin(time * 2.5) * 4;
+  if (L.heart && !L.heart.got) {   // cœur caché et son gardien
+    const h = L.heart, k = 1 + Math.sin(time * 5) * .1, y = h.y + Math.sin(time * 2.5) * 4, e = heartEye(h), ex = h.x, ey = h.y - 62;
     ctx.save(); ctx.shadowColor = '#fb7185'; ctx.shadowBlur = 22; ctx.font = Math.round(38 * k) + 'px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('❤️', h.x, y); ctx.restore();
+    const awake = h.in && e.open, o = awake ? Math.min(1, e.since / .12) : 0;
+    ctx.save(); ctx.lineWidth = 3; ctx.strokeStyle = OUT;
+    if (awake) { ctx.shadowColor = '#ef4444'; ctx.shadowBlur = 26; }
+    ctx.fillStyle = awake ? '#fff' : '#a78bfa'; ctx.beginPath(); ctx.ellipse(ex, ey, 26, 4 + 13 * o, 0, 0, 7); ctx.fill(); ctx.stroke();
+    if (awake) { ctx.shadowBlur = 0; const dx = Math.max(-9, Math.min(9, (P.x + PW / 2 - ex) / 14)); ctx.fillStyle = '#dc2626'; ctx.beginPath(); ctx.arc(ex + dx, ey + 3, 9 * o, 0, 7); ctx.fill(); ctx.fillStyle = '#1e1b4b'; ctx.beginPath(); ctx.arc(ex + dx, ey + 3, 4 * o, 0, 7); ctx.fill(); }
+    else for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo(ex + i * 9, ey + 4); ctx.lineTo(ex + i * 11, ey + 12); ctx.stroke(); }   // cils : il dort
+    ctx.restore();
+    if (h.in) {   // le décompte, au-dessus du héros pour qu'on le voie toujours
+      const px = P.x + PW / 2, py = P.y - 78;
+      if (e.open) { outText('SOLEIL !', px, py, 26, '#fca5a5'); outText('ne bouge plus', px, py + 22, 14, '#fff'); }
+      else outText(['1…', '2…', '3…'][e.count - 1], px, py, 30, '#fde047');
+    }
+    if (h.zap > 0) { ctx.save(); ctx.globalAlpha = h.zap / .6; ctx.strokeStyle = '#f87171'; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(h.bx + h.bw / 2, h.by - PH / 2); ctx.stroke(); ctx.restore(); }
   }
   for (const c of L.coins) {
     if (c.got || c.x < cam.x - 30 || c.x > cam.x + W + 30) continue;
