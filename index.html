@@ -18,6 +18,7 @@
   .off{display:none!important}
   .btn{cursor:pointer;font-weight:900;border:4px solid #0f172a;border-radius:18px;box-shadow:0 6px 0 #0f172a;transition:transform .08s,box-shadow .08s}
   .btn:active{transform:translateY(5px);box-shadow:0 1px 0 #0f172a}
+  .padfocus{outline:5px solid #fde047!important;outline-offset:4px;transform:scale(1.04)}
   .title-glow{text-shadow:0 4px 0 #4c1d95,0 0 30px rgba(250,204,21,.6)}
   @keyframes floaty{0%,100%{transform:translateY(0) rotate(-3deg)}50%{transform:translateY(-10px) rotate(3deg)}}
   .floaty{animation:floaty 2.4s ease-in-out infinite;display:inline-block}
@@ -77,9 +78,10 @@
         <b class="text-amber-300">12 étages</b>. Pas de vies : si tu tombes, tu repars du dernier <b class="text-emerald-300">drapeau 🚩</b>… mais le chrono, lui, ne s'arrête pas !
       </p>
       <div class="mt-2 flex justify-center gap-3 text-sm font-bold text-slate-100">
-        <span class="bg-slate-900/70 rounded-xl px-3 py-1 border-2 border-slate-700">⬅️ ➡️ ou Q/A · D : bouger</span>
-        <span class="bg-slate-900/70 rounded-xl px-3 py-1 border-2 border-slate-700">␣ ou ⬆️ : sauter (2× = double saut !)</span>
-        <span class="bg-slate-900/70 rounded-xl px-3 py-1 border-2 border-slate-700">P : pause</span>
+        <span class="bg-slate-900/70 rounded-xl px-2 py-1 border-2 border-slate-700" style="white-space:nowrap">⬅️ ➡️ ou Q · D : bouger</span>
+        <span class="bg-slate-900/70 rounded-xl px-2 py-1 border-2 border-slate-700" style="white-space:nowrap">␣ ou ⬆️ : sauter (2× = double)</span>
+        <span class="bg-slate-900/70 rounded-xl px-2 py-1 border-2 border-slate-700" style="white-space:nowrap">P : pause</span>
+        <span class="bg-slate-900/70 rounded-xl px-2 py-1 border-2 border-slate-700" style="white-space:nowrap">🎮 Switch : stick, A/B saut, ⊕ pause</span>
       </div>
       <div class="mt-3 flex justify-center gap-4 items-center">
         <button data-act="play" class="btn bg-amber-400 hover:bg-amber-300 text-slate-900 text-3xl px-8 py-3 pulse2">▶ Jouer le Run du Jour</button>
@@ -175,7 +177,7 @@ const DAILY_FLOORS = 12, RUN_SECONDS = 30 * 60, VARIANTS = 20;
 const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900, SPRING = 1000;
 const PW = 28, PH = 40;
 const STEP = 1 / 120;
-const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v18';
+const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v19';
 /* [MODE TEST] Passe à false (ou supprime les blocs marqués [MODE TEST]) quand tout est réglé. */
 const TEST_MODE = true;
 
@@ -272,6 +274,7 @@ const SFX = {
 
 /* ---------- Entrées clavier ---------- */
 const keys = { left: false, right: false, jump: false };
+const kb = { left: false, right: false, jump: false };   // état du clavier (fusionné avec la manette)
 function mapKey(e) {
   const c = e.code, k = (e.key || '').toLowerCase();
   if (c === 'ArrowLeft' || c === 'KeyA' || k === 'a' || k === 'q') return 'left';
@@ -284,7 +287,7 @@ addEventListener('keydown', e => {
   const m = mapKey(e);
   if (m) {
     if (m === 'jump' && !keys.jump && !e.repeat) { if (P) P.jbuf = .13; }
-    keys[m] = true;
+    keys[m] = kb[m] = true;
   }
   if (!e.repeat) {
     if (e.code === 'KeyP' || e.code === 'Escape') togglePause();
@@ -296,8 +299,65 @@ addEventListener('keydown', e => {
     }
   }
 });
-addEventListener('keyup', e => { const m = mapKey(e); if (m) keys[m] = false; });
-addEventListener('blur', () => { keys.left = keys.right = keys.jump = false; if (state === 'playing') togglePause(); });
+addEventListener('keyup', e => { const m = mapKey(e); if (m) { kb[m] = false; keys[m] = !!pad.held[m]; } });
+addEventListener('blur', () => { keys.left = keys.right = keys.jump = kb.left = kb.right = kb.jump = false; if (state === 'playing' && !pad.connected) togglePause(); });
+
+/* ---------- Manettes (Nintendo Switch Pro, Joy-Con, et autres manettes) ----------
+   Jeu : stick gauche ou croix pour bouger, A / B / X / Y pour sauter, ⊕ (ou ⊖) pour la pause.
+   Menus : stick ou croix pour choisir un bouton, A pour valider, B pour revenir à l'accueil. */
+const pad = { connected: false, held: {}, prev: {}, focus: -1, repeat: 0, used: false };
+addEventListener('gamepadconnected', e => { pad.connected = true; showToast('🎮 Manette connectée : ' + (/joy-?con/i.test(e.gamepad.id) ? 'Joy-Con' : /pro controller/i.test(e.gamepad.id) ? 'Pro Controller' : 'manette') + ' !'); });
+addEventListener('gamepaddisconnected', () => { pad.connected = [...(navigator.getGamepads ? navigator.getGamepads() : [])].some(Boolean); });
+function readPads() {
+  const st = { left: false, right: false, up: false, down: false, jump: false, ok: false, back: false, pause: false };
+  const gps = navigator.getGamepads ? navigator.getGamepads() : [];
+  for (const g of gps) {
+    if (!g) continue;
+    const b = i => !!(g.buttons[i] && g.buttons[i].pressed), ax = g.axes || [];
+    let x = ax[0] || 0, y = ax[1] || 0;
+    if (g.mapping === 'standard') {   // Pro Controller, deux Joy-Con, et la plupart des navigateurs
+      if (b(14)) x = -1; if (b(15)) x = 1; if (b(12)) y = -1; if (b(13)) y = 1;
+      st.jump = st.jump || b(0) || b(1) || b(2) || b(3);
+      st.ok = st.ok || b(1) || b(0) && !g.id.match(/nintendo|joy-?con|pro controller/i);   // A (à droite) valide
+      st.back = st.back || b(0) && /nintendo|joy-?con|pro controller/i.test(g.id);
+      st.pause = st.pause || b(9) || b(8);
+    } else {   // manette non reconnue (Joy-Con seul, Firefox…) : on prend ce qu'on trouve
+      const hat = ax[9]; if (hat !== undefined && hat >= -1.05 && hat <= 1.05) { const d = Math.round((hat + 1) * 3.5); if (d === 0 || d === 1 || d === 7) y = -1; if (d >= 1 && d <= 3) x = 1; if (d >= 3 && d <= 5) y = 1; if (d >= 5 && d <= 7) x = -1; }
+      st.jump = st.jump || b(0) || b(1) || b(2) || b(3);
+      st.ok = st.ok || b(0) || b(1); st.pause = st.pause || b(9) || b(8) || b(12) || b(13);
+    }
+    if (x < -.45) st.left = true; if (x > .45) st.right = true; if (y < -.6) st.up = true; if (y > .6) st.down = true;
+    pad.connected = true;
+  }
+  return st;
+}
+function pollPads(dt) {
+  if (!pad.connected) return;
+  const st = readPads(), pr = pad.prev, press = k => st[k] && !pr[k];
+  if (Object.values(st).some(Boolean)) pad.used = true;
+  pad.held = { left: st.left, right: st.right, jump: st.jump };
+  // en jeu
+  if (state === 'playing' || state === 'dying' || state === 'clear') {
+    if (press('jump') && P) P.jbuf = .13;
+    keys.left = kb.left || st.left; keys.right = kb.right || st.right; keys.jump = kb.jump || st.jump;
+    if (press('pause')) { ac(); togglePause(); }
+  } else {
+    keys.left = kb.left; keys.right = kb.right; keys.jump = kb.jump;
+    // menus : on se déplace entre les boutons de l'écran affiché
+    const btns = [...document.querySelectorAll('.screen:not(.off) [data-act]')].filter(el => el.offsetParent);
+    if (btns.length) {
+      if (pad.focus < 0 || pad.focus >= btns.length) pad.focus = 0;
+      const dir = st.right || st.down ? 1 : st.left || st.up ? -1 : 0;
+      pad.repeat = Math.max(0, pad.repeat - dt);
+      if (dir && (pad.repeat <= 0 || !(pr.left || pr.right || pr.up || pr.down))) { pad.focus = (pad.focus + dir + btns.length) % btns.length; pad.repeat = .28; }
+      if (!dir) pad.repeat = 0;
+      btns.forEach((el, i) => el.classList.toggle('padfocus', pad.used && i === pad.focus));
+      if (press('ok') || (press('pause') && state === 'paused')) { const el = btns[pad.focus]; pad.focus = -1; btns.forEach(x => x.classList.remove('padfocus')); el.click(); }
+      else if (press('back')) { const home = btns.find(el => el.dataset.act === 'home' || el.dataset.act === 'resume'); if (home) { pad.focus = -1; home.click(); } }
+    }
+  }
+  pad.prev = st;
+}
 document.addEventListener('visibilitychange', () => { if (document.hidden && state === 'playing') togglePause(); });
 
 /* ---------- Décor (change selon le thème, la variante et l'étage) ---------- */
@@ -2050,6 +2110,7 @@ let last = performance.now(), accT = 0, cdT = 0;
 function frame(ts) {
   requestAnimationFrame(frame);
   const dt = Math.min(.1, (ts - last) / 1000); last = ts;
+  pollPads(dt);
   if (state !== 'paused') { accT += dt; let n = 0; while (accT >= STEP && n++ < 20) { step(STEP); accT -= STEP; } }
   else accT = 0;
   render();
