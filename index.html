@@ -72,7 +72,7 @@
         <div id="todayDesc" class="text-base font-bold"></div>
       </div>
       <p class="mt-3 text-base font-bold leading-snug text-indigo-100 bg-slate-900/60 border-4 border-slate-900 rounded-3xl px-5 py-2">
-        Le sorcier <b class="text-amber-300">Chronos</b> a enfermé <b class="text-amber-300">notre chien 🐶</b> tout en haut de sa tour ! Pour le sauver, il faut grimper… et chaque jour de la semaine,
+        Le sorcier <b class="text-amber-300">Chronos</b> a emmené <b class="text-amber-300">notre chien 🐶</b> tout en haut de sa tour ! Pour le sauver, il faut grimper… et chaque jour de la semaine,
         la tour lance un <b class="text-amber-300">défi différent</b> ! Tu as <b class="text-amber-300">30 minutes</b> pour grimper
         <b class="text-amber-300">12 étages</b>. Pas de vies : si tu tombes, tu repars du dernier <b class="text-emerald-300">drapeau 🚩</b>… mais le chrono, lui, ne s'arrête pas !
       </p>
@@ -175,7 +175,7 @@ const DAILY_FLOORS = 12, RUN_SECONDS = 30 * 60, VARIANTS = 20;
 const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900, SPRING = 1000;
 const PW = 28, PH = 40;
 const STEP = 1 / 120;
-const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v15';
+const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v16';
 /* [MODE TEST] Passe à false (ou supprime les blocs marqués [MODE TEST]) quand tout est réglé. */
 const TEST_MODE = true;
 
@@ -851,8 +851,8 @@ function genFloor(fi) {
   if (puz.sw === 'pairs') hints.push('retrouve toutes les paires de cartes 🃏 pour faire apparaître le pont');
   if (puz.sw === 'code') hints.push('mémorise le code du panneau 🪧 puis refais-le en tapant les blocs pour faire apparaître le pont');
   if (puz.sw === 'button') hints.push('active l\'interrupteur 🔴 pour faire apparaître le pont');
-  if (puz.key) hints.push(last ? 'trouve la clé 🔑 puis appuie sur le bouton pour faire descendre notre chien 🐶' : 'trouve la clé 🔑 pour ouvrir l\'escalier');
-  if (last && !puz.key) hints.push('appuie sur le bouton pour faire descendre notre chien 🐶');
+  if (puz.key) hints.push(last ? 'trouve la clé 🔑 : elle fera descendre la plateforme de notre chien 🐶' : 'trouve la clé 🔑 pour ouvrir l\'escalier');
+  if (last && !puz.key) hints.push('rejoins notre chien 🐶 tout en haut');
   let hint = hints.join(' et ') + ' !'; hint = hint[0].toUpperCase() + hint.slice(1);
   const sw = puz.sw ? { kind: puz.sw, x: swPlat.x + swPlat.w / 2, y: swPlat.y, on: false, bridge: puz.sw === 'race' ? null : bridge } : null;
   const cst = {}; for (let g = 0; g < grpN; g++) cst[g] = grpInit[g] || 'b';
@@ -1309,7 +1309,7 @@ function updatePlayer(dt) {
   }
   if (L.key && !L.key.got && Math.abs(L.key.x - cx) < 30 && Math.abs(L.key.y - cy) < 36) {
     L.key.got = true; SFX.key(); confetti(L.key.x, L.key.y, 50, 400, 350); updateHUD(true);
-    showToast('🔑 Tu as la clé ! Direction ' + (L.last ? 'le bouton du chien 🐶 !' : 'l\'escalier !'));
+    showToast('🔑 Tu as la clé ! Direction ' + (L.last ? 'notre chien 🐶 !' : 'l\'escalier !'));
   }
   if (L.sw && L.sw.kind === 'button' && !L.sw.on && Math.abs(L.sw.x - cx) < 34 && p.grounded && Math.abs((p.y + PH) - L.sw.y) < 6) {
     L.sw.on = true; L.sw.bridge.active = true; SFX.sw(); shake = .35; confetti(L.sw.x, L.sw.y - 10, 60, 500, 400);
@@ -1327,10 +1327,11 @@ function updatePlayer(dt) {
   // escalier / sauvetage du chien
   const d = L.door, dg = L.dog;
   if (dg) {
-    if (!dg.told && p.x > dg.bx - 400) { dg.told = true; showToast('🐶 Ouaf ! Notre chien est coincé là-haut ! Appuie sur le bouton !'); }
-    if (!dg.pressed && p.grounded && Math.abs(cx - dg.bx) < 24 && Math.abs(p.y + PH - dg.by) < 6) {
-      if (!L.needKey || L.key.got) { dg.pressed = true; SFX.sw(); ring(dg.bx, dg.by, '#fde047'); showToast('⬇️ La plateforme descend…'); }
-      else if (doorMsgCd <= 0) { doorMsgCd = 2.2; SFX.locked(); showToast('🔒 Le bouton est verrouillé : trouve d\'abord la clé 🔑'); }
+    if (!dg.told && p.x > dg.bx - 400) { dg.told = true; showToast('🐶 Ouaf ! Notre chien est coincé là-haut… seule la clé 🔑 peut faire descendre sa plateforme !'); }
+    // arrivé sur la dernière plateforme : la clé fait descendre le chien
+    if (!dg.pressed && p.grounded && p.standing && p.standing.end) {
+      if (!L.needKey || L.key.got) { dg.pressed = true; SFX.sw(); sparkle(cx, p.y, 16); showToast('🔑 La clé brille… la plateforme du chien descend !'); }
+      else if (doorMsgCd <= 0) { doorMsgCd = 3; SFX.locked(); showToast('🔒 Sans la clé 🔑, la plateforme du chien ne descendra pas !'); }
     }
     if (dg.lowered && p.grounded && p.standing === dg.plat && Math.abs(cx - (dg.plat.x + dg.plat.w / 2)) < 45) goal();
   } else if (cx > d.x + 6 && cx < d.x + 62 && p.y + PH > d.y && p.y < d.y + d.h) {
@@ -1738,11 +1739,8 @@ function drawDog(c, x, y, size, happy, flip) {
 }
 function drawDogArea() {
   const dg = L.dog, p = dg.plat, cx = p.x + p.w / 2;
-  // bouton
-  ctx.fillStyle = '#334155'; rr(dg.bx - 26, dg.by - 8, 52, 8, 3); ctx.fill(); ctx.strokeStyle = OUT; ctx.lineWidth = 3; ctx.stroke();
-  const locked = L.needKey && !L.key.got, bh = dg.pressed ? 3 : 13;
-  ctx.fillStyle = dg.pressed ? '#22c55e' : locked ? '#64748b' : '#ef4444'; rr(dg.bx - 18, dg.by - 8 - bh, 36, bh, 6); ctx.fill(); ctx.stroke();
-  if (!dg.pressed) { if (locked) emoji('🔒', dg.bx, dg.by - 40, 22); else emoji('👇', dg.bx, dg.by - 42 + Math.sin(time * 5) * 5, 24); }
+  // tant que la plateforme est en haut : un cadenas montre qu'il faut la clé
+  if (!dg.pressed) { const k = !L.needKey || L.key.got; emoji(k ? '🔑' : '🔒', cx, p.y + 46 + Math.sin(time * 4) * 4, 26); }
   // chaînes
   ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 4; ctx.setLineDash([8, 6]);
   ctx.beginPath(); ctx.moveTo(p.x + 14, p.y0 - 260); ctx.lineTo(p.x + 14, p.y); ctx.moveTo(p.x + p.w - 14, p.y0 - 260); ctx.lineTo(p.x + p.w - 14, p.y); ctx.stroke(); ctx.setLineDash([]);
@@ -1751,15 +1749,8 @@ function drawDogArea() {
   // halo + chien
   const g = ctx.createRadialGradient(cx, p.y - 40, 5, cx, p.y - 40, 100); g.addColorStop(0, dg.saved ? 'rgba(253,224,71,.6)' : 'rgba(255,255,255,.25)'); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.fillRect(cx - 110, p.y - 150, 220, 170);
   drawDog(ctx, cx, p.y + 2, 120, dg.saved || dg.lowered);
-  // cage tant que le chien n'est pas sauvé
-  if (!dg.saved) {
-    const open = dg.lowered ? Math.min(1, .5) : 0;
-    ctx.strokeStyle = '#475569'; ctx.lineWidth = 5;
-    for (let i = 0; i <= 6; i++) { const bx = p.x + 18 + i * (p.w - 36) / 6; if (dg.lowered && i < 3) continue; ctx.beginPath(); ctx.moveTo(bx, p.y); ctx.lineTo(bx, p.y - 112); ctx.stroke(); }
-    ctx.beginPath(); ctx.moveTo(p.x + 14, p.y - 112); ctx.lineTo(p.x + p.w - 14, p.y - 112); ctx.stroke();
-  }
   // bulle
-  const msg = dg.saved ? 'Ouaf ! 💛' : dg.lowered ? 'Ouaf ouaf ! 🐾' : 'Ouaf… au secours ! 😢';
+  const msg = dg.saved ? 'Ouaf ! 💛' : dg.lowered ? 'Ouaf ouaf ! 🐾' : 'Ouaf… je suis coincé ! 😢';
   ctx.font = '900 16px "Trebuchet MS",sans-serif'; const tw = ctx.measureText(msg).width + 20, by = p.y - 70 + Math.sin(time * 3) * 3, bx = p.x - 14 - tw / 2;   // bulle à gauche de la cage
   ctx.fillStyle = '#fff'; rr(bx - tw / 2, by - 15, tw, 30, 14); ctx.fill(); ctx.strokeStyle = OUT; ctx.lineWidth = 3; ctx.stroke();
   ctx.beginPath(); ctx.moveTo(bx + tw / 2 - 2, by - 6); ctx.lineTo(p.x - 2, by); ctx.lineTo(bx + tw / 2 - 2, by + 6); ctx.fillStyle = '#fff'; ctx.fill();
