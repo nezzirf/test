@@ -295,14 +295,14 @@ const DAILY_FLOORS = 12, RUN_SECONDS = 30 * 60, VARIANTS = 20;
 const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900, SPRING = 1000;
 const PW = 28, PH = 40;
 const STEP = 1 / 120;
-const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v33';
+const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v34';
 /* [MODE TEST] Passe à false (ou supprime les blocs marqués [MODE TEST]) quand tout est réglé. */
 const TEST_MODE = true;
 
 /* ---------- Mode télé léger ----------
    Les navigateurs des télés sont peu puissants : le héros et le chien sont « photographiés » une seule fois en 3D
    (une série d'images par animation), puis le jeu ne fait plus qu'afficher ces images. Les effets de lueur sont coupés. */
-const LIGHT_KEY = 'soen.modeTele', IS_TV = /smart-?tv|tizen|web0s|webos|netcast|hbbtv|bravia|aftb|aftm|aftt|crkey|android tv|googletv|opera tv|vidaa|nettv|viera|philipstv|tv safari|large screen/i.test(navigator.userAgent || '');
+const LIGHT_KEY = 'soen.modeTele', IS_TV = !!window.SOEN_APP || /smart-?tv|tizen|web0s|webos|netcast|hbbtv|bravia|crkey|android tv|googletv|opera tv|vidaa|nettv|viera|philipstv|tv safari|large screen|silk/i.test(navigator.userAgent || '') || /\bAFT[A-Z0-9]{1,6}\b/.test(navigator.userAgent || '');
 let lightPref = null; try { lightPref = localStorage.getItem(LIGHT_KEY); } catch (e) { }
 let LIGHT = lightPref ? lightPref === 'on' : IS_TV;
 
@@ -514,8 +514,16 @@ function padCfgLive() {   // allume les actions appuyées, pour vérifier son r�
   const st = pad.last || {};
   for (const a of PAD_ACTS) { const el = $('padRow_' + a.k); if (el) el.style.borderColor = st[a.k] ? '#fde047' : ''; }
 }
+/* Application Fire TV / Android : l'application reçoit les touches (manette ou télécommande) et les transmet ici */
+const appKeys = {};
+window.soenKey = (k, down) => { appKeys[k] = !!down; pad.connected = true; if (down) pad.used = true; };
+window.soenAppPause = () => { if (state === 'playing' || state === 'balade') togglePause(); };   // l'application passe en arrière-plan
 function readPads() {
   const st = { left: false, right: false, up: false, down: false, jump: false, ok: false, back: false, pause: false };
+  if (window.SOEN_APP) {   // A / centre = sauter + valider · B / retour = sauter + revenir · X, Y, haut = sauter
+    const k = appKeys; st.left = !!k.left; st.right = !!k.right; st.up = !!k.up; st.down = !!k.down; st.pause = !!k.pause;
+    st.ok = !!k.a; st.back = !!k.b; st.jump = !!(k.a || k.b || k.x || k.up);
+  }
   const gps = navigator.getGamepads ? navigator.getGamepads() : [];
   for (const g of gps) {
     if (!g) continue;
