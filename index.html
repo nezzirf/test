@@ -88,6 +88,13 @@
   </div>
 
   <!-- ============ ÉCRAN TITRE ============ -->
+  <!-- ============ LA GRANDE BALADE : boutons ============ -->
+  <div id="balHud" class="off" style="position:absolute;right:12px;top:10px;display:flex;gap:8px">
+    <button data-act="quit" class="btn bg-sky-400 text-slate-900 px-2 text-xl" title="Retour au menu">🏠</button>
+    <button data-act="balPause" class="btn bg-sky-400 text-slate-900 px-2 text-xl" title="Pause (P)">⏸</button>
+    <button id="balMute" data-act="mute" class="btn bg-sky-400 text-slate-900 px-2 text-xl" title="Son (M)">🔊</button>
+  </div>
+
   <div id="title" class="screen" style="background:rgba(10,6,40,.55)">
     <div class="text-center" style="width:840px">
       <div class="flex justify-center items-end gap-3" style="height:92px"><canvas id="heroTitle" width="120" height="120" style="width:92px;height:92px"></canvas><span class="text-5xl floaty" style="animation-delay:.4s">🏰</span>
@@ -161,7 +168,8 @@
       <div id="testFloors" class="mt-1 grid grid-cols-6 gap-2"></div>
       <div class="mt-4 flex justify-center gap-3">
         <button data-act="home" class="btn bg-sky-300 hover:bg-sky-200 text-slate-900 text-lg px-5 py-2">🏠 Retour</button>
-        <button data-act="testReset" class="btn bg-rose-400 hover:bg-rose-300 text-slate-900 text-lg px-5 py-2">♻️ Réinitialiser le run du jour</button>
+        <button data-act="balTest" class="btn bg-amber-400 hover:bg-amber-300 text-slate-900 text-lg px-5 py-2">🐕 Tester la balade</button>
+        <button data-act="testReset" class=""btn bg-rose-400 hover:bg-rose-300 text-slate-900 text-lg px-5 py-2">♻️ Réinitialiser le run du jour</button>
       </div>
     </div>
   </div>
@@ -191,6 +199,17 @@
   </div>
 
   <!-- ============ VICTOIRE / FIN ============ -->
+  <!-- ============ FIN DE LA BALADE ============ -->
+  <div id="balEnd" class="screen off" style="background:rgba(10,6,40,.6)">
+    <div class="text-center border-8 border-slate-900 rounded-[2rem] px-8 py-5 text-slate-900" style="width:700px;background:rgba(132,204,22,.97)">
+      <div id="balEndIcon" class="text-6xl"></div>
+      <h2 id="balEndTitle" class="text-4xl font-black text-white"></h2>
+      <p id="balEndMsg" class="text-lg font-bold mt-1"></p>
+      <div id="balEndStats" class="mt-3 grid grid-cols-2 gap-2 text-left text-lg font-bold"></div>
+      <div class="mt-4 flex justify-center gap-3" id="balEndBtns"></div>
+    </div>
+  </div>
+
   <div id="end" class="screen off" style="background:rgba(10,6,40,.6)">
     <div id="endCard" class="text-center border-8 border-slate-900 rounded-[2rem] px-8 py-5" style="width:700px">
       <div id="endIcon" class="text-6xl"></div>
@@ -219,7 +238,7 @@ const DAILY_FLOORS = 12, RUN_SECONDS = 30 * 60, VARIANTS = 20;
 const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900, SPRING = 1000;
 const PW = 28, PH = 40;
 const STEP = 1 / 120;
-const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v24';
+const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v25';
 /* [MODE TEST] Passe à false (ou supprime les blocs marqués [MODE TEST]) quand tout est réglé. */
 const TEST_MODE = true;
 
@@ -330,6 +349,7 @@ function mapKey(e) {
 addEventListener('keydown', e => {
   if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
   const m = mapKey(e);
+  if (state === 'balade' && !e.repeat) { if (m) balInput(m); else if (e.code === 'ArrowDown' || e.code === 'KeyS') balInput('down'); }
   if (m) {
     if (m === 'jump' && !keys.jump && !e.repeat) { if (P) P.jbuf = .13; }
     keys[m] = kb[m] = true;
@@ -345,7 +365,7 @@ addEventListener('keydown', e => {
   }
 });
 addEventListener('keyup', e => { const m = mapKey(e); if (m) { kb[m] = false; keys[m] = !!pad.held[m]; } });
-addEventListener('blur', () => { keys.left = keys.right = keys.jump = kb.left = kb.right = kb.jump = false; if (state === 'playing' && !pad.connected) togglePause(); });
+addEventListener('blur', () => { keys.left = keys.right = keys.jump = kb.left = kb.right = kb.jump = false; if ((state === 'playing' || state === 'balade') && !pad.connected) togglePause(); });
 
 /* ---------- Manettes (Nintendo Switch Pro, Joy-Con, et autres manettes) ----------
    Jeu : stick gauche ou croix pour bouger, A / B / X / Y pour sauter, ⊕ (ou ⊖) pour la pause.
@@ -382,7 +402,11 @@ function pollPads(dt) {
   if (Object.values(st).some(Boolean)) pad.used = true;
   pad.held = { left: st.left, right: st.right, jump: st.jump };
   // en jeu
-  if (state === 'playing' || state === 'dying' || state === 'clear') {
+  if (state === 'balade') {   // la balade : croix ou stick pour changer de voie, sauter (haut ou bouton) et se baisser (bas)
+    for (const k of ['left', 'right', 'down']) if (press(k)) balInput(k);
+    if (press('jump') || press('up')) balInput('jump');
+    if (press('pause')) togglePause();
+  } else if (state === 'playing' || state === 'dying' || state === 'clear') {
     if (press('jump') && P) P.jbuf = .13;
     keys.left = kb.left || st.left; keys.right = kb.right || st.right; keys.jump = kb.jump || st.jump;
     if (press('pause')) { ac(); togglePause(); }
@@ -403,7 +427,7 @@ function pollPads(dt) {
   }
   pad.prev = st;
 }
-document.addEventListener('visibilitychange', () => { if (document.hidden && state === 'playing') togglePause(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden && (state === 'playing' || state === 'balade')) togglePause(); });
 
 /* ---------- Décor (change selon le thème, la variante et l'étage) ---------- */
 function theme(f) {
@@ -968,7 +992,7 @@ function genFloor(fi) {
 /* ======================================================================
    ÉTAT DU JEU
    ====================================================================== */
-let state = 'title';   // title | playing | dying | clear | paused | end | closed
+let state = 'title';   // title | playing | dying | clear | paused | end | closed | balade | balEnd
 let prevState = 'title';
 let L = null, P = null;
 let floor = 0, run = null, time = 0;
@@ -1009,7 +1033,8 @@ function startRun(daily, themeIdx, test) {
   updateHUD(true);
 }
 function saveProgress(status) {
-  writeSave({ date: todayKey(), status, score: calcScore(status === 'win'), floors: run.floorsDone, total: floorSeq.length, deaths: run.deaths,
+  const old = loadSave();
+  writeSave({ date: todayKey(), status, hearts: heartsFor(run.elapsed, run.heartsFound), bal: old ? old.bal : undefined, score: calcScore(status === 'win'), floors: run.floorsDone, total: floorSeq.length, deaths: run.deaths,
     time: Math.round(run.elapsed), coins: run.coins, theme: THEME.emoji + ' ' + THEME.name, variant: VARIANT + 1 });
 }
 
@@ -1059,6 +1084,7 @@ function sparkle(x, y, n = 10, c = '#fde047') { for (let i = 0; i < n; i++) { co
    BOUCLE DE MISE À JOUR
    ====================================================================== */
 function step(dt) {
+  if (state === 'balade') { balStep(dt); return; }
   time += dt;
   for (let i = parts.length - 1; i >= 0; i--) {
     const q = parts[i]; q.life -= dt; if (q.life <= 0) { parts.splice(i, 1); continue; }
@@ -1493,10 +1519,12 @@ function endRun(kind) {
   $('endStats').innerHTML = `<div class="${box}">⭐ Score : <b>${run.score}</b></div><div class="${box}">🏰 Étages : <b>${run.floorsDone}/${n}</b></div>
     <div class="${box}">⏱ Temps : <b>${fmt(run.elapsed)}</b></div><div class="${box}">🪙 Pièces : <b>${run.coins}</b> &nbsp; 💫 Chutes : <b>${run.deaths}</b></div>`;
   $('endRank').textContent = !win ? '' : run.elapsed < 15 * 60 ? '🧙‍♂️ Archimage du Temps !' : run.elapsed < 22 * 60 ? '⚡ Grand Magicien !' : '🎩 Apprenti Courageux !';
-  const b = 'btn text-slate-900 text-xl px-5 py-2 ';
-  $('endBtns').innerHTML = isDaily
+  const b = 'btn text-slate-900 text-xl px-5 py-2 ', hb = heartsFor(run.elapsed, run.heartsFound), tb = hb - 1 - (run.heartsFound || 0), canBal = win && (isDaily || isTest);
+  if (canBal) $('endMsg').textContent += ` 🐕 En récompense : la grande balade, avec ${hb} ❤️ (1 de base${tb ? ' + ' + tb + ' pour ta rapidité' : ''}).`;
+  const balBtn = canBal ? `<button data-act="balade" class="${b}bg-lime-400 hover:bg-lime-300 pulse2">🐕 La grande balade ${'❤️'.repeat(hb)}</button>` : '';
+  $('endBtns').innerHTML = isDaily && win ? balBtn + `<button data-act="share" class="${b}bg-emerald-400 hover:bg-emerald-300">📋 Copier</button><button data-act="closed" class="${b}bg-sky-300 hover:bg-sky-200">🌙 À demain !</button>` : isDaily
     ? `<button data-act="train" class="${b}bg-fuchsia-400 hover:bg-fuchsia-300">🎲 Mode entraînement</button><button data-act="share" class="${b}bg-emerald-400 hover:bg-emerald-300">📋 Copier mon résultat</button><button data-act="closed" class="${b}bg-sky-300 hover:bg-sky-200">🌙 À demain !</button>`
-    : `<button data-act="${isTest ? 'test' : 'train'}" class="${b}bg-fuchsia-400 hover:bg-fuchsia-300">${isTest ? '🧪 Mode test' : '🎲 Rejouer'}</button><button data-act="home" class="${b}bg-sky-300 hover:bg-sky-200">🏠 Accueil</button>`;
+    : balBtn + `<button data-act="${isTest ? 'test' : 'train'}" class="${b}bg-fuchsia-400 hover:bg-fuchsia-300">${isTest ? '🧪 Mode test' : '🎲 Rejouer'}</button><button data-act="home" class="${b}bg-sky-300 hover:bg-sky-200">🏠 Accueil</button>`;
   showScreen('end');
   if (win) { for (let i = 0; i < 6; i++) setTimeout(() => confetti(cam.x + 120 + Math.random() * 720, cam.y + 120, 70, 700, 300), i * 350); }
   else SFX.over();
@@ -1534,17 +1562,19 @@ function updateTimer() {
 }
 
 function togglePause() {
-  if (state === 'playing' || state === 'dying' || state === 'clear') { prevState = state; state = 'paused'; showScreen('pause'); }
+  if (state === 'playing' || state === 'dying' || state === 'clear' || state === 'balade') { prevState = state; state = 'paused'; showScreen('pause'); }
   else if (state === 'paused') { state = prevState; hideScreens(); }
 }
-function toggleMute() { muted = !muted; $('btnMute').textContent = muted ? '🔇' : '🔊'; }
+function toggleMute() { muted = !muted; $('btnMute').textContent = $('balMute').textContent = muted ? '🔇' : '🔊'; }
 
 function showClosed(save) {
   state = 'closed';
   $('closedBody').innerHTML = `<div class="text-xl font-black text-fuchsia-300">${save.theme || ''} · variante ${save.variant || '?'}/${VARIANTS}</div>
     <div class="text-2xl font-black text-amber-300">${STATUS_TXT[save.status] || ''}</div>
     <div class="mt-1">⭐ Score : <b>${save.score}</b> &nbsp;·&nbsp; 🏰 Étages : <b>${save.floors}/${save.total || DAILY_FLOORS}</b></div>
-    <div>⏱ Temps : <b>${fmt(save.time)}</b> &nbsp;·&nbsp; 🪙 <b>${save.coins}</b> &nbsp;·&nbsp; 💫 Chutes : <b>${save.deaths}</b></div>`;
+    <div>⏱ Temps : <b>${fmt(save.time)}</b> &nbsp;·&nbsp; 🪙 <b>${save.coins}</b> &nbsp;·&nbsp; 💫 Chutes : <b>${save.deaths}</b></div>`
+    + (save.status !== 'win' ? '' : save.bal ? `<div>🐕 Balade : <b>${save.bal.bones}</b> 🦴 &nbsp;·&nbsp; <b>${save.bal.dist} m</b></div>`
+      : `<button data-act="balade" class="btn bg-lime-400 hover:bg-lime-300 text-slate-900 text-xl px-5 py-2 mt-2 pulse2">🐕 Faire la grande balade ${'❤️'.repeat(save.hearts || 1)}</button>`);
   const d = new Date(); d.setDate(d.getDate() + 1); const tm = dayInfo(d).theme;
   $('tomorrowTheme').textContent = tm.emoji + ' ' + tm.day + ' ' + tm.name;
   $('hud').classList.add('off'); showScreen('closed');
@@ -1556,7 +1586,7 @@ function updateCountdown() {
 }
 function shareResult() {
   const s = loadSave(); if (!s) return;
-  const txt = `🏰 Soen : L'Épreuve de la Tour ${s.date}\n${s.theme} (variante ${s.variant}/${VARIANTS})\n${STATUS_TXT[s.status] || ''}\n🏰 ${s.floors}/${s.total} étages · ⏱ ${fmt(s.time)} · 💫 ${s.deaths} chutes · ⭐ ${s.score}`;
+  const txt = `🏰 Soen : L'Épreuve de la Tour ${s.date}\n${s.theme} (variante ${s.variant}/${VARIANTS})\n${STATUS_TXT[s.status] || ''}\n🏰 ${s.floors}/${s.total} étages · ⏱ ${fmt(s.time)} · 💫 ${s.deaths} chutes · ⭐ ${s.score}` + (s.bal ? `\n🐕 Balade : ${s.bal.bones} 🦴 · ${s.bal.dist} m` : '');
   try { navigator.clipboard.writeText(txt).then(() => showToast('📋 Résultat copié !'), () => prompt('Copie ton résultat :', txt)); } catch (e) { prompt('Copie ton résultat :', txt); }
 }
 
@@ -1573,12 +1603,20 @@ document.addEventListener('click', e => {
   else if (a === 'testVar') { testSel.variant = (testSel.variant + +b.dataset.d + VARIANTS) % VARIANTS; renderTest(); }
   else if (a === 'testGo') startRun(false, 0, { theme: testSel.theme, variant: testSel.variant, floor: +b.dataset.i });
   else if (a === 'testReset') { try { localStorage.removeItem(SAVE_KEY); } catch (err) { } state = 'title'; showScreen('title'); }
-  else if (a === 'resume') togglePause();
+  else if (a === 'resume' || a === 'balPause') togglePause();
+  else if (a === 'mute') toggleMute();
+  else if (a === 'balTest') startBalade(3, 'test');   // [MODE TEST]
+  else if (a === 'balade') {   // la grande balade : une seule fois par jour, après avoir sauvé le chien
+    const sv = loadSave();
+    if (state === 'end' && isTest) startBalade(heartsFor(run.elapsed, run.heartsFound), 'test');
+    else if (sv && sv.status === 'win' && !sv.bal) startBalade(sv.hearts || 1, 'daily');
+  }
   else if (a === 'quit') {   // retour au menu : on met la partie en pause et on demande confirmation
-    if (state === 'playing' || state === 'dying' || state === 'clear') { prevState = state; state = 'paused'; }
-    if (state === 'paused') { $('quitMsg').textContent = isDaily ? 'Attention : ta tentative du jour sera terminée (le score atteint est gardé). Tu ne pourras pas la reprendre avant demain.' : 'Ta partie d\'entraînement sera arrêtée.'; showScreen('quitAsk'); }
+    if (state === 'playing' || state === 'dying' || state === 'clear' || state === 'balade') { prevState = state; state = 'paused'; }
+    if (state === 'paused') { $('quitMsg').textContent = prevState === 'balade' ? 'La balade sera terminée (les os ramassés sont gardés).' : isDaily ? 'Attention : ta tentative du jour sera terminée (le score atteint est gardé). Tu ne pourras pas la reprendre avant demain.' : 'Ta partie d\'entraînement sera arrêtée.'; showScreen('quitAsk'); }
   }
   else if (a === 'quitYes') {
+    if (prevState === 'balade' && bal) { prevState = 'title'; balFinish('quit'); return; }
     keys.left = keys.right = keys.jump = false;
     if (isDaily && run) saveProgress('started');
     $('hud').classList.add('off'); $('banner').classList.add('off'); $('toast').classList.add('off');
@@ -1842,7 +1880,9 @@ function initDog3D() {
       const c = new THREE.Vector3(), sz = new THREE.Vector3(); box.getCenter(c); box.getSize(sz); const R = Math.max(sz.x, sz.y, sz.z);
       const cam = new THREE.PerspectiveCamera(30, 1, R * .01, R * 100); cam.position.set(c.x + R * 2.25, c.y + R * .15, c.z); cam.lookAt(c);   // vue de profil, le chien regarde vers la gauche
       cam.updateMatrixWorld(); const foot = new THREE.Vector3(c.x, box.min.y, c.z).project(cam);   // où tombent les pattes dans l'image
-      Object.assign(Dog3D, { ready: true, canvas: r.domElement, r, scene, cam, mixer, footFrac: (1 - foot.y) / 2 });
+      const cb = new THREE.PerspectiveCamera(30, 1, R * .01, R * 100); cb.position.set(c.x, c.y + R * 1.0, c.z - R * 2.3); cb.lookAt(c); cb.updateMatrixWorld();   // vue de dos, pour la balade
+      const fb = new THREE.Vector3(c.x, box.min.y, c.z).project(cb);
+      Object.assign(Dog3D, { ready: true, canvas: r.domElement, r, scene, cam, mixer, footFrac: (1 - foot.y) / 2, camBack: cb, footBack: (1 - fb.y) / 2 });
     }, () => { });
   } catch (e) { }
 }
@@ -2199,6 +2239,7 @@ function drawParticles() {
 
 function render() {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
+  if (bal && (state === 'balade' || state === 'balEnd' || (state === 'paused' && prevState === 'balade'))) { balRender(); return; }
   const playing = L && run && (state === 'playing' || state === 'dying' || state === 'clear' || state === 'paused' || state === 'end');
   if (!playing) { drawBG(theme(Math.floor(time / 8) % 12), time * 40, time); return; }
   const sx = shake ? (Math.random() - .5) * shake * 22 : 0, sy = shake ? (Math.random() - .5) * shake * 22 : 0;
@@ -2223,6 +2264,207 @@ function render() {
   const vg = ctx.createRadialGradient(W / 2, H / 2, 280, W / 2, H / 2, 620); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.4)');
   ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
   if (fade > 0) { ctx.fillStyle = `rgba(10,6,40,${Math.min(1, fade)})`; ctx.fillRect(0, 0, W, H); }
+}
+
+/* ======================================================================
+   LA GRANDE BALADE — jeu bonus avec le chien sauvé (course sur 3 voies)
+   ⬅ ➡ changer de voie · ⬆ sauter · ⬇ se baisser · 5 minutes maximum
+   ====================================================================== */
+const BAL_SECONDS = 300, BAL_LANE = 2.2, BAL_D0 = 5.5, BAL_KEY = 'soen.balade.v1';
+let bal = null;
+function loadBank() { try { return Object.assign({ bones: 0, best: 0 }, JSON.parse(localStorage.getItem(BAL_KEY))); } catch (e) { return { bones: 0, best: 0 }; } }
+function saveBank(b) { try { localStorage.setItem(BAL_KEY, JSON.stringify(b)); } catch (e) { } }
+// vies de la balade : 1 de base, +1 si la tour est finie en moins de 25 min, +2 en moins de 20 min (+ les cœurs trouvés dans la tour)
+function heartsFor(elapsed, found) { return 1 + (elapsed < 20 * 60 ? 2 : elapsed < 25 * 60 ? 1 : 0) + (found || 0); }
+function balSpeed(dist) { return 13 + 13 * Math.pow(Math.min(1, dist / 5600), .8); }
+
+function startBalade(hearts, mode) {
+  ac();
+  bal = { mode, rng: mulberry32(hashStr('balade|' + (mode === 'daily' ? todayKey() : Math.random()))), t: 0, dist: 0, hearts, maxHearts: hearts, bones: 0,
+    lane: 1, x: 0, y: 0, vy: 0, slide: 0, wantSlide: false, inv: 0, lean: 0, items: [], nextRow: 45, over: null, overT: 0, flash: 0, shake: 0, combo: 0, comboT: 0, pops: [] };
+  if (mode === 'daily') { const s = loadSave(); if (s) { s.bal = { bones: 0, dist: 0 }; writeSave(s); } }   // une seule balade par jour
+  hideScreens(); $('hud').classList.add('off'); $('banner').classList.add('off'); $('toast').classList.add('off'); $('balHud').classList.remove('off');
+  state = 'balade';
+}
+function balInput(k) {
+  const b = bal; if (!b || b.over || state !== 'balade') return;
+  if (k === 'left' && b.lane > 0) { b.lane--; tone(500, 620, .06, 'triangle', .04); }
+  else if (k === 'right' && b.lane < 2) { b.lane++; tone(500, 620, .06, 'triangle', .04); }
+  else if (k === 'jump') { if (b.y <= 0.001) { b.vy = 9.6; b.slide = 0; b.wantSlide = false; SFX.jump(); } }
+  else if (k === 'down') { if (b.y > 0.001) { b.vy = Math.min(b.vy, -16); b.wantSlide = true; } else { b.slide = .7; tone(300, 180, .12, 'sawtooth', .04); } }
+}
+function balSpawn() {   // rangées d'obstacles et d'os, toujours avec au moins un passage
+  const b = bal, r = b.rng;
+  while (b.nextRow < b.dist + 120) {
+    const z = b.nextRow, D = Math.min(1, z / 5600), sp = balSpeed(z), lanes = [null, null, null];
+    const w = [4 - 3 * D, 2, 1 + D, 1 + D, 1 + 2 * D, 1 + 2 * D]; let k = r() * w.reduce((a, c) => a + c, 0), pat = 0;
+    while (k > w[pat]) k -= w[pat++];
+    const rot = Math.floor(r() * 3), any = () => ['low', 'high', 'full'][Math.floor(r() * 3)], lh = () => r() < .5 ? 'low' : 'high';
+    if (pat === 0) lanes[rot] = any();
+    else if (pat === 1) { lanes[rot] = 'full'; lanes[(rot + 1) % 3] = 'full'; }
+    else if (pat === 2) lanes.fill('low');
+    else if (pat === 3) lanes.fill('high');
+    else if (pat === 4) { lanes[rot] = 'full'; lanes[(rot + 1) % 3] = 'full'; lanes[(rot + 2) % 3] = lh(); }
+    else { lanes[rot] = 'low'; lanes[(rot + 1) % 3] = 'high'; lanes[(rot + 2) % 3] = r() < .5 ? 'full' : null; }
+    lanes.forEach((t, l) => { if (t) b.items.push({ z, lane: l, type: t }); });
+    // des os dans une voie où l'on peut passer
+    const ok = [0, 1, 2].filter(l => lanes[l] !== 'full'), bl = ok[Math.floor(r() * ok.length)], arc = lanes[bl] === 'low';
+    for (let i = -2; i <= 2; i++) b.items.push({ z: z + i * (arc ? sp * .13 : 2.6), lane: bl, type: 'bone', y: arc ? [.75, 1.5, 1.85, 1.5, .75][i + 2] : .5 });
+    const gap = Math.max(13, sp * (1.5 - .62 * D)) * (.9 + r() * .4);
+    if (r() < .55) { const l2 = Math.floor(r() * 3), z2 = z + gap * .5; for (let i = -1; i <= 1; i++) b.items.push({ z: z2 + i * 2.4, lane: l2, type: 'bone', y: .5 }); }
+    b.nextRow += gap;
+  }
+}
+function balStep(dt) {
+  const b = bal; time += dt;
+  b.flash = Math.max(0, b.flash - dt * 2.5); b.shake = Math.max(0, b.shake - dt * 3); b.inv = Math.max(0, b.inv - dt); b.comboT -= dt; if (b.comboT <= 0) b.combo = 0;
+  for (let i = b.pops.length - 1; i >= 0; i--) { b.pops[i].life -= dt; if (b.pops[i].life <= 0) b.pops.splice(i, 1); }
+  const sp = balSpeed(b.dist) * (b.over ? Math.max(0, 1 - b.overT / 1.2) : 1);
+  if (b.over) { b.overT += dt; if (b.overT > 1.8) balFinish(b.over); }
+  else { b.t += dt; if (b.t >= BAL_SECONDS) { b.over = 'win'; SFX.win(); } }
+  b.dist += sp * dt;
+  // le chien : voie, saut, glissade
+  const tx = (b.lane - 1) * BAL_LANE, dx = tx - b.x, mv = Math.sign(dx) * Math.min(Math.abs(dx), 17 * dt);
+  b.x += mv; b.lean += ((Math.abs(dx) > .05 ? Math.sign(dx) : 0) - b.lean) * Math.min(1, dt * 14);
+  if (b.y > 0 || b.vy > 0) { b.vy -= 30 * dt; b.y += b.vy * dt; if (b.y <= 0) { b.y = 0; b.vy = 0; if (b.wantSlide) { b.slide = .6; b.wantSlide = false; } } }
+  b.slide = Math.max(0, b.slide - dt);
+  balSpawn();
+  const dl = Math.round(b.x / BAL_LANE) + 1;
+  for (let i = b.items.length - 1; i >= 0; i--) {
+    const it = b.items[i], dz = it.z - b.dist;
+    if (dz < -8) { b.items.splice(i, 1); continue; }
+    if (it.fly) { it.fy = (it.fy || 0) + dt * 9; it.fx = (it.fx || 0) + dt * it.fly * 7; continue; }
+    if (it.done || b.over === 'ko') continue;
+    if (it.type === 'bone') {
+      if (Math.abs(dz) < 1 && it.lane === dl && Math.abs(it.y - .5 - b.y) < 1) {
+        it.done = true; b.items.splice(i, 1); b.bones++; b.combo = Math.min(12, b.combo + 1); b.comboT = .6;
+        tone(700 + b.combo * 45, 1000 + b.combo * 45, .07, 'triangle', .05);
+      }
+    } else if (Math.abs(dz) < .7 && it.lane === dl) {
+      const hit = it.type === 'full' || (it.type === 'low' && b.y < .55) || (it.type === 'high' && b.slide <= 0);
+      if (hit && b.inv <= 0) {
+        it.fly = b.lane === 0 ? 1 : b.lane === 2 ? -1 : (b.rng() < .5 ? 1 : -1); it.done = true;   // la voie est libérée
+        b.hearts--; b.inv = 1.6; b.flash = 1; b.shake = 1; SFX.hurt();
+        b.pops.push({ life: 1, text: '💔' });
+        if (b.hearts <= 0) { b.over = 'ko'; b.overT = 0; }
+      } else if (!hit && Math.abs(dz) < .25) it.done = true;
+    }
+  }
+}
+function balFinish(kind) {
+  const b = bal, bank = loadBank(), bonus = kind === 'win' ? 50 : 0, m = Math.round(b.dist), rec = m > bank.best;
+  bank.bones += b.bones + bonus; bank.best = Math.max(bank.best, m); saveBank(bank);
+  if (b.mode === 'daily') { const s = loadSave(); if (s) { s.bal = { bones: b.bones + bonus, dist: m, done: true }; writeSave(s); } }
+  state = 'balEnd'; $('balHud').classList.add('off');
+  $('balEndIcon').textContent = kind === 'win' ? '🏆' : kind === 'ko' ? '🐾' : '🏠';
+  $('balEndTitle').textContent = kind === 'win' ? 'Balade terminée, bravo !' : kind === 'ko' ? 'Fin de la balade !' : 'Balade arrêtée';
+  $('balEndMsg').textContent = kind === 'win' ? 'Vous avez tenu les 5 minutes : +50 os en cadeau ! 🦴' : kind === 'ko' ? 'Plus de cœur… Ton chien est fatigué mais très content de sa promenade !' : 'Les os ramassés sont gardés.';
+  const box = 'bg-slate-900/70 text-white border-4 border-slate-900 rounded-2xl px-4 py-2';
+  $('balEndStats').innerHTML = `<div class="${box}">🦴 Os ramassés : <b>${b.bones}${bonus ? ' + ' + bonus : ''}</b></div><div class="${box}">📏 Distance : <b>${m} m</b>${rec ? ' 🌟 Record !' : ''}</div>
+    <div class="${box}">⏱ Temps : <b>${fmt(b.t)}</b></div><div class="${box}">💰 Total d'os : <b>${bank.bones}</b></div>`;
+  const c = 'btn text-slate-900 text-xl px-5 py-2 ';
+  $('balEndBtns').innerHTML = b.mode === 'daily' ? `<button data-act="closed" class="${c}bg-sky-300 hover:bg-sky-200">🌙 À demain !</button>`
+    : `<button data-act="balTest" class="${c}bg-amber-400 hover:bg-amber-300">🔁 Rejouer la balade</button><button data-act="test" class="${c}bg-lime-400 hover:bg-lime-300">🧪 Mode test</button><button data-act="home" class="${c}bg-sky-300 hover:bg-sky-200">🏠 Accueil</button>`;
+  showScreen('balEnd');
+}
+
+/* ---------- Rendu de la balade (fausse 3D : tout est projeté depuis une caméra derrière le chien) ---------- */
+function balProj(x, y, z) { const zr = Math.max(.5, z - bal.dist + BAL_D0), s = 420 / zr; return { x: W / 2 + (x - bal.x * .55) * s, y: 190 + (3 - y) * s, s, zr }; }
+function balHash(i, k) { let h = Math.imul(i * 374761393 + k * 668265263, 1274126177); h ^= h >>> 15; return ((h >>> 0) % 10000) / 10000; }
+function balDrawItem(it) {
+  const p = balProj((it.lane - 1) * BAL_LANE + (it.fx || 0), (it.y || 0) + (it.fy || 0), it.z), s = p.s, x = p.x, y = p.y;
+  ctx.save(); ctx.globalAlpha = Math.min(1, (118 - p.zr) / 22); ctx.lineWidth = Math.max(1, s * .05); ctx.strokeStyle = '#1e1b4b'; ctx.lineJoin = 'round';
+  if (it.fly) { ctx.translate(x, y); ctx.rotate(it.fx * .5); ctx.translate(-x, -y); }
+  if (it.type === 'bone') {
+    const bob = Math.sin(time * 5 + it.z) * .08 * s, w = s * .5, r = s * .13;
+    ctx.translate(x, y + bob); ctx.rotate(-.5); ctx.fillStyle = '#fffbeb'; ctx.shadowColor = '#fde68a'; ctx.shadowBlur = s * .25;
+    ctx.beginPath(); ctx.rect(-w / 2, -r * .6, w, r * 1.2);
+    for (const sx of [-1, 1]) for (const sy of [-1, 1]) { ctx.moveTo(sx * w / 2 + r, sy * r * .7); ctx.arc(sx * w / 2, sy * r * .7, r, 0, 7); }
+    ctx.fill();
+  } else if (it.type === 'low') {   // tronc couché : il faut SAUTER
+    ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x, y, s * 1.05, s * .14, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = '#92400e'; rr(x - s * .95, y - s * .7, s * 1.9, s * .7, s * .3); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#b45309'; ctx.fillRect(x - s * .7, y - s * .58, s * 1.4, s * .12);
+    ctx.fillStyle = '#fcd34d'; ctx.beginPath(); ctx.ellipse(x - s * .78, y - s * .35, s * .16, s * .3, 0, 0, 7); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(x - s * .78, y - s * .35, s * .07, s * .14, 0, 0, 7); ctx.stroke();
+  } else if (it.type === 'high') {   // barrière en hauteur : il faut SE BAISSER
+    ctx.fillStyle = '#64748b'; for (const sx of [-1, 1]) { ctx.fillRect(x + sx * s * .98 - s * .07, y - s * 2.1, s * .14, s * 2.1); ctx.strokeRect(x + sx * s * .98 - s * .07, y - s * 2.1, s * .14, s * 2.1); }
+    ctx.save(); rr(x - s * 1.05, y - s * 2.15, s * 2.1, s * 1.2, s * .12); ctx.fillStyle = '#facc15'; ctx.fill(); ctx.clip();
+    ctx.fillStyle = '#1e293b'; for (let i = -6; i < 7; i += 2) { ctx.beginPath(); ctx.moveTo(x + i * s * .2, y - s * 2.15); ctx.lineTo(x + (i + 1) * s * .2, y - s * 2.15); ctx.lineTo(x + (i - 2) * s * .2, y - s * .95); ctx.lineTo(x + (i - 3) * s * .2, y - s * .95); ctx.fill(); }
+    ctx.restore(); rr(x - s * 1.05, y - s * 2.15, s * 2.1, s * 1.2, s * .12); ctx.stroke();
+    if (s > 14) { ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.moveTo(x - s * .32, y - s * 1.8); ctx.lineTo(x + s * .32, y - s * 1.8); ctx.lineTo(x, y - s * 1.25); ctx.closePath(); ctx.fill(); ctx.stroke(); }   // flèche « baisse-toi »
+  } else {   // gros rocher : il faut CHANGER DE VOIE
+    ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x, y, s * 1.1, s * .16, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = '#94a3b8'; ctx.beginPath(); ctx.moveTo(x - s, y); ctx.lineTo(x - s * .85, y - s * 1.3); ctx.lineTo(x - s * .3, y - s * 2.1); ctx.lineTo(x + s * .45, y - s * 1.95); ctx.lineTo(x + s * .95, y - s * 1.1); ctx.lineTo(x + s, y); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#cbd5e1'; ctx.beginPath(); ctx.moveTo(x - s * .6, y - s * 1.3); ctx.lineTo(x - s * .25, y - s * 1.85); ctx.lineTo(x + s * .2, y - s * 1.75); ctx.lineTo(x - s * .1, y - s * 1.2); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#64748b'; ctx.beginPath(); ctx.moveTo(x + s * .3, y - s * .15); ctx.lineTo(x + s * .8, y - s * 1); ctx.lineTo(x + s * .9, y - s * .15); ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
+}
+function balDrawDecor(i, side) {   // arbres, buissons et fleurs au bord du chemin
+  const h = balHash(i, side), h2 = balHash(i, side + 7), z = i * 6 + h * 4, p = balProj(side * ((h < .45 ? 6.6 : 4.6) + h2 * 9), 0, z), s = p.s, x = p.x, y = p.y;
+  if (x < -200 || x > W + 200) return;
+  ctx.save(); ctx.globalAlpha = Math.min(1, (118 - p.zr) / 22); ctx.lineWidth = Math.max(1, s * .05); ctx.strokeStyle = '#1e1b4b';
+  if (h < .45) {
+    ctx.fillStyle = '#78350f'; ctx.fillRect(x - s * .2, y - s * 2, s * .4, s * 2); ctx.strokeRect(x - s * .2, y - s * 2, s * .4, s * 2);
+    ctx.fillStyle = h2 < .5 ? '#16a34a' : '#15803d'; ctx.beginPath(); ctx.arc(x, y - s * 3.2, s * 1.6, 0, 7); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#4ade80'; ctx.beginPath(); ctx.arc(x - s * .5, y - s * 3.7, s * .6, 0, 7); ctx.fill();
+  } else if (h < .7) {
+    ctx.fillStyle = '#22c55e'; for (const [bx, by, br] of [[-.5, .5, .6], [.4, .6, .75]]) { ctx.beginPath(); ctx.arc(x + s * bx, y - s * by, s * br, 0, 7); ctx.fill(); ctx.stroke(); }
+  } else {
+    ctx.strokeStyle = '#15803d'; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y - s * .6); ctx.stroke();
+    ctx.fillStyle = ['#f472b6', '#fde047', '#fb7185', '#ffffff'][Math.floor(h2 * 4)]; ctx.beginPath(); ctx.arc(x, y - s * .7, s * .22, 0, 7); ctx.fill();
+  }
+  ctx.restore();
+}
+function balDrawDog() {
+  const b = bal, g = balProj(b.x, 0, b.dist), p = balProj(b.x, b.y, b.dist), size = g.s * 3.3, sq = b.slide > 0 ? .55 : 1;
+  ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(g.x, g.y, g.s * .55 * (1 - b.y * .2), g.s * .13, 0, 0, 7); ctx.fill();
+  if (b.inv > 0 && Math.floor(b.inv * 12) % 2 === 0 && !b.over) return;   // clignote après un choc
+  ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(b.lean * .16 + (b.over === 'ko' ? Math.min(1.5, b.overT * 2) : 0)); ctx.scale(1 + (1 - sq) * .3, sq);
+  if (Dog3D.ready && Dog3D.camBack) {
+    const now = performance.now() / 1000, dt = Math.min(.1, now - (Dog3D.last || now)); Dog3D.last = now;
+    if (state === 'balade' && !b.over) Dog3D.mixer.update(dt * (b.y > 0 ? .6 : 2.4));
+    Dog3D.r.render(Dog3D.scene, Dog3D.camBack);
+    ctx.drawImage(Dog3D.canvas, -size / 2, -size * Dog3D.footBack, size, size);
+  } else { ctx.font = Math.round(g.s * 1.3) + 'px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillText('🐶', 0, 0); }
+  ctx.restore();
+}
+function balRender() {
+  const b = bal, hz = 190, camX = b.x * .55;
+  ctx.save(); if (b.shake > 0) ctx.translate((Math.random() - .5) * b.shake * 16, (Math.random() - .5) * b.shake * 16);
+  // ciel, soleil, nuages, collines
+  const sky = ctx.createLinearGradient(0, 0, 0, hz + 10); sky.addColorStop(0, '#38bdf8'); sky.addColorStop(1, '#e0f2fe'); ctx.fillStyle = sky; ctx.fillRect(-20, -20, W + 40, hz + 30);
+  ctx.fillStyle = '#fef08a'; ctx.beginPath(); ctx.arc(760 - camX * 4, 70, 38, 0, 7); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.9)'; for (let i = 0; i < 5; i++) { const cx = ((i * 260 + time * (6 + i * 2) - camX * 8) % (W + 300) + W + 300) % (W + 300) - 150, cy = 40 + (i * 37) % 90; ctx.beginPath(); ctx.ellipse(cx, cy, 60, 18, 0, 0, 7); ctx.ellipse(cx + 30, cy - 12, 36, 16, 0, 0, 7); ctx.fill(); }
+  for (const [col, amp, f, off] of [['#86efac', 34, .006, 0], ['#4ade80', 22, .011, 2]]) { ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(-20, hz + 6); for (let x = -20; x <= W + 20; x += 20) ctx.lineTo(x, hz - 12 - amp * (.5 + .5 * Math.sin((x + camX * 14) * f + off))); ctx.lineTo(W + 20, hz + 6); ctx.fill(); }
+  // sol : bandes d'herbe et chemin de terre qui défilent
+  const L0 = 5, i0 = Math.floor((b.dist - BAL_D0 + 3.3) / L0), yAt = z => 190 + 1260 / Math.max(3.3, z - b.dist + BAL_D0), sAt = z => 420 / Math.max(3.3, z - b.dist + BAL_D0);
+  for (let i = i0 + 25; i >= i0; i--) {
+    const z1 = i * L0, z2 = z1 + L0, y1 = yAt(z1), y2 = yAt(z2), s1 = sAt(z1), s2 = sAt(z2), odd = ((i % 2) + 2) % 2;
+    ctx.fillStyle = odd ? '#4ade80' : '#22c55e'; ctx.fillRect(-20, y2 - .5, W + 40, y1 - y2 + 1);
+    ctx.fillStyle = odd ? '#fcd9a0' : '#f5c98a'; ctx.beginPath(); ctx.moveTo(W / 2 + (-3.5 - camX) * s1, y1 + .5); ctx.lineTo(W / 2 + (3.5 - camX) * s1, y1 + .5); ctx.lineTo(W / 2 + (3.5 - camX) * s2, y2 - .5); ctx.lineTo(W / 2 + (-3.5 - camX) * s2, y2 - .5); ctx.fill();
+    if (odd) { ctx.fillStyle = 'rgba(255,255,255,.75)'; for (const lx of [-1.1, 1.1]) { ctx.beginPath(); ctx.moveTo(W / 2 + (lx - .05 - camX) * s1, y1); ctx.lineTo(W / 2 + (lx + .05 - camX) * s1, y1); ctx.lineTo(W / 2 + (lx + .05 - camX) * s2, y2); ctx.lineTo(W / 2 + (lx - .05 - camX) * s2, y2); ctx.fill(); } }
+    ctx.fillStyle = '#a16207'; for (const lx of [-3.6, 3.6]) { ctx.beginPath(); ctx.moveTo(W / 2 + (lx - .12 - camX) * s1, y1); ctx.lineTo(W / 2 + (lx + .12 - camX) * s1, y1); ctx.lineTo(W / 2 + (lx + .12 - camX) * s2, y2); ctx.lineTo(W / 2 + (lx - .12 - camX) * s2, y2); ctx.fill(); }
+  }
+  const fog = ctx.createLinearGradient(0, hz, 0, hz + 46); fog.addColorStop(0, 'rgba(224,242,254,.95)'); fog.addColorStop(1, 'rgba(224,242,254,0)'); ctx.fillStyle = fog; ctx.fillRect(-20, hz - 2, W + 40, 50);
+  // décor et objets, du plus loin au plus près ; le chien est dessiné à sa place
+  const dr = [];
+  for (let i = Math.floor((b.dist - 4) / 6); i < (b.dist + 112) / 6; i++) for (const side of [-1, 1]) dr.push({ z: i * 6 + balHash(i, side) * 4, f: () => balDrawDecor(i, side) });
+  for (const it of b.items) if (it.z - b.dist > -3.5 && it.z - b.dist < 112) dr.push({ z: it.z, f: () => balDrawItem(it) });
+  dr.push({ z: b.dist - .01, f: balDrawDog });
+  dr.sort((a, c) => c.z - a.z); for (const d of dr) d.f();
+  ctx.restore();
+  if (b.flash > 0) { ctx.fillStyle = `rgba(244,63,94,${b.flash * .45})`; ctx.fillRect(0, 0, W, H); }
+  // affichage : cœurs, os, temps, distance
+  ctx.font = '30px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  for (let i = 0; i < b.maxHearts; i++) { ctx.globalAlpha = i < b.hearts ? 1 : .25; ctx.fillText(i < b.hearts ? '❤️' : '🖤', 18 + i * 38, 34); } ctx.globalAlpha = 1;
+  outText('🦴 ' + b.bones, 62 + String(b.bones).length * 8, 78, 30, '#fff');
+  ctx.textAlign = 'center'; outText('⏳ ' + fmt(BAL_SECONDS - b.t), W / 2, 34, 34, BAL_SECONDS - b.t < 30 ? '#fecaca' : '#fff'); outText(Math.round(b.dist) + ' m', W / 2, 70, 22, '#fde047');
+  for (const q of b.pops) { ctx.globalAlpha = Math.min(1, q.life * 2); emoji(q.text, W / 2, 300 - (1 - q.life) * 60, 60); ctx.globalAlpha = 1; }
+  if (b.t < 6 && !b.over) { ctx.globalAlpha = Math.min(1, 6 - b.t); ctx.fillStyle = 'rgba(15,23,42,.75)'; rr(W / 2 - 330, 118, 660, 78, 22); ctx.fill(); ctx.textAlign = 'center';
+    outText('🐕 La grande balade !', W / 2, 142, 28, '#fde047'); outText('⬅ ➡ changer de voie  ·  ⬆ sauter  ·  ⬇ se baisser', W / 2, 174, 22, '#fff'); ctx.globalAlpha = 1; }
+  ctx.textAlign = 'left';
 }
 
 /* ======================================================================
