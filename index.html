@@ -146,6 +146,7 @@
   <div id="testPick" class="screen off" style="background:rgba(10,6,40,.85)">
     <div class="text-center" style="width:880px">
       <h2 class="text-3xl font-black text-lime-300">🧪 Mode test — joue n'importe quelle tour</h2>
+      <p id="sndInfo" class="font-bold text-amber-200 text-xs"></p>
       <p class="font-bold text-indigo-100 text-sm">Rien n'est enregistré. En jeu : <b>N</b> = étage suivant, <b>B</b> = étage précédent.</p>
       <div class="mt-2 font-black text-left">1. Le jour</div>
       <div id="testThemes" class="mt-1 grid grid-cols-7 gap-2"></div>
@@ -202,7 +203,7 @@ const DAILY_FLOORS = 12, RUN_SECONDS = 30 * 60, VARIANTS = 20;
 const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900, SPRING = 1000;
 const PW = 28, PH = 40;
 const STEP = 1 / 120;
-const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v21';
+const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v22';
 /* [MODE TEST] Passe à false (ou supprime les blocs marqués [MODE TEST]) quand tout est réglé. */
 const TEST_MODE = true;
 
@@ -270,7 +271,10 @@ if (/[?&]reset\b/.test(location.search)) { try { localStorage.removeItem(SAVE_KE
 /* ---------- Audio (petits bips synthétisés) ---------- */
 let AC = null, muted = false;
 function ac() {
-  if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { } }
+  if (!AC) {   // on demande au navigateur le plus petit délai de son possible (utile sur les télés)
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    try { AC = new Ctx({ latencyHint: 0 }); } catch (e) { try { AC = new Ctx({ latencyHint: 'interactive' }); } catch (e2) { try { AC = new Ctx(); } catch (e3) { } } }
+  }
   if (AC && AC.state === 'suspended') AC.resume();
   return AC;
 }
@@ -1564,6 +1568,8 @@ $('btnMute').addEventListener('click', toggleMute);
 /* [MODE TEST] écran de choix : jour, variante, étage */
 const testSel = { theme: dayInfo().wd, variant: dayInfo().variant };
 function renderTest() {
+  // [MODE TEST] latence du son mesurée par le navigateur (pour diagnostiquer un décalage image/son)
+  const a = ac(); $('sndInfo').textContent = a ? `🔊 Délai du son annoncé par le navigateur : ${Math.round(((a.baseLatency || 0) + (a.outputLatency || 0)) * 1000)} ms` : '🔊 Son indisponible';
   $('testThemes').innerHTML = THEMES.map((th, i) => `<button data-act="testTheme" data-i="${i}" class="btn text-slate-900 px-1 py-1 text-sm" style="background:${th.col};${i === testSel.theme ? 'outline:4px solid #fff;' : 'opacity:.55'}">
     <div class="text-2xl">${th.emoji}</div><div class="font-black">${th.day}</div><div class="text-xs font-bold">${th.name}</div></button>`).join('');
   $('testVar').textContent = `Variante ${testSel.variant + 1} / ${VARIANTS}`;
