@@ -170,7 +170,7 @@ const DAILY_FLOORS = 12, RUN_SECONDS = 30 * 60, VARIANTS = 20;
 const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900, SPRING = 1000;
 const PW = 28, PH = 40;
 const STEP = 1 / 120;
-const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v12';
+const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v13';
 /* [MODE TEST] Passe à false (ou supprime les blocs marqués [MODE TEST]) quand tout est réglé. */
 const TEST_MODE = true;
 
@@ -680,9 +680,9 @@ function genFloor(fi) {
       bridge = mk({ x: B.x + B.w, y: B.y, w: 420, type: 'bridge', grow: 0, active: false });
       const n = 3 + Math.round(2 * D), list = [], step = 470 / n;
       for (let i = 0; i < n; i++) {
-        const w = 46 - 16 * D, x = B.x + 50 + i * step + 22 + R(0, Math.max(0, step - w - 44)), y = B.y - R(95, 120 + 60 * D);
-        const moving = D > .45 && rng() < .55;   // chaque cible reste dans sa case, même quand elle bouge
-        list.push(mk({ x, y, w, type: 'target', lit: false, mv: moving, bx: x, by: y, ax: moving ? 20 : 0, ay: 0, sp: 1 + D, ph: R(0, 6) }));
+        const w = 46 - 16 * D, x = B.x + 50 + i * step + 22 + R(0, Math.max(0, step - w - 44)), y = B.y - R(90, 105 + 55 * D);
+        // toutes les cibles bougent : de droite à gauche ET de haut en bas, à des rythmes différents (chacune reste dans sa case)
+        list.push(mk({ x, y, w, type: 'target', lit: false, mv: true, bx: x, by: y, ax: 8 + 12 * D, ay: 10 + 22 * D, sp: .8 + .9 * D, fy: R(1.3, 1.8), ph: R(0, 6), ph2: R(0, 6) }));
       }
       targets = { list, done: false, base: B, told: false };
       put(420, 0, R(150, 210), { exact: true });
@@ -830,7 +830,7 @@ function genFloor(fi) {
 
   const hints = [];
   if (puz.sw === 'simon') hints.push('retiens la séquence de couleurs 🧠 pour faire apparaître le pont');
-  if (puz.sw === 'targets') hints.push('atterris sur toutes les cibles 🎯 pour faire apparaître le pont');
+  if (puz.sw === 'targets') hints.push('saute de cible 🎯 en cible sans toucher le sol pour faire apparaître le pont');
   if (puz.sw === 'race') hints.push('appuie sur le bouton ⏱️ puis fonce : les plateformes disparaissent vite !');
   if (puz.sw === 'stars') hints.push('attrape toutes les étoiles ⭐ du ciel pour faire apparaître le pont');
   if (puz.sw === 'levers') hints.push('allume toutes les ampoules 💡 en tapant les blocs (chaque bloc change plusieurs ampoules !) pour faire apparaître le pont');
@@ -910,6 +910,7 @@ function respawn() {
   for (const o of L.orbs) o.armed = true;
   for (const c of L.crates) if (!(L.plate && L.plate.passed)) { c.x = c.x0; c.y = c.y0; c.vy = 0; }
   if (L.race && !L.race.done) L.race.t = 0;
+  if (L.targets && !L.targets.done && L.targets.list.some(t => t.lit)) resetTargets('😬 Raté ! Les cibles se sont éteintes, recommence.');
   for (const c of L.chasers) if (!c.done) c.active = false;
   for (const p of L.plats) if (p.lift) { p.y = p.y0; p.topT = 0; }
   for (const p of L.plats) if (p.type === 'crumble') { p.cr = 0; p.crT = 0; }
@@ -992,7 +993,7 @@ function updatePlatforms(dt) {
     } else if (p.mv) {
       p.px = p.x; p.py = p.y;
       const t = time * p.sp + p.ph;
-      p.x = p.bx + p.ax * (p.orbit ? Math.cos(t) : Math.sin(t)); p.y = p.by + p.ay * Math.sin(t);
+      p.x = p.bx + p.ax * (p.orbit ? Math.cos(t) : Math.sin(t)); p.y = p.by + p.ay * Math.sin(p.fy ? t * p.fy + p.ph2 : t);
       p.dx = p.x - p.px; p.dy = p.y - p.py;
     } else if (p.type === 'crumble' && p.cr) {
       p.crT -= dt;
@@ -1036,6 +1037,10 @@ function padHit(i) {
 
 /* ---------- Énigmes "Logique" ---------- */
 /* ---------- Jeudi / vendredi / samedi ---------- */
+function resetTargets(msg) {   // toutes les cibles s'éteignent : il faut les enchaîner sans toucher le sol
+  for (const t of L.targets.list) t.lit = false;
+  SFX.locked(); shake = .25; if (msg) showToast(msg);
+}
 function updateNewDays(dt) {
   const rc = L.race;
   if (rc && !rc.done) {
@@ -1206,6 +1211,7 @@ function updatePlayer(dt) {
       if (p.vy > 300) { p.sx = 1.3; p.sy = .72; SFX.land(); dust(p.x + PW / 2, best.y, 6); }
       p.y = best.y - PH; p.vy = 0; p.grounded = true; p.standing = best; p.airJumps = 1;
       if (best.type === 'crumble' && best.cr === 0) { best.cr = 1; best.crT = best.delay; }
+      if (L.targets && !L.targets.done && best.type !== 'target' && L.targets.list.some(t => t.lit)) resetTargets('😬 Tu as touché le sol ! Il faut recommencer depuis le début.');
       if (best.type === 'target' && !best.lit && L.targets) {
         best.lit = true; SFX.coin(); sparkle(best.x + best.w / 2, best.y, 14, '#86efac');
         const q = L.targets, n = q.list.filter(t => t.lit).length; pop(best.x + best.w / 2, best.y - 30, n + '/' + q.list.length, '#fff');
@@ -1274,7 +1280,7 @@ function updatePlayer(dt) {
     st.got = true; SFX.key(); sparkle(st.x, st.y, 16); const n = L.stars.list.filter(s => s.got).length; pop(st.x, st.y - 30, n + '/' + L.stars.list.length, '#fde047');
     if (n === L.stars.list.length) { L.stars.done = true; openBridge(st.x, st.y, '⭐ Toutes les étoiles ! Le pont apparaît !'); }
   }
-  if (L.targets && !L.targets.told && p.standing === L.targets.base) { L.targets.told = true; showToast('🎯 Atterris sur chaque petite cible, sans tomber à côté !'); }
+  if (L.targets && !L.targets.told && p.standing === L.targets.base) { L.targets.told = true; showToast('🎯 Enchaîne toutes les cibles sans toucher le sol, sinon elles s\'éteignent !'); }
   if (L.stars && !L.stars.told && p.standing === L.stars.base) { L.stars.told = true; showToast('⭐ Courant d\'air, ressort, ascenseur : trouve comment attraper chaque étoile !'); }
   if (L.whack && !L.whack.done && p.vy < 0 && L.whack.cd <= 0) for (const b of L.whack.pads) if (Math.abs(b.x - cx) < 28 && Math.abs(b.y - p.y) < 34) { L.whack.cd = .25; b.bump = .2; whackHit(b.pad); break; }
   if (L.pairs && !L.pairs.done && p.vy < 0) for (let i = 0; i < L.pairs.cards.length; i++) { const c = L.pairs.cards[i]; if (Math.abs(c.x - cx) < 24 && Math.abs(c.y - p.y) < 40) cardHit(i); }
