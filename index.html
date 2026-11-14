@@ -116,10 +116,11 @@
         <span class="bg-slate-900/70 rounded-xl px-2 py-1 border-2 border-slate-700" style="white-space:nowrap">P : pause</span>
         <span class="bg-slate-900/70 rounded-xl px-2 py-1 border-2 border-slate-700" style="white-space:nowrap">🎮 Switch : stick, A/B saut, ⊕ pause</span>
       </div>
-      <div class="mt-3 flex justify-center gap-4 items-center">
-        <button data-act="play" class="btn bg-amber-400 hover:bg-amber-300 text-slate-900 text-3xl px-8 py-3 pulse2">▶ Jouer le Run du Jour</button>
-        <button data-act="train" class="btn bg-fuchsia-400 hover:bg-fuchsia-300 text-slate-900 text-lg px-4 py-2">🎲 Mode entraînement</button>
-        <button data-act="test" class="testOnly btn bg-lime-400 hover:bg-lime-300 text-slate-900 text-lg px-4 py-2">🧪 Mode test</button>
+      <div class="mt-3 flex justify-center gap-3 items-center">
+        <button data-act="play" class="btn bg-amber-400 hover:bg-amber-300 text-slate-900 text-3xl px-6 py-3 pulse2" style="white-space:nowrap">▶ Jouer le Run du Jour</button>
+        <button data-act="train" class="btn bg-fuchsia-400 hover:bg-fuchsia-300 text-slate-900 text-lg px-3 py-2" style="white-space:nowrap">🎲 Entraînement</button>
+        <button data-act="shop" class="btn bg-emerald-400 hover:bg-emerald-300 text-slate-900 text-lg px-3 py-2" style="white-space:nowrap">🛒 Boutique</button>
+        <button data-act="test" class="testOnly btn bg-lime-400 hover:bg-lime-300 text-slate-900 text-lg px-3 py-2" style="white-space:nowrap">🧪 Test</button>
       </div>
       <div id="dateTag" class="mt-2 text-sm font-bold text-indigo-200"></div>
     </div>
@@ -146,6 +147,7 @@
       <div class="mt-4 flex justify-center gap-3">
         <button data-act="train" class="btn bg-fuchsia-400 hover:bg-fuchsia-300 text-slate-900 text-xl px-5 py-2">🎲 Mode entraînement</button>
         <button data-act="share" class="btn bg-emerald-400 hover:bg-emerald-300 text-slate-900 text-xl px-5 py-2">📋 Copier mon résultat</button>
+        <button data-act="shop" class="btn bg-amber-400 hover:bg-amber-300 text-slate-900 text-xl px-5 py-2">🛒 Boutique</button>
         <button data-act="test" class="testOnly btn bg-lime-400 hover:bg-lime-300 text-slate-900 text-xl px-5 py-2">🧪 Mode test</button>
       </div>
     </div>
@@ -200,6 +202,32 @@
   </div>
 
   <!-- ============ VICTOIRE / FIN ============ -->
+  <!-- ============ BOUTIQUE ============ -->
+  <div id="shop" class="screen off" style="background:rgba(10,6,40,.9)">
+    <div class="text-center" style="width:930px">
+      <div class="flex items-center justify-between">
+        <h2 class="text-4xl font-black text-amber-300">🛒 La boutique de Soen</h2>
+        <div id="shopBones" class="bg-amber-400 text-slate-900 border-4 border-slate-900 rounded-2xl px-4 py-1 text-2xl font-black tabular-nums">🦴 0</div>
+      </div>
+      <div class="flex gap-3 mt-2">
+        <div class="flex flex-col items-center" style="width:180px">
+          <canvas id="shopDog" width="200" height="200" style="width:180px;height:180px" class="bg-sky-900/60 rounded-3xl border-4 border-slate-900"></canvas>
+          <p id="shopMsg" class="text-sm font-bold text-amber-200 mt-2 leading-tight"></p>
+        </div>
+        <div class="flex-1 text-left">
+          <div class="font-black text-lg">⚡ Bonus de la balade <span class="text-sm text-indigo-200">— une fois débloqués, ils apparaissent parfois sur le chemin</span></div>
+          <div id="shopPow" class="grid grid-cols-5 gap-2 mt-1"></div>
+          <div class="font-black text-lg mt-2">🎀 Déguisements <span class="text-sm text-indigo-200">— un chapeau, un collier et une traînée en même temps</span></div>
+          <div id="shopDeco" class="grid grid-cols-3 gap-2 mt-1"></div>
+        </div>
+      </div>
+      <div class="mt-3 flex justify-center gap-3">
+        <button data-act="shopBack" class="btn bg-sky-300 hover:bg-sky-200 text-slate-900 text-xl px-6 py-2">⬅ Retour</button>
+        <button data-act="shopTest" class="testOnly btn bg-lime-400 hover:bg-lime-300 text-slate-900 text-lg px-4 py-2">🧪 +500 🦴</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ============ FIN DE LA BALADE ============ -->
   <div id="balEnd" class="screen off" style="background:rgba(10,6,40,.6)">
     <div class="text-center border-8 border-slate-900 rounded-[2rem] px-8 py-5 text-slate-900" style="width:700px;background:rgba(132,204,22,.97)">
@@ -239,7 +267,7 @@ const DAILY_FLOORS = 12, RUN_SECONDS = 30 * 60, VARIANTS = 20;
 const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900, SPRING = 1000;
 const PW = 28, PH = 40;
 const STEP = 1 / 120;
-const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v29';
+const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v30';
 /* [MODE TEST] Passe à false (ou supprime les blocs marqués [MODE TEST]) quand tout est réglé. */
 const TEST_MODE = true;
 
@@ -423,7 +451,7 @@ function pollPads(dt) {
       if (!dir) pad.repeat = 0;
       btns.forEach((el, i) => el.classList.toggle('padfocus', pad.used && i === pad.focus));
       if (press('ok') || (press('pause') && state === 'paused')) { const el = btns[pad.focus]; pad.focus = -1; btns.forEach(x => x.classList.remove('padfocus')); el.click(); }
-      else if (press('back')) { const home = btns.find(el => el.dataset.act === 'home' || el.dataset.act === 'resume'); if (home) { pad.focus = -1; home.click(); } }
+      else if (press('back')) { const home = btns.find(el => el.dataset.act === 'home' || el.dataset.act === 'resume' || el.dataset.act === 'shopBack'); if (home) { pad.focus = -1; home.click(); } }
     }
   }
   pad.prev = st;
@@ -1025,7 +1053,7 @@ function genFloor(fi) {
 /* ======================================================================
    ÉTAT DU JEU
    ====================================================================== */
-let state = 'title';   // title | playing | dying | clear | paused | end | closed | balade | balEnd
+let state = 'title';   // title | playing | dying | clear | paused | end | closed | balade | balEnd | shop
 let prevState = 'title';
 let heartFloors = null;   // [étage de départ du 1er cœur, étage de départ du 2e cœur] (null à l'entraînement)
 let L = null, P = null;
@@ -1577,8 +1605,9 @@ function endRun(kind) {
   $('endRank').textContent = !win ? '' : run.elapsed < 15 * 60 ? '🧙‍♂️ Archimage du Temps !' : run.elapsed < 22 * 60 ? '⚡ Grand Magicien !' : '🎩 Apprenti Courageux !';
   const b = 'btn text-slate-900 text-xl px-5 py-2 ', hb = heartsFor(run.elapsed, run.heartsFound), tb = hb - 1 - (run.heartsFound || 0), canBal = win && (isDaily || isTest);
   if (canBal) $('endMsg').textContent += ` 🐕 En récompense : la grande balade, avec ${hb} ❤️ (1 de base${tb ? ' + ' + tb + ' pour ta rapidité' : ''}${run.heartsFound ? ' + ' + run.heartsFound + ' trouvé' + (run.heartsFound > 1 ? 's' : '') + ' dans la tour' : ''}).`;
-  const balBtn = canBal ? `<button data-act="balade" class="${b}bg-lime-400 hover:bg-lime-300 pulse2">🐕 La grande balade ${'❤️'.repeat(hb)}</button>` : '';
-  $('endBtns').innerHTML = isDaily && win ? balBtn + `<button data-act="share" class="${b}bg-emerald-400 hover:bg-emerald-300">📋 Copier</button><button data-act="closed" class="${b}bg-sky-300 hover:bg-sky-200">🌙 À demain !</button>` : isDaily
+  const bs = 'btn text-slate-900 text-lg px-3 py-2 ', nw = ' style="white-space:nowrap"';
+  const balBtn = canBal ? `<button data-act="balade" class="${bs}bg-lime-400 hover:bg-lime-300 pulse2"${nw}>🐕 Balade ${'❤️'.repeat(hb)}</button>` : '';
+  $('endBtns').innerHTML = isDaily && win ? balBtn + `<button data-act="shop" class="${bs}bg-emerald-300 hover:bg-emerald-200"${nw}>🛒 Boutique</button><button data-act="share" class="${bs}bg-emerald-400 hover:bg-emerald-300"${nw}>📋 Copier</button><button data-act="closed" class="${bs}bg-sky-300 hover:bg-sky-200"${nw}>🌙 À demain !</button>` : isDaily
     ? `<button data-act="train" class="${b}bg-fuchsia-400 hover:bg-fuchsia-300">🎲 Mode entraînement</button><button data-act="share" class="${b}bg-emerald-400 hover:bg-emerald-300">📋 Copier mon résultat</button><button data-act="closed" class="${b}bg-sky-300 hover:bg-sky-200">🌙 À demain !</button>`
     : balBtn + `<button data-act="${isTest ? 'test' : 'train'}" class="${b}bg-fuchsia-400 hover:bg-fuchsia-300">${isTest ? '🧪 Mode test' : '🎲 Rejouer'}</button><button data-act="home" class="${b}bg-sky-300 hover:bg-sky-200">🏠 Accueil</button>`;
   showScreen('end');
@@ -1662,6 +1691,11 @@ document.addEventListener('click', e => {
   else if (a === 'testReset') { try { localStorage.removeItem(SAVE_KEY); } catch (err) { } state = 'title'; showScreen('title'); }
   else if (a === 'resume' || a === 'balPause') togglePause();
   else if (a === 'mute') toggleMute();
+  else if (a === 'shop') openShop();
+  else if (a === 'shopBack') closeShop();
+  else if (a === 'buyP') buyPower(b.dataset.id);
+  else if (a === 'buyD') buyDeco(b.dataset.id);
+  else if (a === 'shopTest') { const bk = loadBank(); bk.bones += 500; saveBank(bk); renderShop(); }   // [MODE TEST]
   else if (a === 'balTest') startBalade(3, 'test');   // [MODE TEST]
   else if (a === 'balade') {   // la grande balade : une seule fois par jour, après avoir sauvé le chien
     const sv = loadSave();
@@ -1954,7 +1988,7 @@ function drawDog(c, x, y, size, mode, flip) {
     c.save(); if (flip) { c.translate(x, 0); c.scale(-1, 1); c.translate(-x, 0); }
     c.fillStyle = 'rgba(0,0,0,.28)'; c.beginPath(); c.ellipse(x, y - 1, size * .3 * (1 - hop / 40), 5, 0, 0, 7); c.fill();   // ombre au sol
     c.shadowColor = 'rgba(255,240,200,.9)'; c.shadowBlur = 8;
-    c.drawImage(Dog3D.canvas, x - size / 2, y - size * Dog3D.footFrac - hop, size, size); c.restore();   // pattes posées exactement sur le sol
+    c.drawImage(Dog3D.canvas, x - size / 2, y - size * Dog3D.footFrac - hop, size, size); drawDogAcc(c, x - size / 2, y - size * Dog3D.footFrac - hop, size, 'side'); c.restore();   // pattes posées exactement sur le sol
   } else {   // secours si three.js n'a pas pu se charger
     c.font = Math.round(size * .6) + 'px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'bottom';
     c.fillText('🐶', x, y - (happy ? Math.abs(Math.sin(time * 7)) * 14 : mode === 'walk' ? Math.abs(Math.sin(time * 10)) * 4 : 0));
@@ -2346,8 +2380,12 @@ function render() {
    ====================================================================== */
 const BAL_SECONDS = 300, BAL_LANE = 2.2, BAL_D0 = 5.5, BAL_KEY = 'soen.balade.v1';
 let bal = null;
-function loadBank() { try { return Object.assign({ bones: 0, best: 0 }, JSON.parse(localStorage.getItem(BAL_KEY))); } catch (e) { return { bones: 0, best: 0 }; } }
-function saveBank(b) { try { localStorage.setItem(BAL_KEY, JSON.stringify(b)); } catch (e) { } }
+let BANK = null;   // os gardés d'un jour à l'autre + achats de la boutique (lv : niveau des bonus, own : déguisements achetés, eq : déguisements portés)
+function loadBank() {
+  if (!BANK) { let o = null; try { o = JSON.parse(localStorage.getItem(BAL_KEY)); } catch (e) { } BANK = Object.assign({ bones: 0, best: 0 }, o || {}); for (const k of ['lv', 'own', 'eq']) BANK[k] = BANK[k] || {}; }
+  return BANK;
+}
+function saveBank(b) { BANK = b; try { localStorage.setItem(BAL_KEY, JSON.stringify(b)); } catch (e) { } }
 // vies de la balade : 1 de base, +1 si la tour est finie en moins de 25 min, +2 en moins de 20 min (+ les cœurs trouvés dans la tour)
 function heartsFor(elapsed, found) { return 1 + (elapsed < 20 * 60 ? 2 : elapsed < 25 * 60 ? 1 : 0) + (found || 0); }
 const BAL_DTOT = 8300;   // distance à laquelle la difficulté est au maximum (environ 5 minutes)
@@ -2355,7 +2393,8 @@ function balSpeed(dist) { return 15 + 27 * Math.pow(Math.min(1, dist / BAL_DTOT)
 
 function startBalade(hearts, mode) {
   ac();
-  bal = { mode, rng: mulberry32(hashStr('balade|' + (mode === 'daily' ? todayKey() : Math.random()))), t: 0, dist: 0, hearts, maxHearts: hearts, bones: 0,
+  const sd = mode === 'daily' ? todayKey() : String(Math.random()), bk = loadBank();
+  bal = { mode, rng: mulberry32(hashStr('balade|' + sd)), rng2: mulberry32(hashStr('bonus|' + sd)), lv: Object.assign({}, bk.lv), pw: {}, shield: 0, nextPow: 160, trail: [], trailT: 0, trailK: 0, eqTrail: bk.eq.trail || '', t: 0, dist: 0, hearts, maxHearts: hearts, bones: 0,
     lane: 1, x: 0, y: 0, vy: 0, slide: 0, wantSlide: false, inv: 0, lean: 0, items: [], nextRow: 45, over: null, overT: 0, flash: 0, shake: 0, combo: 0, comboT: 0, pops: [] };
   if (mode === 'daily') { const s = loadSave(); if (s) { s.bal = { bones: 0, dist: 0 }; writeSave(s); } }   // une seule balade par jour
   hideScreens(); $('hud').classList.add('off'); $('banner').classList.add('off'); $('toast').classList.add('off'); $('balHud').classList.remove('off');
@@ -2365,7 +2404,7 @@ function balInput(k) {
   const b = bal; if (!b || b.over || state !== 'balade') return;
   if (k === 'left' && b.lane > 0) { b.lane--; tone(500, 620, .06, 'triangle', .04); }
   else if (k === 'right' && b.lane < 2) { b.lane++; tone(500, 620, .06, 'triangle', .04); }
-  else if (k === 'jump') { if (b.y <= 0.001) { b.vy = 9.6; b.slide = 0; b.wantSlide = false; SFX.jump(); } }
+  else if (k === 'jump') { if (b.y <= 0.001) { b.vy = b.pw.jump > 0 ? 12.5 : 9.6; b.slide = 0; b.wantSlide = false; SFX.jump(); } }
   else if (k === 'down') { if (b.y > 0.001) { b.vy = Math.min(b.vy, -16); b.wantSlide = true; } else { b.slide = .7; tone(300, 180, .12, 'sawtooth', .04); } }
 }
 function balSpawn() {   // rangées d'obstacles et d'os, toujours avec au moins un passage
@@ -2395,6 +2434,8 @@ function balSpawn() {   // rangées d'obstacles et d'os, toujours avec au moins 
     if (spec || gap / sp < .9) { }   // pas d'obstacle en plus quand les rangées sont déjà serrées
     else if (z > 150 && ex < .2) more = b.items.push({ z: zm, zm, k: .5 + r() * .4, lane: Math.floor(r() * 3), type: 'roll' });
     else if (z > 150 && ex < .4) more = b.items.push({ z: zm, lane: 1, x: 0, ph: r() * 6.28, w: 1.6 + r() * 1.2 + D, type: 'hen' });
+    const unl = POWERS.filter(q => b.lv[q.id]);
+    if (unl.length && z >= b.nextPow && !spec) { const q = unl[Math.floor(b.rng2() * unl.length)]; b.items.push({ z: z + gap * .35, lane: Math.floor(b.rng2() * 3), type: 'pow', kind: q.id, y: .6 }); b.nextPow = z + sp * (14 + b.rng2() * 10); }
     b.nextRow += gap * (more ? 1.4 : 1);
   }
 }
@@ -2402,7 +2443,11 @@ function balStep(dt) {
   const b = bal; time += dt;
   b.flash = Math.max(0, b.flash - dt * 2.5); b.shake = Math.max(0, b.shake - dt * 3); b.inv = Math.max(0, b.inv - dt); b.comboT -= dt; if (b.comboT <= 0) b.combo = 0;
   for (let i = b.pops.length - 1; i >= 0; i--) { b.pops[i].life -= dt; if (b.pops[i].life <= 0) b.pops.splice(i, 1); }
-  const sp = balSpeed(b.dist) * (b.over ? Math.max(0, 1 - b.overT / 1.2) : 1);
+  for (const k in b.pw) { const was = b.pw[k]; b.pw[k] = Math.max(0, was - dt); if (k === 'sprint' && was > 0 && !b.pw[k]) b.inv = Math.max(b.inv, 1); }
+  b.shield = Math.max(0, b.shield - dt);
+  if (b.eqTrail && !b.over) { b.trailT -= dt; if (b.trailT <= 0) { b.trailT = b.eqTrail === 'rainbow' ? .02 : .06; b.trail.push({ x: b.x + (Math.random() - .5) * (b.eqTrail === 'rainbow' ? 0 : .5), y: b.y + .45 + (b.eqTrail === 'rainbow' ? 0 : Math.random() * .4), z: b.dist - .4, k: b.trailK++ }); } }
+  for (let i = b.trail.length - 1; i >= 0; i--) if (b.trail[i].z - b.dist < -2) b.trail.splice(i, 1);
+  const sp = balSpeed(b.dist) * (b.pw.sprint > 0 ? 1.45 : 1) * (b.over ? Math.max(0, 1 - b.overT / 1.2) : 1);
   if (b.over) { b.overT += dt; if (b.overT > 1.8) balFinish(b.over); }
   else { b.t += dt; if (b.t >= BAL_SECONDS) { b.over = 'win'; SFX.win(); } }
   b.dist += sp * dt;
@@ -2421,14 +2466,27 @@ function balStep(dt) {
     if (dz < -8) { b.items.splice(i, 1); continue; }
     if (it.fly) { it.fy = (it.fy || 0) + dt * 9; it.fx = (it.fx || 0) + dt * it.fly * 7; continue; }
     if (it.done || b.over === 'ko') continue;
-    if (it.type === 'bone') {
-      if (Math.abs(dz) < 1 && it.lane === dl && Math.abs(it.y - .5 - b.y) < 1) {
-        it.done = true; b.items.splice(i, 1); b.bones++; b.combo = Math.min(12, b.combo + 1); b.comboT = .6;
-        tone(700 + b.combo * 45, 1000 + b.combo * 45, .07, 'triangle', .05);
+    if (it.type === 'bone' || it.type === 'pow') {
+      if (it.type === 'bone' && b.pw.magnet > 0 && dz < 10 && dz > -1) {   // l'aimant attire les os
+        if (it.x === undefined) it.x = (it.lane - 1) * BAL_LANE; const k = Math.min(1, dt * 9); it.x += (b.x - it.x) * k; it.y += (b.y + .5 - it.y) * k; it.mag = true;
+      }
+      if (Math.abs(dz) < 1 && (it.mag ? Math.abs(it.x - b.x) < 1.2 : it.lane === dl) && Math.abs(it.y - .5 - b.y) < (it.type === 'pow' ? 1.3 : 1)) {
+        it.done = true; b.items.splice(i, 1);
+        if (it.type === 'bone') {
+          b.bones += b.pw.double > 0 ? 2 : 1; b.combo = Math.min(12, b.combo + 1); b.comboT = .6;
+          tone(700 + b.combo * 45, 1000 + b.combo * 45, .07, 'triangle', .05);
+        } else {
+          const q = POWERS.find(o => o.id === it.kind), d = q.dur[(b.lv[q.id] || 1) - 1];
+          if (q.id === 'shield') b.shield = d; else b.pw[q.id] = d;
+          b.pops.push({ life: 1.2, text: q.icon + ' ' + q.name + ' !', big: true }); SFX.key();
+        }
       }
     } else if (Math.abs(dz) < .7 && (it.type === 'hen' ? Math.abs(it.x - b.x) < 1.05 : it.lane === dl)) {
-      const hit = it.type === 'full' || ((it.type === 'low' || it.type === 'roll' || it.type === 'hen') && b.y < .55) || (it.type === 'high' && b.slide <= 0);
-      if (hit && b.inv <= 0) {
+      const hit = (it.type === 'full' && b.y < 2) || ((it.type === 'low' || it.type === 'roll' || it.type === 'hen') && b.y < .55) || (it.type === 'high' && b.slide <= 0 && b.y < 2.3);
+      const knock = () => { it.fly = b.lane === 0 ? 1 : b.lane === 2 ? -1 : (b.rng() < .5 ? 1 : -1); it.done = true; };
+      if (hit && b.pw.sprint > 0) { knock(); b.shake = .4; tone(200, 90, .12, 'square', .05); }   // la fusée renverse tout
+      else if (hit && b.inv <= 0 && b.shield > 0) { knock(); b.shield = 0; b.inv = .8; b.shake = .5; b.pops.push({ life: 1, text: '🛡️' }); tone(900, 300, .2, 'triangle', .07); }
+      else if (hit && b.inv <= 0) {
         it.fly = b.lane === 0 ? 1 : b.lane === 2 ? -1 : (b.rng() < .5 ? 1 : -1); it.done = true;   // la voie est libérée
         b.hearts--; b.inv = 1.6; b.flash = 1; b.shake = 1; SFX.hurt();
         b.pops.push({ life: 1, text: '💔' });
@@ -2449,8 +2507,9 @@ function balFinish(kind) {
   $('balEndStats').innerHTML = `<div class="${box}">🦴 Os ramassés : <b>${b.bones}${bonus ? ' + ' + bonus : ''}</b></div><div class="${box}">📏 Distance : <b>${m} m</b>${rec ? ' 🌟 Record !' : ''}</div>
     <div class="${box}">⏱ Temps : <b>${fmt(b.t)}</b></div><div class="${box}">💰 Total d'os : <b>${bank.bones}</b></div>`;
   const c = 'btn text-slate-900 text-xl px-5 py-2 ';
-  $('balEndBtns').innerHTML = b.mode === 'daily' ? `<button data-act="closed" class="${c}bg-sky-300 hover:bg-sky-200">🌙 À demain !</button>`
-    : `<button data-act="balTest" class="${c}bg-amber-400 hover:bg-amber-300">🔁 Rejouer la balade</button><button data-act="test" class="${c}bg-lime-400 hover:bg-lime-300">🧪 Mode test</button><button data-act="home" class="${c}bg-sky-300 hover:bg-sky-200">🏠 Accueil</button>`;
+  const shopBtn = `<button data-act="shop" class="${c}bg-emerald-300 hover:bg-emerald-200">🛒 Boutique</button>`;
+  $('balEndBtns').innerHTML = b.mode === 'daily' ? shopBtn + `<button data-act="closed" class="${c}bg-sky-300 hover:bg-sky-200">🌙 À demain !</button>`
+    : shopBtn + `<button data-act="balTest" class="${c}bg-amber-400 hover:bg-amber-300">🔁 Rejouer la balade</button><button data-act="test" class="${c}bg-lime-400 hover:bg-lime-300">🧪 Mode test</button><button data-act="home" class="${c}bg-sky-300 hover:bg-sky-200">🏠 Accueil</button>`;
   showScreen('balEnd');
 }
 
@@ -2468,6 +2527,11 @@ function balDrawItem(it) {
     ctx.beginPath(); ctx.rect(-w / 2, -r * .6, w, r * 1.2);
     for (const sx of [-1, 1]) for (const sy of [-1, 1]) { ctx.moveTo(sx * w / 2 + r, sy * r * .7); ctx.arc(sx * w / 2, sy * r * .7, r, 0, 7); }
     ctx.fill();
+  } else if (it.type === 'pow') {   // bulle de bonus
+    const bob = Math.sin(time * 4 + it.z) * .1 * s, q = POWERS.find(o => o.id === it.kind);
+    ctx.translate(x, y + bob); ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.shadowColor = '#fde047'; ctx.shadowBlur = s * .5;
+    ctx.beginPath(); ctx.arc(0, 0, s * .42, 0, 7); ctx.fill(); ctx.shadowBlur = 0; ctx.strokeStyle = '#f59e0b'; ctx.stroke();
+    ctx.font = Math.round(s * .5) + 'px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(q.icon, 0, s * .03);
   } else if (it.type === 'roll') {   // tonneau qui roule vers nous : SAUTER ou changer de voie
     shadow(.6); const cy = y - s * .5, a = it.z * 1.6;
     ctx.fillStyle = '#b45309'; ctx.beginPath(); ctx.arc(x, cy, s * .5, 0, 7); ctx.fill(); ctx.stroke();
@@ -2552,9 +2616,15 @@ function balDrawDog() {
     const now = performance.now() / 1000, dt = Math.min(.1, now - (Dog3D.last || now)); Dog3D.last = now;
     if (state === 'balade' && !b.over) Dog3D.mixer.update(dt * (b.y > 0 ? .6 : 2.4));
     Dog3D.r.render(Dog3D.scene, Dog3D.camBack);
-    ctx.drawImage(Dog3D.canvas, -size / 2, -size * Dog3D.footBack, size, size);
+    if (b.pw.sprint > 0) { ctx.shadowColor = '#fb923c'; ctx.shadowBlur = 30; }
+    ctx.drawImage(Dog3D.canvas, -size / 2, -size * Dog3D.footBack, size, size); ctx.shadowBlur = 0;
+    drawDogAcc(ctx, -size / 2, -size * Dog3D.footBack, size, 'back');
   } else { ctx.font = Math.round(g.s * 1.3) + 'px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillText('🐶', 0, 0); }
   ctx.restore();
+  if (b.shield > 0) {   // bulle du bouclier
+    ctx.save(); ctx.globalAlpha = b.shield < 2 && Math.floor(b.shield * 8) % 2 ? .25 : .55; ctx.fillStyle = 'rgba(125,211,252,.35)'; ctx.strokeStyle = '#7dd3fc'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.ellipse(p.x, p.y - g.s * .9, g.s * 1.05, g.s * 1.2, 0, 0, 7); ctx.fill(); ctx.stroke(); ctx.restore();
+  }
 }
 function balRender() {
   const b = bal, hz = 190, camX = b.x * .55;
@@ -2579,6 +2649,7 @@ function balRender() {
   for (let i = Math.floor((b.dist - 4) / 6); i < (b.dist + 112) / 6; i++) for (const side of [-1, 1]) dr.push({ z: i * 6 + balHash(i, side) * 4, f: () => balDrawDecor(i, side) });
   for (const it of b.items) if (it.z - b.dist > -3.5 && it.z - b.dist < 112) dr.push({ z: it.z, f: () => balDrawItem(it) });
   dr.push({ z: b.dist - .01, f: balDrawDog });
+  for (const t of b.trail) dr.push({ z: t.z, f: () => { const q = balProj(t.x, t.y, t.z); drawTrailBit(ctx, b.eqTrail, q.x, q.y, Math.min(70, q.s * (b.eqTrail === 'rainbow' ? 1.1 : .9)), Math.max(0, Math.min(1, (t.z - b.dist + 2) / 1.6)), t.k); } });
   dr.sort((a, c) => c.z - a.z); for (const d of dr) d.f();
   ctx.restore();
   if (b.flash > 0) { ctx.fillStyle = `rgba(244,63,94,${b.flash * .45})`; ctx.fillRect(0, 0, W, H); }
@@ -2586,13 +2657,127 @@ function balRender() {
   ctx.font = '30px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
   for (let i = 0; i < b.maxHearts; i++) { ctx.globalAlpha = i < b.hearts ? 1 : .25; ctx.fillText(i < b.hearts ? '❤️' : '🖤', 18 + i * 38, 34); } ctx.globalAlpha = 1;
   outText('🦴 ' + b.bones, 62 + String(b.bones).length * 8, 78, 30, '#fff');
+  let hy = 118; for (const q of POWERS) {   // bonus en cours, avec le temps qui reste
+    const left = q.id === 'shield' ? b.shield : b.pw[q.id] || 0; if (left <= 0) continue;
+    const d = q.dur[(b.lv[q.id] || 1) - 1]; emoji(q.icon, 36, hy, 26);
+    ctx.fillStyle = 'rgba(15,23,42,.7)'; rr(56, hy - 7, 100, 14, 7); ctx.fill(); ctx.fillStyle = left < 2 ? '#f87171' : '#fde047'; rr(58, hy - 5, 96 * Math.min(1, left / d), 10, 5); ctx.fill(); hy += 36;
+  }
+  if (b.pw.sprint > 0) { ctx.save(); ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.lineWidth = 3; for (let i = 0; i < 14; i++) { const a = i * 2.4 + Math.floor(time * 20) * .7, r0 = 260 + (i * 37 + time * 900) % 200; ctx.beginPath(); ctx.moveTo(W / 2 + Math.cos(a) * r0, 300 + Math.sin(a) * r0 * .6); ctx.lineTo(W / 2 + Math.cos(a) * (r0 + 60), 300 + Math.sin(a) * (r0 + 60) * .6); ctx.stroke(); } ctx.restore(); }
   ctx.textAlign = 'center'; outText('⏳ ' + fmt(BAL_SECONDS - b.t), W / 2, 34, 34, BAL_SECONDS - b.t < 30 ? '#fecaca' : '#fff'); outText(Math.round(b.dist) + ' m', W / 2, 70, 22, '#fde047');
-  for (const q of b.pops) { ctx.globalAlpha = Math.min(1, q.life * 2); emoji(q.text, W / 2, 300 - (1 - q.life) * 60, 60); ctx.globalAlpha = 1; }
+  for (const q of b.pops) { ctx.globalAlpha = Math.min(1, q.life * 2); if (q.big) outText(q.text, W / 2, 250 - (1.2 - q.life) * 40, 40, '#fde047'); else emoji(q.text, W / 2, 300 - (1 - q.life) * 60, 60); ctx.globalAlpha = 1; }
   if (b.t < 6 && !b.over) { ctx.globalAlpha = Math.min(1, 6 - b.t); ctx.fillStyle = 'rgba(15,23,42,.75)'; rr(W / 2 - 330, 118, 660, 78, 22); ctx.fill(); ctx.textAlign = 'center';
     outText('🐕 La grande balade !', W / 2, 142, 28, '#fde047'); outText('⬅ ➡ changer de voie  ·  ⬆ sauter  ·  ⬇ se baisser', W / 2, 174, 22, '#fff'); ctx.globalAlpha = 1; }
   ctx.textAlign = 'left';
 }
 
+/* ======================================================================
+   LA BOUTIQUE — on dépense les os de la balade (rien ici ne change la tour)
+   ====================================================================== */
+const POWERS = [
+  { id: 'magnet', icon: '🧲', name: 'Aimant', desc: 'attire les os de toutes les voies', price: [100, 250, 400], dur: [8, 12, 16] },
+  { id: 'shield', icon: '🛡️', name: 'Bouclier', desc: 'protège d\'un choc', price: [150, 300, 450], dur: [15, 25, 40] },
+  { id: 'double', icon: '💰', name: 'Os × 2', desc: 'chaque os compte double', price: [250, 350, 500], dur: [8, 12, 16] },
+  { id: 'jump', icon: '🦘', name: 'Super-saut', desc: 'saute par-dessus les rochers', price: [300, 400, 550], dur: [8, 12, 16] },
+  { id: 'sprint', icon: '🚀', name: 'Fusée', desc: 'fonce, invincible, renverse tout', price: [400, 550, 700], dur: [3, 4.5, 6] }
+];
+const DECOS = [
+  { id: 'party', slot: 'head', icon: '🥳', name: 'Chapeau de fête', price: 120 },
+  { id: 'wizard', slot: 'head', icon: '🧙', name: 'Chapeau de sorcier', price: 300 },
+  { id: 'crown', slot: 'head', icon: '👑', name: 'Couronne', price: 450 },
+  { id: 'bandana', slot: 'neck', icon: '🧣', name: 'Bandana', price: 100 },
+  { id: 'bow', slot: 'neck', icon: '🎀', name: 'Nœud papillon', price: 150 },
+  { id: 'cape', slot: 'neck', icon: '🦸', name: 'Cape de héros', price: 350 },
+  { id: 'stars', slot: 'trail', icon: '✨', name: 'Traînée d\'étoiles', price: 200 },
+  { id: 'hearts', slot: 'trail', icon: '💖', name: 'Traînée de cœurs', price: 250 },
+  { id: 'rainbow', slot: 'trail', icon: '🌈', name: 'Arc-en-ciel', price: 500 }
+];
+let shopFrom = null;
+function openShop() {
+  shopFrom = { state, screen: [...document.querySelectorAll('.screen')].find(el => !el.classList.contains('off')).id };
+  state = 'shop'; $('shopMsg').textContent = ''; renderShop(); showScreen('shop');
+}
+function closeShop() {
+  const f = shopFrom || { state: 'title', screen: 'title' }; state = f.state;
+  if (f.screen === 'closed') { const s = loadSave(); if (s) { showClosed(s); return; } }
+  showScreen(f.screen);
+}
+function renderShop() {
+  const bk = loadBank(); $('shopBones').textContent = '🦴 ' + bk.bones;
+  $('shopPow').innerHTML = POWERS.map(p => {
+    const lv = bk.lv[p.id] || 0, max = lv >= 3, pr = max ? 0 : p.price[lv], ok = bk.bones >= pr;
+    const pips = [0, 1, 2].map(i => `<span style="color:${i < lv ? '#fde047' : '#475569'}">●</span>`).join('');
+    return `<button data-act="buyP" data-id="${p.id}" class="btn text-slate-900 px-1 py-1 flex flex-col items-center" style="background:${lv ? '#86efac' : '#cbd5e1'};${!max && !ok ? 'opacity:.7' : ''}">
+      <div class="text-3xl leading-none">${p.icon}</div><div class="font-black leading-tight">${p.name}</div>
+      <div class="font-bold leading-tight" style="font-size:11px;min-height:28px">${p.desc}${lv ? ` · ${p.dur[lv - 1]} s` : ''}</div>
+      <div class="text-lg leading-none">${pips}</div>
+      <div class="font-black text-sm mt-1 rounded-lg px-2" style="background:${max ? '#fde047' : ok ? '#fff' : '#94a3b8'}">${max ? 'MAX ⭐' : (lv ? 'Améliorer ' : 'Débloquer ') + '🦴 ' + pr}</div></button>`;
+  }).join('');
+  $('shopDeco').innerHTML = DECOS.map(d => {
+    const own = bk.own[d.id], on = bk.eq[d.slot] === d.id, ok = bk.bones >= d.price;
+    return `<button data-act="buyD" data-id="${d.id}" class="btn text-slate-900 px-2 py-1 flex items-center gap-2" style="background:${on ? '#fde047' : own ? '#86efac' : '#cbd5e1'};${!own && !ok ? 'opacity:.7' : ''}">
+      <span class="text-2xl">${d.icon}</span><span class="font-black text-sm leading-tight text-left flex-1">${d.name}</span>
+      <span class="font-black text-xs rounded-lg px-1" style="background:#fff;white-space:nowrap">${on ? '✔ Porté' : own ? 'Mettre' : '🦴 ' + d.price}</span></button>`;
+  }).join('');
+}
+function buyPower(id) {
+  const bk = loadBank(), p = POWERS.find(q => q.id === id), lv = bk.lv[id] || 0;
+  if (lv >= 3) { $('shopMsg').textContent = `${p.icon} ${p.name} est déjà au maximum !`; return; }
+  if (bk.bones < p.price[lv]) { $('shopMsg').textContent = `Il te manque ${p.price[lv] - bk.bones} 🦴 pour ça.`; tone(200, 150, .15, 'square', .04); return; }
+  bk.bones -= p.price[lv]; bk.lv[id] = lv + 1; saveBank(bk); SFX.key();
+  $('shopMsg').textContent = lv ? `${p.icon} ${p.name} amélioré : ${p.dur[lv]} secondes !` : `${p.icon} ${p.name} débloqué ! Il apparaîtra parfois pendant la balade.`;
+  renderShop();
+}
+function buyDeco(id) {
+  const bk = loadBank(), d = DECOS.find(q => q.id === id);
+  if (!bk.own[id]) {
+    if (bk.bones < d.price) { $('shopMsg').textContent = `Il te manque ${d.price - bk.bones} 🦴 pour ça.`; tone(200, 150, .15, 'square', .04); return; }
+    bk.bones -= d.price; bk.own[id] = true; bk.eq[d.slot] = id; SFX.key(); $('shopMsg').textContent = `${d.icon} ${d.name} : ton chien est très beau !`;
+  } else if (bk.eq[d.slot] === id) { bk.eq[d.slot] = ''; $('shopMsg').textContent = `${d.icon} ${d.name} enlevé.`; }
+  else { bk.eq[d.slot] = id; $('shopMsg').textContent = `${d.icon} ${d.name} mis !`; tone(600, 900, .1, 'triangle', .05); }
+  saveBank(bk); renderShop();
+}
+
+/* ---------- Déguisements dessinés sur le chien (vue de côté ou de dos) ---------- */
+function drawDogAcc(c, ox, oy, S, view) {
+  const eq = loadBank().eq; if (!eq.head && !eq.neck) return;
+  const side = view === 'side', A = side ? { hx: .225, hy: .225, nx: .275, ny: .355 } : { hx: .49, hy: .21, nx: .49, ny: .335 };
+  const u = S * .05, hx = ox + A.hx * S, hy = oy + A.hy * S, nx = ox + A.nx * S, ny = oy + A.ny * S, wv = Math.sin(time * 9) * u * .35;
+  c.save(); c.shadowBlur = 0; c.lineWidth = Math.max(1, u * .22); c.strokeStyle = '#1e1b4b'; c.lineJoin = 'round';
+  const poly = (pts, fill) => { c.fillStyle = fill; c.beginPath(); pts.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y)); c.closePath(); c.fill(); c.stroke(); };
+  if (eq.neck === 'cape') {
+    if (side) poly([[nx - .2 * u, ny - .6 * u], [nx + 3 * u, ny - .3 * u], [nx + 6.5 * u, ny + .4 * u + wv], [nx + 6 * u, ny + 2.6 * u - wv], [nx + 2.5 * u, ny + 2.1 * u], [nx + .3 * u, ny + 1 * u]], '#dc2626');
+    else poly([[nx - 1.3 * u, ny - .2 * u], [nx + 1.3 * u, ny - .2 * u], [nx + 2.3 * u, ny + 5.6 * u + wv], [nx + .8 * u, ny + 5.2 * u], [nx - .8 * u, ny + 5.6 * u - wv], [nx - 2.3 * u, ny + 5.2 * u]], '#dc2626');
+    c.fillStyle = '#fde047'; c.beginPath(); c.arc(nx + (side ? .1 * u : 0), ny, u * .45, 0, 7); c.fill(); c.stroke();
+  } else if (eq.neck === 'bandana') {
+    if (side) { poly([[nx - 1 * u, ny - .3 * u], [nx + .8 * u, ny], [nx + .6 * u, ny + .8 * u], [nx - 1.2 * u, ny + .6 * u]], '#ef4444'); poly([[nx - 1.1 * u, ny + .3 * u], [nx + .2 * u, ny + .5 * u], [nx - .7 * u, ny + 2 * u]], '#ef4444'); }
+    else { poly([[nx - 1.4 * u, ny - .4 * u], [nx + 1.4 * u, ny - .4 * u], [nx + 1.3 * u, ny + .5 * u], [nx - 1.3 * u, ny + .5 * u]], '#ef4444'); poly([[nx - .1 * u, ny], [nx - .9 * u, ny + 1.3 * u], [nx - .2 * u, ny + 1.1 * u]], '#ef4444'); poly([[nx + .1 * u, ny], [nx + .9 * u, ny + 1.3 * u], [nx + .2 * u, ny + 1.1 * u]], '#ef4444'); }
+    c.fillStyle = '#fff'; for (const [dx, dy] of side ? [[-.6, .1], [.2, .3], [-.5, .9]] : [[-.8, 0], [0, .1], [.8, 0]]) { c.beginPath(); c.arc(nx + dx * u, ny + dy * u, u * .13, 0, 7); c.fill(); }
+  } else if (eq.neck === 'bow') {
+    const bx = nx + (side ? -.9 * u : 0), by = ny + (side ? .6 * u : 0), k = side ? .75 : 1;
+    poly([[bx, by], [bx - 1.1 * u * k, by - .7 * u * k], [bx - 1.1 * u * k, by + .7 * u * k]], '#ec4899'); poly([[bx, by], [bx + 1.1 * u * k, by - .7 * u * k], [bx + 1.1 * u * k, by + .7 * u * k]], '#ec4899');
+    c.fillStyle = '#f9a8d4'; c.beginPath(); c.arc(bx, by, u * .35 * k, 0, 7); c.fill(); c.stroke();
+  }
+  if (eq.head === 'party') {
+    const tx = hx + (side ? -.4 * u : 0); poly([[hx - 1 * u, hy + .3 * u], [hx + 1 * u, hy + .3 * u], [tx, hy - 2.8 * u]], '#a855f7');
+    c.fillStyle = '#fde047'; c.beginPath(); c.moveTo(hx - .62 * u, hy - .6 * u); c.lineTo(hx + .58 * u, hy - .6 * u); c.lineTo(hx + .3 * u, hy - 1.4 * u); c.lineTo(hx - .4 * u, hy - 1.4 * u); c.closePath(); c.fill();
+    c.fillStyle = '#f472b6'; c.beginPath(); c.arc(tx, hy - 2.9 * u, u * .45, 0, 7); c.fill(); c.stroke();
+  } else if (eq.head === 'crown') {
+    poly([[hx - 1.2 * u, hy + .3 * u], [hx + 1.2 * u, hy + .3 * u], [hx + 1.3 * u, hy - 1.4 * u], [hx + .6 * u, hy - .5 * u], [hx, hy - 1.7 * u], [hx - .6 * u, hy - .5 * u], [hx - 1.3 * u, hy - 1.4 * u]], '#facc15');
+    c.fillStyle = '#ef4444'; c.beginPath(); c.arc(hx, hy - .2 * u, u * .28, 0, 7); c.fill(); c.fillStyle = '#38bdf8'; c.beginPath(); c.arc(hx - .75 * u, hy - .15 * u, u * .2, 0, 7); c.arc(hx + .75 * u, hy - .15 * u, u * .2, 0, 7); c.fill();
+  } else if (eq.head === 'wizard') {
+    c.fillStyle = '#6d28d9'; c.beginPath(); c.ellipse(hx, hy + .2 * u, 1.9 * u, .5 * u, 0, 0, 7); c.fill(); c.stroke();
+    poly([[hx - 1.1 * u, hy + .1 * u], [hx + 1.1 * u, hy + .1 * u], [hx + .5 * u, hy - 2.2 * u], [hx + (side ? 1.6 : 1.3) * u, hy - 3.4 * u], [hx - .2 * u, hy - 2.4 * u]], '#7c3aed');
+    c.fillStyle = '#fde047'; c.font = Math.round(u * 1.1) + 'px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('★', hx - .2 * u, hy - .8 * u); c.fillText('★', hx + .5 * u, hy - 1.8 * u);
+  }
+  c.restore();
+}
+// traînée derrière le chien (balade et aperçu de la boutique)
+function drawTrailBit(c, kind, x, y, s, a, k) {
+  c.save(); c.globalAlpha = a;
+  if (kind === 'rainbow') { ['#ef4444', '#f97316', '#facc15', '#22c55e', '#3b82f6', '#a855f7'].forEach((col, i) => { c.fillStyle = col; c.fillRect(x - s * .5, y + (i - 3) * s * .12, s, s * .12 + 1); }); }
+  else { c.font = Math.round(s * .7) + 'px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(kind === 'hearts' ? (k % 2 ? '💖' : '💗') : (k % 2 ? '✨' : '⭐'), x, y); }
+  c.restore();
+}
 /* ======================================================================
    BOUCLE PRINCIPALE
    ====================================================================== */
@@ -2607,6 +2792,11 @@ function frame(ts) {
   if (run && state !== 'title' && state !== 'closed') updateTimer();
   if (state === 'closed') { cdT -= dt; if (cdT <= 0) { cdT = .5; updateCountdown(); } }
   const ht = $('heroTitle'); if (ht && ht.offsetParent) { const c3 = ht.getContext('2d'); c3.clearRect(0, 0, ht.width, ht.height); if (Hero3D.ready) drawHero(c3, ht.width / 2, ht.height - 4, ht.height * .9, 1, 'idle'); else { c3.font = '70px sans-serif'; c3.textAlign = 'center'; c3.textBaseline = 'bottom'; c3.fillText('🧙‍♂️', ht.width / 2, ht.height - 6); } }
+  const sdg = $('shopDog'); if (sdg && sdg.offsetParent) {   // aperçu du chien déguisé dans la boutique
+    const c4 = sdg.getContext('2d'), tr = loadBank().eq.trail; c4.clearRect(0, 0, sdg.width, sdg.height);
+    if (tr) for (let i = 0; i < (tr === 'rainbow' ? 30 : 7); i++) { const u = ((time * .9 + i / (tr === 'rainbow' ? 30 : 7)) % 1); drawTrailBit(c4, tr, sdg.width * .62 + u * sdg.width * .4, sdg.height * .66 + (tr === 'rainbow' ? 0 : Math.sin(i * 2.3 + time * 3) * 10), 26, 1 - u, i); }
+    drawDog(c4, sdg.width / 2, sdg.height - 18, sdg.width * .95, 'walk');
+  }
   for (const [id, mode] of [['dogTitle', 'still'], ['dogEnd', 'happy']]) {   // petit chien 3D dans les menus
     const el = $(id); if (!el || !el.offsetParent) continue;
     const c2 = el.getContext('2d'); c2.clearRect(0, 0, el.width, el.height); drawDog(c2, el.width / 2, el.height - 6, el.width * .95, mode);
