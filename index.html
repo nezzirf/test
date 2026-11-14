@@ -65,6 +65,7 @@
         <div id="deathBox" class="bg-slate-900/70 border-4 border-slate-900 rounded-2xl px-3 py-1 text-lg font-black tabular-nums" title="Chutes">💫 0</div>
       </div>
       <div class="flex gap-2 items-center">
+        <div id="heartBox" class="off bg-slate-900/70 border-4 border-slate-900 rounded-2xl px-2 py-1 text-lg font-black tabular-nums" title="Cœurs trouvés pour la balade">❤️ 0/2</div>
         <div id="puz" class="bg-slate-900/70 border-4 border-slate-900 rounded-2xl px-3 py-1 text-xl font-black"></div>
         <div id="scoreBox" class="bg-amber-400 text-slate-900 border-4 border-slate-900 rounded-2xl px-3 py-1 text-xl font-black tabular-nums">🪙 0</div>
         <button data-act="quit" class="btn bg-sky-400 text-slate-900 px-2 text-xl" style="pointer-events:auto" title="Retour au menu">🏠</button>
@@ -238,7 +239,7 @@ const DAILY_FLOORS = 12, RUN_SECONDS = 30 * 60, VARIANTS = 20;
 const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900, SPRING = 1000;
 const PW = 28, PH = 40;
 const STEP = 1 / 120;
-const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v27';
+const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v28';
 /* [MODE TEST] Passe à false (ou supprime les blocs marqués [MODE TEST]) quand tout est réglé. */
 const TEST_MODE = true;
 
@@ -959,6 +960,35 @@ function genFloor(fi) {
     key = { x: kp.x + kp.w / 2, y: kp.y - 34, got: false }; base.hasKey = true;
   }
 
+  // cœur caché ❤️ (une vie de plus pour la balade) : tout en haut d'une petite tour de plateformes, à l'écart du chemin.
+  // Son propre tirage au sort : le reste de l'étage ne change pas, qu'il y ait un cœur ou non.
+  let heart = null, heartOk = false;
+  {
+    const hr = mulberry32(hashStr(SEED + '#coeur' + f)), things = [spikes, traps, orbs, lamps, signs, fires, lasers, saws, cbtns, riddles, crates, tblocks, winds, chasers, cps];
+    const free = b => {
+      const x0 = b.x - 40, x1 = b.x + b.w + 40;
+      for (const q of plats) {
+        if (q === b) continue;
+        const m = q.mv && q.bx !== undefined, qx0 = m ? q.bx - (q.ax || 0) : q.x, qx1 = (m ? q.bx + (q.ax || 0) : q.x) + q.w, qy = Math.min(m ? q.by - (q.ay || 0) : q.y, q.y1 !== undefined ? q.y1 : 1e9);
+        if (qx1 > x0 && qx0 < x1 && qy < b.y - 10) return false;   // rien au-dessus
+        if (q.type === 'bridge' && Math.abs(q.x - b.x) < 1000) return false;   // loin des énigmes
+      }
+      for (const arr of things) for (const o of arr) { const ox = o.x !== undefined ? o.x : o.x0; if (typeof ox === 'number' && ox > x0 - 80 && ox < x1 + 80 + (o.w || 0)) return false; }
+      return true;
+    };
+    let c = keyCand.filter(q => !q.cp && !q.busy && !q.hasKey && q.x > 900 && q.x < target * .85 && free(q));
+    if (!c.length) c = plats.filter(q => q.type === 'normal' && !q.start && !q.end && !q.spiky && !q.tiny && !q.keyplat && !q.cp && !q.busy && !q.hasKey && !q.sw && !q.spring && q.w >= 100 && q.x > 900 && q.x < target * .9 && free(q));
+    heartOk = c.length > 0;
+    // un cœur par moitié de tour : au premier étage qui a la place, à partir d'un étage tiré au sort (le même pour tout le monde ce jour-là)
+    const grp = !heartFloors || !run ? -1 : fi >= heartFloors[1] && fi <= 10 ? 1 : fi >= heartFloors[0] && fi <= 6 ? 0 : -1;
+    if (heartOk && grp >= 0 && (run.heartHost[grp] === undefined || run.heartHost[grp] === fi)) {
+      run.heartHost[grp] = fi;
+      const base = c[Math.floor(hr() * c.length)], cx = base.x + base.w / 2, side = hr() < .5 ? 1 : -1; let top = null;
+      for (let i = 0; i < 4; i++) top = mk({ x: cx + (i % 2 ? 1 : -1) * side * Math.min(40, base.w / 2 - 36) - 36, y: base.y - 115 * (i + 1), w: 72, type: 'normal', keyplat: true, tiny: true });
+      heart = { x: top.x + top.w / 2, y: top.y - 36, got: !!(run && run.heartGot && run.heartGot[fi]) }; base.busy = true;
+    }
+  }
+
   // pièces
   for (let i = 0; i < plats.length; i++) {
     const p = plats[i];
@@ -983,9 +1013,10 @@ function genFloor(fi) {
   if (puz.key) hints.push(last ? 'trouve la clé 🔑 : elle fera descendre la plateforme de notre chien 🐶' : 'trouve la clé 🔑 pour ouvrir l\'escalier');
   if (last && !puz.key) hints.push('rejoins notre chien 🐶 tout en haut');
   let hint = hints.join(' et ') + ' !'; hint = hint[0].toUpperCase() + hint.slice(1);
+  if (heart && !heart.got) hint += ' ❤️ Un cœur est caché en hauteur à cet étage !';
   const sw = puz.sw ? { kind: puz.sw, x: swPlat.x + swPlat.w / 2, y: swPlat.y, on: false, bridge: puz.sw === 'race' ? null : bridge } : null;
   const cst = {}; for (let g = 0; g < grpN; g++) cst[g] = grpInit[g] || 'b';
-  return { f, fi, last, plats, spikes, traps, coins, orbs, cps, door, key, sw, simon, pairs, whack, mem, lamps, signs, fires, lasers, saws, levers, plate, crates, cbtns, riddles, grpInit, cpuz, tblocks, winds, chasers, targets, race, stars, cst, needKey: puz.key, dog, W: Wend,
+  return { f, fi, last, plats, spikes, traps, coins, orbs, cps, door, key, sw, simon, pairs, whack, mem, lamps, signs, fires, lasers, saws, levers, plate, crates, cbtns, riddles, grpInit, cpuz, tblocks, winds, chasers, targets, race, stars, cst, heart, heartOk, needKey: puz.key, dog, W: Wend,
     top: Math.min(0, minY - 260, dog ? dog.plat.y - 230 : 0), respawn: cps[0], hint, th: theme(f) };
 }
 
@@ -994,6 +1025,7 @@ function genFloor(fi) {
    ====================================================================== */
 let state = 'title';   // title | playing | dying | clear | paused | end | closed | balade | balEnd
 let prevState = 'title';
+let heartFloors = null;   // [étage de départ du 1er cœur, étage de départ du 2e cœur] (null à l'entraînement)
 let L = null, P = null;
 let floor = 0, run = null, time = 0;
 const cam = { x: 0, y: 0 };
@@ -1022,7 +1054,9 @@ function startRun(daily, themeIdx, test) {
     SEED = 'train-' + Math.random().toString(36).slice(2);
   }
   dayHue = (THEME.hue + (hashStr(SEED) % 50) - 25 + 360) % 360;
-  run = { coins: 0, floorsDone: 0, elapsed: 0, score: 0, deaths: 0 };
+  run = { coins: 0, floorsDone: 0, elapsed: 0, score: 0, deaths: 0, heartsFound: 0, heartGot: {}, heartHost: {} };
+  // 2 cœurs cachés dans la tour : un entre les étages 3 et 6, un entre les étages 8 et 11 (les mêmes pour tout le monde ce jour-là)
+  heartFloors = daily || test ? [2 + hashStr(SEED + '#coeurA') % 3, 7 + hashStr(SEED + '#coeurB') % 3] : null;
   $('trainTag').classList.toggle('off', daily);
   $('trainTag').textContent = isTest ? `MODE TEST · variante ${VARIANT + 1} · N : étage suivant · B : étage précédent` : 'ENTRAÎNEMENT';
   $('themeBox').textContent = THEME.emoji + ' ' + THEME.name;
@@ -1382,6 +1416,10 @@ function updatePlayer(dt) {
 
   // --- interactions ---
   const cx = p.x + PW / 2, cy = p.y + PH / 2;
+  if (L.heart && !L.heart.got && Math.abs(L.heart.x - cx) < 30 && Math.abs(L.heart.y - cy) < 34) {
+    L.heart.got = true; run.heartGot[L.fi] = true; run.heartsFound++; SFX.key(); confetti(L.heart.x, L.heart.y, 60, 400, 400); pop(L.heart.x, L.heart.y - 20, '❤️ +1 vie pour la balade !', '#fda4af');
+    showToast('❤️ Cœur trouvé ! Une vie de plus pour la grande balade.'); updateHUD(true); if (isDaily) saveProgress('started');
+  }
   for (const c of L.coins) if (!c.got && Math.abs(c.x - cx) < 26 && Math.abs(c.y - cy) < 30) {
     c.got = true; run.coins++; SFX.coin(); sparkle(c.x, c.y, 8); pop(c.x, c.y - 10, '+50'); updateHUD();
   }
@@ -1520,7 +1558,7 @@ function endRun(kind) {
     <div class="${box}">⏱ Temps : <b>${fmt(run.elapsed)}</b></div><div class="${box}">🪙 Pièces : <b>${run.coins}</b> &nbsp; 💫 Chutes : <b>${run.deaths}</b></div>`;
   $('endRank').textContent = !win ? '' : run.elapsed < 15 * 60 ? '🧙‍♂️ Archimage du Temps !' : run.elapsed < 22 * 60 ? '⚡ Grand Magicien !' : '🎩 Apprenti Courageux !';
   const b = 'btn text-slate-900 text-xl px-5 py-2 ', hb = heartsFor(run.elapsed, run.heartsFound), tb = hb - 1 - (run.heartsFound || 0), canBal = win && (isDaily || isTest);
-  if (canBal) $('endMsg').textContent += ` 🐕 En récompense : la grande balade, avec ${hb} ❤️ (1 de base${tb ? ' + ' + tb + ' pour ta rapidité' : ''}).`;
+  if (canBal) $('endMsg').textContent += ` 🐕 En récompense : la grande balade, avec ${hb} ❤️ (1 de base${tb ? ' + ' + tb + ' pour ta rapidité' : ''}${run.heartsFound ? ' + ' + run.heartsFound + ' trouvé' + (run.heartsFound > 1 ? 's' : '') + ' dans la tour' : ''}).`;
   const balBtn = canBal ? `<button data-act="balade" class="${b}bg-lime-400 hover:bg-lime-300 pulse2">🐕 La grande balade ${'❤️'.repeat(hb)}</button>` : '';
   $('endBtns').innerHTML = isDaily && win ? balBtn + `<button data-act="share" class="${b}bg-emerald-400 hover:bg-emerald-300">📋 Copier</button><button data-act="closed" class="${b}bg-sky-300 hover:bg-sky-200">🌙 À demain !</button>` : isDaily
     ? `<button data-act="train" class="${b}bg-fuchsia-400 hover:bg-fuchsia-300">🎲 Mode entraînement</button><button data-act="share" class="${b}bg-emerald-400 hover:bg-emerald-300">📋 Copier mon résultat</button><button data-act="closed" class="${b}bg-sky-300 hover:bg-sky-200">🌙 À demain !</button>`
@@ -1548,6 +1586,7 @@ function updateHUD(full) {
     if (L.sw) h += `<span style="${L.sw.on ? '' : 'filter:grayscale(1);opacity:.5'}">${SW_ICON[L.sw.kind]}${L.sw.on ? '✔' : ''}</span>`;
     $('puz').innerHTML = h;
   }
+  if (full) { $('heartBox').classList.toggle('off', !heartFloors); $('heartBox').textContent = `❤️ ${run.heartsFound}/2`; }
   setTxt('scoreBox', '🪙 ' + run.coins); setTxt('deathBox', '💫 ' + run.deaths);
 }
 function updateTimer() {
@@ -1944,6 +1983,10 @@ function drawKey() {
 }
 
 function drawCoins() {
+  if (L.heart && !L.heart.got) {   // cœur caché
+    const h = L.heart, k = 1 + Math.sin(time * 5) * .1, y = h.y + Math.sin(time * 2.5) * 4;
+    ctx.save(); ctx.shadowColor = '#fb7185'; ctx.shadowBlur = 22; ctx.font = Math.round(38 * k) + 'px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('❤️', h.x, y); ctx.restore();
+  }
   for (const c of L.coins) {
     if (c.got || c.x < cam.x - 30 || c.x > cam.x + W + 30) continue;
     const sx = Math.abs(Math.cos(time * 4 + c.x * .05)), y = c.y + Math.sin(time * 3 + c.x) * 3;
