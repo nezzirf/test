@@ -295,7 +295,7 @@ const DAILY_FLOORS = 12, RUN_SECONDS = 30 * 60, VARIANTS = 20;
 const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900, SPRING = 1000;
 const PW = 28, PH = 40;
 const STEP = 1 / 120;
-const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v38';
+const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v39';
 /* [MODE TEST] Passe à false (ou supprime les blocs marqués [MODE TEST]) quand tout est réglé. */
 const TEST_MODE = true;
 
@@ -2116,6 +2116,7 @@ function initDog3D() {
       const cb = new THREE.PerspectiveCamera(30, 1, R * .01, R * 100); cb.position.set(c.x, c.y + R * 1.0, c.z - R * 2.3); cb.lookAt(c); cb.updateMatrixWorld();   // vue de dos, pour la balade
       const fb = new THREE.Vector3(c.x, box.min.y, c.z).project(cb);
       Object.assign(Dog3D, { ready: true, canvas: r.domElement, r, scene, cam, mixer, dur: Math.max(.1, ...gltf.animations.map(a => a.duration)), footFrac: (1 - foot.y) / 2, camBack: cb, footBack: (1 - fb.y) / 2 });
+      try { applyDogDeco(); } catch (e) { }
     }, () => { });
   } catch (e) { }
 }
@@ -2127,7 +2128,7 @@ function drawDog(c, x, y, size, mode, flip) {
     let img = Dog3D.canvas;
     if (LIGHT && bakeDog()) { if (mode !== 'still') Dog3D.lt += dt * (happy ? 1.7 : 1.1); img = mode === 'still' ? Dog3D.still : Dog3D.side[Math.floor(Dog3D.lt / Dog3D.dur * BAKE_N) % BAKE_N]; }
     else { if (mode !== 'still') Dog3D.mixer.update(dt * (happy ? 1.7 : 1.1));   // immobile : on ne fait pas avancer l'animation
-      Dog3D.r.render(Dog3D.scene, Dog3D.cam); }
+      updateCape(performance.now() / 1000); Dog3D.r.render(Dog3D.scene, Dog3D.cam); }
     const hop = happy ? Math.abs(Math.sin(time * 7)) * 14 : 0;
     c.save(); if (flip) { c.translate(x, 0); c.scale(-1, 1); c.translate(-x, 0); }
     c.fillStyle = 'rgba(0,0,0,.28)'; c.beginPath(); c.ellipse(x, y - 1, size * .3 * (1 - hop / 40), 5, 0, 0, 7); c.fill();   // ombre au sol
@@ -2483,7 +2484,7 @@ function bakeHero() {
 }
 function bakeDog() {
   const D = Dog3D; if (D.side) return true; if (!D.ready) return false;
-  const shot = (t, cam) => { D.mixer.setTime(t); D.r.render(D.scene, cam); return snapGL(D.r); };
+  const shot = (t, cam) => { D.mixer.setTime(t); D.scene.updateMatrixWorld(true); updateCape(t / D.dur * 2.1); D.r.render(D.scene, cam); return snapGL(D.r); };
   D.still = shot(.3, D.cam);
   D.side = Array.from({ length: BAKE_N }, (_, i) => shot(i / BAKE_N * D.dur, D.cam));
   D.back = D.camBack ? Array.from({ length: BAKE_N }, (_, i) => shot(i / BAKE_N * D.dur, D.camBack)) : D.side;
@@ -2886,7 +2887,7 @@ function balDrawDog() {
     let img = Dog3D.canvas;
     if (LIGHT && bakeDog()) { if (state === 'balade' && !b.over) Dog3D.lt += dt * (b.y > 0 ? .6 : 2.4); img = Dog3D.back[Math.floor(Dog3D.lt / Dog3D.dur * BAKE_N) % BAKE_N]; }
     else { if (state === 'balade' && !b.over) Dog3D.mixer.update(dt * (b.y > 0 ? .6 : 2.4));
-      Dog3D.r.render(Dog3D.scene, Dog3D.camBack); }
+      updateCape(performance.now() / 1000); Dog3D.r.render(Dog3D.scene, Dog3D.camBack); }
     if (b.pw.sprint > 0) { ctx.shadowColor = '#fb923c'; ctx.shadowBlur = 30; }
     ctx.drawImage(img, -size / 2, -size * Dog3D.footBack, size, size); ctx.shadowBlur = 0;
     drawDogAcc(ctx, -size / 2, -size * Dog3D.footBack, size, 'back');
@@ -3005,12 +3006,128 @@ function buyDeco(id) {
     bk.bones -= d.price; bk.own[id] = true; bk.eq[d.slot] = id; SFX.key(); $('shopMsg').textContent = `${d.icon} ${d.name} : ton chien est très beau !`;
   } else if (bk.eq[d.slot] === id) { bk.eq[d.slot] = ''; $('shopMsg').textContent = `${d.icon} ${d.name} enlevé.`; }
   else { bk.eq[d.slot] = id; $('shopMsg').textContent = `${d.icon} ${d.name} mis !`; tone(600, 900, .1, 'triangle', .05); }
-  saveBank(bk); renderShop();
+  saveBank(bk); try { applyDogDeco(); } catch (e) { } renderShop();
 }
 
 /* ---------- Déguisements dessinés sur le chien (vue de côté ou de dos) ---------- */
+/* ---------- Déguisements en 3D, accrochés au squelette du chien ----------
+   Ils suivent la tête et le corps pendant la marche, avec la même lumière et le même style que le chien. */
+function dogAnchors() {   // repères mesurés sur le modèle : dessus du crâne, cou, dos
+  const D = Dog3D; if (D.anch) return D.anch;
+  let mesh = null; D.scene.traverse(o => { if (o.isSkinnedMesh) mesh = o; }); if (!mesh) return null;
+  D.mixer.setTime(.3); D.scene.updateMatrixWorld(true);
+  const bones = mesh.skeleton.bones, bn = n => bones.find(b => b.name === n), head = bn('head'), chest = bn('chest'), hips = bn('Hips');
+  if (!head || !chest) return null;
+  const hi = bones.indexOf(head), ci = bones.indexOf(chest), pos = mesh.geometry.attributes.position, si = mesh.geometry.attributes.skinIndex, sw = mesh.geometry.attributes.skinWeight;
+  const bbH = new THREE.Box3(), bbC = new THREE.Box3(), bbA = new THREE.Box3(), v = new THREE.Vector3(), pts = [];
+  for (let i = 0; i < pos.count; i++) {
+    v.fromBufferAttribute(pos, i); mesh.boneTransform(i, v); v.applyMatrix4(mesh.matrixWorld); bbA.expandByPoint(v); pts.push(v.x, v.y, v.z);
+    let wh = 0, wc = 0; const ix = [si.getX(i), si.getY(i), si.getZ(i), si.getW(i)], wt = [sw.getX(i), sw.getY(i), sw.getZ(i), sw.getW(i)];
+    for (let k = 0; k < 4; k++) { if (ix[k] === hi) wh += wt[k]; if (ix[k] === ci) wc += wt[k]; }
+    if (wh > .6) bbH.expandByPoint(v); if (wc > .6) bbC.expandByPoint(v);
+  }
+  const wp = o => o.getWorldPosition(new THREE.Vector3()), H = wp(head), C = wp(chest), Hp = hips ? wp(hips) : C.clone().setZ(C.z - (bbA.max.z - bbA.min.z) * .4);
+  const s = bbH.max.x - bbH.min.x, hh = bbH.max.y - bbH.min.y;   // largeur et hauteur de la tête
+  // hauteur du dos tout le long du corps (pour poser la cape dessus)
+  const NB = 24, za = Hp.z - s * .7, zb = H.z, prof = new Array(NB).fill(-1e9);
+  for (let i = 0; i < pts.length; i += 3) { if (Math.abs(pts[i] - H.x) > s * .3) continue; const k = Math.floor((pts[i + 2] - za) / (zb - za) * NB); if (k >= 0 && k < NB && pts[i + 1] > prof[k]) prof[k] = pts[i + 1]; }
+  for (let k = 0; k < NB; k++) if (prof[k] < -1e8) prof[k] = k ? prof[k - 1] : C.y;
+  const backAt = z => { const f = Math.max(0, Math.min(NB - 1.001, (z - za) / (zb - za) * NB - .5)), k = Math.floor(f); return prof[k] + (prof[k + 1] - prof[k]) * (f - k); };
+  const neck = H.clone().lerp(C, .45), nd = H.clone().sub(C).normalize(), w3 = new THREE.Vector3(), rs = [];
+  let frontZ = -1e9; const yb = neck.y - s * .3;
+  for (let i = 0; i < pts.length; i += 3) {
+    w3.set(pts[i], pts[i + 1], pts[i + 2]).sub(neck); const along = w3.dot(nd);
+    if (Math.abs(along) < s * .1) rs.push(w3.addScaledVector(nd, -along).length());   // tour du cou
+    if (Math.abs(pts[i] - H.x) < s * .2 && Math.abs(pts[i + 1] - yb) < s * .12 && pts[i + 2] < H.z + s * .15) frontZ = Math.max(frontZ, pts[i + 2]);
+  }
+  rs.sort((a, b) => a - b); const neckR = rs.length ? rs[Math.floor(rs.length * .7)] : s * .4;
+  D.anch = { mesh, head, chest, s, H, C, Hp, bbA, bbC, backAt, neckR, bib: new THREE.Vector3(H.x, yb, frontZ > -1e8 ? frontZ : neck.z + s * .3),
+    top: new THREE.Vector3(H.x, bbH.max.y - hh * .27, H.z + s * .06),   // dessus du crâne, entre les oreilles
+    neck, neckDir: nd, backY: bbC.max.y };
+  return D.anch;
+}
+function toonMat(color, map) { return new THREE.MeshToonMaterial(map ? { color, map } : { color }); }
+function stripeTex(c1, c2, n, dots) {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 64; const g = cv.getContext('2d');
+  g.fillStyle = c1; g.fillRect(0, 0, 64, 64);
+  g.fillStyle = c2; if (dots) { for (let y = 4; y < 64; y += 14) for (let x = (y / 14 % 2) * 7 + 3; x < 64; x += 14) { g.beginPath(); g.arc(x, y, 3, 0, 7); g.fill(); } }
+  else for (let i = 0; i < n; i++) g.fillRect(i * 64 / n, 0, 32 / n, 64);
+  const t = new THREE.CanvasTexture(cv); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+}
+function buildDeco(id, A) {   // fabrique un déguisement (dimensions proportionnelles à la tête)
+  const s = A.s, g = new THREE.Group(), add = (geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x || 0, y || 0, z || 0); g.add(m); return m; };
+  if (id === 'party') {
+    add(new THREE.ConeGeometry(s * .27, s * .85, 24, 1, true), toonMat(0xffffff, stripeTex('#a855f7', '#fde047', 6)), 0, s * .42).material.side = THREE.DoubleSide;
+    add(new THREE.SphereGeometry(s * .1, 12, 10), toonMat(0xf472b6), 0, s * .87);
+    add(new THREE.TorusGeometry(s * .26, s * .03, 6, 24), toonMat(0xf472b6), 0, s * .02).rotation.x = Math.PI / 2;
+    g.rotation.z = -.22; g.rotation.x = -.12;
+  } else if (id === 'wizard') {
+    add(new THREE.CylinderGeometry(s * .46, s * .46, s * .03, 32), toonMat(0x5b21b6), 0, 0);
+    add(new THREE.ConeGeometry(s * .3, s * .7, 24), toonMat(0x7c3aed, stripeTex('#7c3aed', '#fde047', 1, true)), 0, s * .36);
+    const tip = add(new THREE.ConeGeometry(s * .14, s * .45, 16), toonMat(0x7c3aed), 0, s * .78, -s * .1); tip.rotation.x = -.7;
+    add(new THREE.CylinderGeometry(s * .305, s * .305, s * .09, 24, 1, true), toonMat(0xfde047), 0, s * .06).material.side = THREE.DoubleSide;
+    g.rotation.x = -.08;
+  } else if (id === 'crown') {
+    const gold = toonMat(0xfacc15);
+    add(new THREE.CylinderGeometry(s * .3, s * .27, s * .16, 24, 1, true), gold, 0, s * .08).material.side = THREE.DoubleSide;
+    for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2, sp = add(new THREE.ConeGeometry(s * .07, s * .2, 8), gold, Math.sin(a) * s * .29, s * .25, Math.cos(a) * s * .29);
+      add(new THREE.SphereGeometry(s * .035, 8, 6), toonMat(0xfef08a), sp.position.x, s * .36, sp.position.z); }
+    for (let i = 0; i < 6; i++) { const a = (i + .5) / 6 * Math.PI * 2; add(new THREE.SphereGeometry(s * .04, 10, 8), toonMat(i % 2 ? 0xef4444 : 0x38bdf8), Math.sin(a) * s * .3, s * .08, Math.cos(a) * s * .3); }
+    g.rotation.x = -.1;
+  } else if (id === 'bandana') {   // repère : z = le long du cou (vers la tête), +y = nuque
+    const r = A.neckR * .98, mat = toonMat(0xffffff, stripeTex('#dc2626', '#ffffff', 0, true));
+    const band = add(new THREE.TorusGeometry(r, s * .085, 10, 32), mat); band.scale.z = 1.5;
+    add(new THREE.SphereGeometry(s * .09, 10, 8), mat, 0, r * 1.05, 0);
+    const bib = new THREE.Mesh(new THREE.ConeGeometry(s * .36, s * .55, 3), mat); bib.rotation.set(Math.PI, 0, 0); bib.scale.z = .22; g.userData.bib = bib;
+  } else if (id === 'bow') {
+    const r = A.neckR * .95, pink = toonMat(0xec4899);
+    add(new THREE.TorusGeometry(r, s * .065, 8, 32), toonMat(0x1e1b4b)).scale.z = 1.3;
+    for (const sd of [-1, 1]) { const w = add(new THREE.ConeGeometry(s * .13, s * .26, 4), pink, sd * s * .13, -r * 1.05, 0); w.rotation.z = sd * Math.PI / 2; w.scale.z = .5; }
+    add(new THREE.SphereGeometry(s * .06, 10, 8), toonMat(0xf9a8d4), 0, -r * 1.07, 0);
+  } else if (id === 'cape') {
+    // toile souple posée sur le dos, du cou vers la queue ; elle ondule au vent (voir updateCape)
+    const geo = new THREE.PlaneGeometry(1, 1, 8, 12), mat = toonMat(0xdc2626); mat.side = THREE.DoubleSide;
+    const m = add(geo, mat); m.frustumCulled = false; g.userData.cape = m;
+    add(new THREE.SphereGeometry(s * .08, 12, 8), toonMat(0xfde047), 0, 0, 0).userData.clasp = true;
+  }
+  return g;
+}
+function updateCape(t) {   // forme de la cape à l'instant t (en coordonnées du monde, puis dans le repère de l'os du torse)
+  const D = Dog3D, A = D.anch, cp = D.deco && D.deco.neck && D.deco.neck.userData.cape; if (!A || !cp) return;
+  const pos = cp.geometry.attributes.position, s = A.s, z0 = A.neck.z - s * .1, z1 = A.Hp.z - s * .25, inv = new THREE.Matrix4().copy(cp.parent.matrixWorld).invert(), v = new THREE.Vector3();
+  const nu = 9, nv = 13;
+  for (let j = 0; j < nv; j++) for (let i = 0; i < nu; i++) {
+    const u = i / (nu - 1) - .5, vv = j / (nv - 1), z = z0 + (z1 - z0) * vv, w = s * (.8 + .45 * vv);
+    const wave = Math.sin(t * 9 - vv * 5 + u * 2) * s * .06 * vv * vv;   // le bas de la cape flotte, le haut reste posé
+    v.set(A.H.x + u * w, A.backAt(z) + s * .18 - Math.pow(Math.abs(u) * 2, 2) * s * (.15 + .45 * vv) + wave, z - Math.abs(wave) * .4);
+    v.applyMatrix4(inv); pos.setXYZ(j * nu + i, v.x, v.y, v.z);
+  }
+  pos.needsUpdate = true; cp.geometry.computeVertexNormals();
+}
+function applyDogDeco() {   // met les déguisements choisis sur le chien 3D
+  const D = Dog3D; if (!D.ready) return; const A = dogAnchors(); if (!A) return;
+  const eq = loadBank().eq; D.deco = D.deco || {};
+  for (const slot of ['head', 'neck']) {
+    const want = eq[slot] || '';
+    if (D.deco[slot] && D.deco[slot].userData.id === want) continue;
+    if (D.deco[slot]) { const o = D.deco[slot]; if (o.userData.bibRef) o.userData.bibRef.parent.remove(o.userData.bibRef); o.parent.remove(o); D.deco[slot] = null; }
+    if (!want) continue;
+    D.mixer.setTime(.3); D.scene.updateMatrixWorld(true);
+    const g = buildDeco(want, A); g.userData.id = want;
+    if (slot === 'head') { g.position.copy(A.top); if (want === 'crown') g.position.y -= A.s * .07; D.scene.add(g); g.updateMatrixWorld(true); A.head.attach(g); }
+    else if (want === 'cape') { D.scene.add(g); g.position.set(0, 0, 0); g.updateMatrixWorld(true); A.chest.attach(g); const clasp = g.children.find(c => c.userData.clasp); if (clasp) { const p = new THREE.Vector3(A.H.x, A.backAt(A.neck.z - A.s * .1) + A.s * .08, A.neck.z - A.s * .1); clasp.position.copy(g.worldToLocal(p)); } }
+    else {
+      g.position.copy(A.neck); g.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), A.neckDir); D.scene.add(g); g.updateMatrixWorld(true); A.head.attach(g);
+      const bib = g.userData.bib; if (bib) { bib.position.copy(A.bib).add(new THREE.Vector3(0, -A.s * .12, A.s * .04)); D.scene.add(bib); bib.updateMatrixWorld(true); A.chest.attach(bib); g.userData.bibRef = bib; }
+    }
+    D.deco[slot] = g;
+  }
+  if (D.deco.neck && D.deco.neck.userData.cape) updateCape(0);
+  D.side = D.back = D.still = null;   // les images du mode léger seront refaites avec les déguisements
+}
 function drawDogAcc(c, ox, oy, S, view) {
   const eq = loadBank().eq; if (!eq.head && !eq.neck) return;
+  if (Dog3D.deco) return;   // déguisements déjà portés en 3D
   const side = view === 'side', A = side ? { hx: .225, hy: .225, nx: .275, ny: .355 } : { hx: .49, hy: .21, nx: .49, ny: .335 };
   const u = S * .05, hx = ox + A.hx * S, hy = oy + A.hy * S, nx = ox + A.nx * S, ny = oy + A.ny * S, wv = Math.sin(time * 9) * u * .35;
   c.save(); c.shadowBlur = 0; c.lineWidth = Math.max(1, u * .22); c.strokeStyle = '#1e1b4b'; c.lineJoin = 'round';
