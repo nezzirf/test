@@ -245,7 +245,7 @@
         <div class="flex-1 text-left">
           <div class="font-black text-lg">⚡ Bonus de la balade <span class="text-sm text-indigo-200">— une fois débloqués, ils apparaissent parfois sur le chemin</span></div>
           <div id="shopPow" class="grid grid-cols-5 gap-2 mt-1"></div>
-          <div class="font-black text-lg mt-2">🎀 Déguisements <span class="text-sm text-indigo-200">— un chapeau, un collier et une traînée en même temps</span></div>
+          <div class="font-black text-lg mt-2">🎀 Déguisements <span class="text-sm text-indigo-200">— un chapeau, un habit et une traînée en même temps</span></div>
           <div id="shopDeco" class="grid grid-cols-3 gap-2 mt-1"></div>
         </div>
       </div>
@@ -295,7 +295,7 @@ const DAILY_FLOORS = 12, RUN_SECONDS = 30 * 60, VARIANTS = 20;
 const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900, SPRING = 1000;
 const PW = 28, PH = 40;
 const STEP = 1 / 120;
-const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v39';
+const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v40';
 /* [MODE TEST] Passe à false (ou supprime les blocs marqués [MODE TEST]) quand tout est réglé. */
 const TEST_MODE = true;
 
@@ -2576,7 +2576,8 @@ const BAL_SECONDS = 300, BAL_LANE = 2.2, BAL_D0 = 5.5, BAL_KEY = 'soen.balade.v1
 let bal = null;
 let BANK = null;   // os gardés d'un jour à l'autre + achats de la boutique (lv : niveau des bonus, own : déguisements achetés, eq : déguisements portés)
 function loadBank() {
-  if (!BANK) { let o = null; try { o = JSON.parse(localStorage.getItem(BAL_KEY)); } catch (e) { } BANK = Object.assign({ bones: 0, best: 0 }, o || {}); for (const k of ['lv', 'own', 'eq']) BANK[k] = BANK[k] || {}; }
+  if (!BANK) { let o = null; try { o = JSON.parse(localStorage.getItem(BAL_KEY)); } catch (e) { } BANK = Object.assign({ bones: 0, best: 0 }, o || {}); for (const k of ['lv', 'own', 'eq']) BANK[k] = BANK[k] || {};
+    if (BANK.own.bow) { delete BANK.own.bow; BANK.own.wings = true; } if (BANK.eq.neck === 'bow') BANK.eq.neck = 'wings'; }   // l'ancien nœud papillon devient les ailes
   return BANK;
 }
 function saveBank(b) { BANK = b; try { localStorage.setItem(BAL_KEY, JSON.stringify(b)); } catch (e) { } }
@@ -2957,7 +2958,7 @@ const DECOS = [
   { id: 'wizard', slot: 'head', icon: '🧙', name: 'Chapeau de sorcier', price: 300 },
   { id: 'crown', slot: 'head', icon: '👑', name: 'Couronne', price: 450 },
   { id: 'bandana', slot: 'neck', icon: '🧣', name: 'Bandana', price: 100 },
-  { id: 'bow', slot: 'neck', icon: '🎀', name: 'Nœud papillon', price: 150 },
+  { id: 'wings', slot: 'neck', icon: '🪽', name: 'Ailes d\'ange', price: 300 },
   { id: 'cape', slot: 'neck', icon: '🦸', name: 'Cape de héros', price: 350 },
   { id: 'stars', slot: 'trail', icon: '✨', name: 'Traînée d\'étoiles', price: 200 },
   { id: 'hearts', slot: 'trail', icon: '💖', name: 'Traînée de cœurs', price: 250 },
@@ -3019,19 +3020,20 @@ function dogAnchors() {   // repères mesurés sur le modèle : dessus du crâne
   const bones = mesh.skeleton.bones, bn = n => bones.find(b => b.name === n), head = bn('head'), chest = bn('chest'), hips = bn('Hips');
   if (!head || !chest) return null;
   const hi = bones.indexOf(head), ci = bones.indexOf(chest), pos = mesh.geometry.attributes.position, si = mesh.geometry.attributes.skinIndex, sw = mesh.geometry.attributes.skinWeight;
-  const bbH = new THREE.Box3(), bbC = new THREE.Box3(), bbA = new THREE.Box3(), v = new THREE.Vector3(), pts = [];
+  const bbH = new THREE.Box3(), bbC = new THREE.Box3(), bbA = new THREE.Box3(), v = new THREE.Vector3(), pts = [], headW = new Float32Array(pos.count);
   for (let i = 0; i < pos.count; i++) {
     v.fromBufferAttribute(pos, i); mesh.boneTransform(i, v); v.applyMatrix4(mesh.matrixWorld); bbA.expandByPoint(v); pts.push(v.x, v.y, v.z);
     let wh = 0, wc = 0; const ix = [si.getX(i), si.getY(i), si.getZ(i), si.getW(i)], wt = [sw.getX(i), sw.getY(i), sw.getZ(i), sw.getW(i)];
     for (let k = 0; k < 4; k++) { if (ix[k] === hi) wh += wt[k]; if (ix[k] === ci) wc += wt[k]; }
-    if (wh > .6) bbH.expandByPoint(v); if (wc > .6) bbC.expandByPoint(v);
+    headW[i] = wh; if (wh > .6) bbH.expandByPoint(v); if (wc > .6) bbC.expandByPoint(v);
   }
   const wp = o => o.getWorldPosition(new THREE.Vector3()), H = wp(head), C = wp(chest), Hp = hips ? wp(hips) : C.clone().setZ(C.z - (bbA.max.z - bbA.min.z) * .4);
   const s = bbH.max.x - bbH.min.x, hh = bbH.max.y - bbH.min.y;   // largeur et hauteur de la tête
   // hauteur du dos tout le long du corps (pour poser la cape dessus)
   const NB = 24, za = Hp.z - s * .7, zb = H.z, prof = new Array(NB).fill(-1e9);
-  for (let i = 0; i < pts.length; i += 3) { if (Math.abs(pts[i] - H.x) > s * .3) continue; const k = Math.floor((pts[i + 2] - za) / (zb - za) * NB); if (k >= 0 && k < NB && pts[i + 1] > prof[k]) prof[k] = pts[i + 1]; }
+  for (let i = 0; i < pts.length; i += 3) { if (Math.abs(pts[i] - H.x) > s * .6 || headW[i / 3] > .2) continue; const k = Math.floor((pts[i + 2] - za) / (zb - za) * NB); if (k >= 0 && k < NB && pts[i + 1] > prof[k]) prof[k] = pts[i + 1]; }
   for (let k = 0; k < NB; k++) if (prof[k] < -1e8) prof[k] = k ? prof[k - 1] : C.y;
+  for (let it = 0; it < 3; it++) for (let k = 1; k < NB - 1; k++) prof[k] = Math.max(prof[k], (prof[k - 1] + prof[k + 1]) / 2);   // pas de creux : la cape reste tendue sur le dos
   const backAt = z => { const f = Math.max(0, Math.min(NB - 1.001, (z - za) / (zb - za) * NB - .5)), k = Math.floor(f); return prof[k] + (prof[k + 1] - prof[k]) * (f - k); };
   const neck = H.clone().lerp(C, .45), nd = H.clone().sub(C).normalize(), w3 = new THREE.Vector3(), rs = [];
   let frontZ = -1e9; const yb = neck.y - s * .3;
@@ -3041,7 +3043,7 @@ function dogAnchors() {   // repères mesurés sur le modèle : dessus du crâne
     if (Math.abs(pts[i] - H.x) < s * .2 && Math.abs(pts[i + 1] - yb) < s * .12 && pts[i + 2] < H.z + s * .15) frontZ = Math.max(frontZ, pts[i + 2]);
   }
   rs.sort((a, b) => a - b); const neckR = rs.length ? rs[Math.floor(rs.length * .7)] : s * .4;
-  D.anch = { mesh, head, chest, s, H, C, Hp, bbA, bbC, backAt, neckR, bib: new THREE.Vector3(H.x, yb, frontZ > -1e8 ? frontZ : neck.z + s * .3),
+  D.anch = { mesh, pts: new Float32Array(pts), headW, head, chest, s, H, C, Hp, bbA, bbC, backAt, neckR, bib: new THREE.Vector3(H.x, yb, frontZ > -1e8 ? frontZ : neck.z + s * .3),
     top: new THREE.Vector3(H.x, bbH.max.y - hh * .27, H.z + s * .06),   // dessus du crâne, entre les oreilles
     neck, neckDir: nd, backY: bbC.max.y };
   return D.anch;
@@ -3079,30 +3081,66 @@ function buildDeco(id, A) {   // fabrique un déguisement (dimensions proportion
     const band = add(new THREE.TorusGeometry(r, s * .085, 10, 32), mat); band.scale.z = 1.5;
     add(new THREE.SphereGeometry(s * .09, 10, 8), mat, 0, r * 1.05, 0);
     const bib = new THREE.Mesh(new THREE.ConeGeometry(s * .36, s * .55, 3), mat); bib.rotation.set(Math.PI, 0, 0); bib.scale.z = .22; g.userData.bib = bib;
-  } else if (id === 'bow') {
-    const r = A.neckR * .95, pink = toonMat(0xec4899);
-    add(new THREE.TorusGeometry(r, s * .065, 8, 32), toonMat(0x1e1b4b)).scale.z = 1.3;
-    for (const sd of [-1, 1]) { const w = add(new THREE.ConeGeometry(s * .13, s * .26, 4), pink, sd * s * .13, -r * 1.05, 0); w.rotation.z = sd * Math.PI / 2; w.scale.z = .5; }
-    add(new THREE.SphereGeometry(s * .06, 10, 8), toonMat(0xf9a8d4), 0, -r * 1.07, 0);
   } else if (id === 'cape') {
-    // toile souple posée sur le dos, du cou vers la queue ; elle ondule au vent (voir updateCape)
-    const geo = new THREE.PlaneGeometry(1, 1, 8, 12), mat = toonMat(0xdc2626); mat.side = THREE.DoubleSide;
-    const m = add(geo, mat); m.frustumCulled = false; g.userData.cape = m;
-    add(new THREE.SphereGeometry(s * .08, 12, 8), toonMat(0xfde047), 0, 0, 0).userData.clasp = true;
-  }
+    g.userData.skinCape = buildSkinnedCape(A);
+    const clasp = add(new THREE.SphereGeometry(s * .09, 12, 8), toonMat(0xfde047)); clasp.userData.clasp = true;
+  } else if (id === 'wings') return buildWings(A);
   return g;
 }
-function updateCape(t) {   // forme de la cape à l'instant t (en coordonnées du monde, puis dans le repère de l'os du torse)
-  const D = Dog3D, A = D.anch, cp = D.deco && D.deco.neck && D.deco.neck.userData.cape; if (!A || !cp) return;
-  const pos = cp.geometry.attributes.position, s = A.s, z0 = A.neck.z - s * .1, z1 = A.Hp.z - s * .25, inv = new THREE.Matrix4().copy(cp.parent.matrixWorld).invert(), v = new THREE.Vector3();
-  const nu = 9, nv = 13;
+function buildSkinnedCape(A) {   // la cape devient une « peau » du chien : chaque point suit le point du corps juste en dessous
+  const D = Dog3D, mesh = A.mesh, sk = mesh.skeleton, s = A.s, P = A.pts, n = P.length / 3;
+  D.mixer.setTime(.3); D.scene.updateMatrixWorld(true); sk.update();   // même pose que les mesures (dogAnchors)
+  const si = mesh.geometry.attributes.skinIndex, sw = mesh.geometry.attributes.skinWeight, BM = sk.boneMatrices;
+  const inv = new THREE.Matrix4().copy(mesh.matrixWorld).invert(), z0 = A.C.z + s * .05, z1 = A.Hp.z - s * .25;   // des épaules jusqu'aux hanches
+  const nu = 9, nv = 13, geo = new THREE.PlaneGeometry(1, 1, nu - 1, nv - 1), gp = geo.attributes.position;
+  const sIdx = new Float32Array(nu * nv * 4), sWt = new Float32Array(nu * nv * 4), base = new Float32Array(nu * nv * 3), dir = new Float32Array(nu * nv * 3);
+  const v = new THREE.Vector3(), d = new THREE.Vector3(), M = new THREE.Matrix4(), Bj = new THREE.Matrix4();
   for (let j = 0; j < nv; j++) for (let i = 0; i < nu; i++) {
-    const u = i / (nu - 1) - .5, vv = j / (nv - 1), z = z0 + (z1 - z0) * vv, w = s * (.8 + .45 * vv);
-    const wave = Math.sin(t * 9 - vv * 5 + u * 2) * s * .06 * vv * vv;   // le bas de la cape flotte, le haut reste posé
-    v.set(A.H.x + u * w, A.backAt(z) + s * .18 - Math.pow(Math.abs(u) * 2, 2) * s * (.15 + .45 * vv) + wave, z - Math.abs(wave) * .4);
-    v.applyMatrix4(inv); pos.setXYZ(j * nu + i, v.x, v.y, v.z);
+    const u = i / (nu - 1) - .5, vv = j / (nv - 1), z = z0 + (z1 - z0) * vv, w = s * (.85 + .6 * vv), id = j * nu + i;
+    v.set(A.H.x + u * w, A.backAt(z) + s * .26 - Math.pow(Math.abs(u) * 2, 2) * s * (.15 + .55 * vv), z);
+    let best = 0, bd = 1e9;   // point du chien le plus proche : la cape prendra son mouvement
+    for (let k = 0; k < n; k++) { if (A.headW[k] > .2) continue;   // la cape ne suit pas la tête
+      const dx = P[k * 3] - v.x, dy = P[k * 3 + 1] - v.y, dz = P[k * 3 + 2] - v.z, d = dx * dx + dy * dy + dz * dz; if (d < bd) { bd = d; best = k; } }
+    const ix = [si.getX(best), si.getY(best), si.getZ(best), si.getW(best)], wt = [sw.getX(best), sw.getY(best), sw.getZ(best), sw.getW(best)];
+    sIdx.set(ix, id * 4); sWt.set(wt, id * 4);
+    // transformation de ce point du chien dans cette pose : on l'inverse pour trouver où placer la cape « au repos »
+    M.set(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+    for (let q = 0; q < 4; q++) if (wt[q]) { Bj.fromArray(BM, ix[q] * 16); for (let e = 0; e < 16; e++) M.elements[e] += Bj.elements[e] * wt[q]; }
+    const full = new THREE.Matrix4().copy(mesh.bindMatrixInverse).multiply(M).multiply(mesh.bindMatrix), back = full.invert();
+    const wv = v.clone(); v.applyMatrix4(inv).applyMatrix4(back);
+    d.copy(wv).add(new THREE.Vector3(0, s * .07 * vv * vv, 0)).applyMatrix4(inv).applyMatrix4(back).sub(v);   // « vers le haut » pour l'ondulation, propre à ce point
+    gp.setXYZ(id, v.x, v.y, v.z); base.set([v.x, v.y, v.z], id * 3); dir.set([d.x, d.y, d.z], id * 3);
   }
-  pos.needsUpdate = true; cp.geometry.computeVertexNormals();
+  geo.setAttribute('skinIndex', new THREE.Float32BufferAttribute(sIdx, 4)); geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sWt, 4)); geo.computeVertexNormals();
+  const mat = toonMat(0xdc2626); mat.side = THREE.DoubleSide;
+  const cape = new THREE.SkinnedMesh(geo, mat); cape.frustumCulled = false;
+  cape.position.copy(mesh.position); cape.quaternion.copy(mesh.quaternion); cape.scale.copy(mesh.scale);
+  mesh.parent.add(cape); cape.bind(sk, mesh.bindMatrix);
+  cape.userData = { base, dir, clasp: new THREE.Vector3(A.H.x, A.backAt(z0) + s * .2, z0) };
+  return cape;
+}
+function buildWings(A) {   // ailes d'ange posées sur les épaules ; elles battent pendant la course
+  const s = A.s * .9, g = new THREE.Group(), sh = new THREE.Shape();
+  sh.moveTo(0, 0); sh.bezierCurveTo(-s * .1, s * .55, -s * .55, s * 1.05, -s * 1.05, s * 1.0);   // bord d'attaque (vers l'arrière et le haut)
+  for (let k = 0; k < 4; k++) { const x0 = -s * (1.05 - k * .2), x1 = -s * (.85 - k * .2); sh.quadraticCurveTo(x0 - s * .02, s * (.55 - k * .1), x1, s * (.72 - k * .14)); }   // plumes
+  sh.quadraticCurveTo(-s * .1, s * .2, 0, 0);
+  const geo = new THREE.ShapeGeometry(sh, 10), mat = toonMat(0xf8fafc); mat.side = THREE.DoubleSide;
+  for (const sd of [-1, 1]) {
+    const pivot = new THREE.Group(), turn = new THREE.Group(), w = new THREE.Mesh(geo, mat), edge = new THREE.Mesh(geo, toonMat(0x93c5fd)); edge.material.side = THREE.DoubleSide;
+    w.rotation.y = -Math.PI / 2; edge.rotation.y = -Math.PI / 2; edge.scale.set(1.04, 1.04, 1.04); edge.position.x = -sd * s * .005;   // forme dans le plan (z, y) : visible de côté
+    turn.add(edge); turn.add(w); turn.rotation.y = -sd * .8; pivot.add(turn); pivot.position.set(sd * s * .2, 0, 0); pivot.userData.side = sd; g.add(pivot);   // tournées vers l'extérieur : visibles de côté et de dos
+  }
+  g.userData.wings = true; return g;
+}
+function updateCape(t) {   // la cape ondule (son bas surtout), les ailes battent
+  const D = Dog3D, g = D.deco && D.deco.neck; if (!g) return;
+  const cp = g.userData.skinCape;
+  if (cp) {
+    const u = cp.userData, gp = cp.geometry.attributes.position, n = gp.count;
+    for (let k = 0; k < n; k++) { const j = Math.floor(k / 9), w = Math.sin(t * 9 - j * .45 + (k % 9) * .25); gp.setXYZ(k, u.base[k * 3] + u.dir[k * 3] * w, u.base[k * 3 + 1] + u.dir[k * 3 + 1] * w, u.base[k * 3 + 2] + u.dir[k * 3 + 2] * w); }
+    gp.needsUpdate = true;
+  }
+  if (g.userData.wings) for (const pv of g.children) pv.rotation.z = pv.userData.side * (.25 + .3 * Math.sin(t * 10));
 }
 function applyDogDeco() {   // met les déguisements choisis sur le chien 3D
   const D = Dog3D; if (!D.ready) return; const A = dogAnchors(); if (!A) return;
@@ -3110,19 +3148,20 @@ function applyDogDeco() {   // met les déguisements choisis sur le chien 3D
   for (const slot of ['head', 'neck']) {
     const want = eq[slot] || '';
     if (D.deco[slot] && D.deco[slot].userData.id === want) continue;
-    if (D.deco[slot]) { const o = D.deco[slot]; if (o.userData.bibRef) o.userData.bibRef.parent.remove(o.userData.bibRef); o.parent.remove(o); D.deco[slot] = null; }
+    if (D.deco[slot]) { const o = D.deco[slot]; if (o.userData.bibRef) o.userData.bibRef.parent.remove(o.userData.bibRef); if (o.userData.skinCape) o.userData.skinCape.parent.remove(o.userData.skinCape); o.parent.remove(o); D.deco[slot] = null; }
     if (!want) continue;
     D.mixer.setTime(.3); D.scene.updateMatrixWorld(true);
     const g = buildDeco(want, A); g.userData.id = want;
     if (slot === 'head') { g.position.copy(A.top); if (want === 'crown') g.position.y -= A.s * .07; D.scene.add(g); g.updateMatrixWorld(true); A.head.attach(g); }
-    else if (want === 'cape') { D.scene.add(g); g.position.set(0, 0, 0); g.updateMatrixWorld(true); A.chest.attach(g); const clasp = g.children.find(c => c.userData.clasp); if (clasp) { const p = new THREE.Vector3(A.H.x, A.backAt(A.neck.z - A.s * .1) + A.s * .08, A.neck.z - A.s * .1); clasp.position.copy(g.worldToLocal(p)); } }
+    else if (want === 'cape') { g.position.copy(g.userData.skinCape.userData.clasp); D.scene.add(g); g.updateMatrixWorld(true); A.chest.attach(g); }
+    else if (want === 'wings') { g.position.set(A.H.x, A.backAt(A.C.z - A.s * .5) + A.s * .05, A.C.z - A.s * .5); g.rotation.x = .45; D.scene.add(g); g.updateMatrixWorld(true); A.chest.attach(g); }
     else {
       g.position.copy(A.neck); g.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), A.neckDir); D.scene.add(g); g.updateMatrixWorld(true); A.head.attach(g);
       const bib = g.userData.bib; if (bib) { bib.position.copy(A.bib).add(new THREE.Vector3(0, -A.s * .12, A.s * .04)); D.scene.add(bib); bib.updateMatrixWorld(true); A.chest.attach(bib); g.userData.bibRef = bib; }
     }
     D.deco[slot] = g;
   }
-  if (D.deco.neck && D.deco.neck.userData.cape) updateCape(0);
+  updateCape(0);
   D.side = D.back = D.still = null;   // les images du mode léger seront refaites avec les déguisements
 }
 function drawDogAcc(c, ox, oy, S, view) {
