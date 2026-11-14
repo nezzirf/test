@@ -175,7 +175,7 @@ const DAILY_FLOORS = 12, RUN_SECONDS = 30 * 60, VARIANTS = 20;
 const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900, SPRING = 1000;
 const PW = 28, PH = 40;
 const STEP = 1 / 120;
-const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v16';
+const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v17';
 /* [MODE TEST] Passe à false (ou supprime les blocs marqués [MODE TEST]) quand tout est réglé. */
 const TEST_MODE = true;
 
@@ -815,7 +815,7 @@ function genFloor(fi) {
   let door, dog = null, Wend = end.x + end.w + 80;
   if (last) {
     const dp = mk({ x: end.x + end.w + 16, y: end.y - 275, w: 180, type: 'dogplat', y0: end.y - 275, y1: end.y, mv: true });
-    dog = { plat: dp, bx: end.x + 120, by: end.y, pressed: false, lowered: false, saved: false, told: false, bark: 2 };
+    dog = { plat: dp, x: dp.x + dp.w / 2, minX: end.x + 30, bx: end.x + 120, by: end.y, walking: false, flip: false, pressed: false, lowered: false, saved: false, told: false, bark: 2 };
     door = { x: dp.x, y: dp.y - 90, w: dp.w, h: 90, dog: true };
     Wend = dp.x + dp.w + 140;
   } else door = { x: end.x + end.w - 160, y: end.y - 126, w: 126, h: 126, stairs: true };
@@ -1000,7 +1000,7 @@ function updatePlatforms(dt) {
   for (const p of L.plats) {
     if (p.type === 'dogplat') {   // la plateforme du chien descend quand on a appuyé sur le bouton
       p.px = p.x; p.py = p.y;
-      if (L.dog && L.dog.pressed && p.y < p.y1) { p.y = Math.min(p.y1, p.y + 75 * dt); if (p.y >= p.y1 && !L.dog.lowered) { L.dog.lowered = true; shake = .3; SFX.land(); dust(p.x + p.w / 2, p.y, 14); showToast('🐶 Le chien est en bas ! Va le chercher !'); } }
+      if (L.dog && L.dog.pressed && p.y < p.y1) { p.y = Math.min(p.y1, p.y + 75 * dt); if (p.y >= p.y1 && !L.dog.lowered) { L.dog.lowered = true; shake = .3; SFX.land(); dust(p.x + p.w / 2, p.y, 14); showToast('🐶 Ouaf ! Notre chien arrive vers toi !'); } }
       L.door.y = p.y - 90; p.dx = 0; p.dy = p.y - p.py; continue;
     }
     if (p.lift) {   // ascenseur : monte quand on est dessus, redescend sinon (ou après une courte pause en haut)
@@ -1333,7 +1333,11 @@ function updatePlayer(dt) {
       if (!L.needKey || L.key.got) { dg.pressed = true; SFX.sw(); sparkle(cx, p.y, 16); showToast('🔑 La clé brille… la plateforme du chien descend !'); }
       else if (doorMsgCd <= 0) { doorMsgCd = 3; SFX.locked(); showToast('🔒 Sans la clé 🔑, la plateforme du chien ne descendra pas !'); }
     }
-    if (dg.lowered && p.grounded && p.standing === dg.plat && Math.abs(cx - (dg.plat.x + dg.plat.w / 2)) < 45) goal();
+    if (dg.lowered && !dg.saved) {   // le chien marche jusqu'à nous
+      const dx = cx - dg.x; dg.walking = Math.abs(dx) > 42; dg.flip = dx > 0;
+      if (dg.walking) { const nx = Math.max(dg.minX, Math.min(dg.plat.x + dg.plat.w - 30, dg.x + Math.sign(dx) * 120 * dt)); dg.walking = Math.abs(nx - dg.x) > .01; dg.x = nx; }   // au bord, il s'arrête et t'attend
+      if (Math.abs(dx) <= 46 && Math.abs(p.y + PH - dg.by) < 60) { dg.walking = false; goal(); }
+    }
   } else if (cx > d.x + 6 && cx < d.x + 62 && p.y + PH > d.y && p.y < d.y + d.h) {
     if (!L.needKey || L.key.got) goal();
     else if (doorMsgCd <= 0) { doorMsgCd = 2.2; SFX.locked(); showToast('🔒 L\'escalier est fermé ! Il te faut la clé 🔑'); }
@@ -1344,9 +1348,9 @@ function goal() {
   state = 'clear'; run.floorsDone++; SFX.door();
   const d = L.door; finalWin = L.last;
   if (finalWin) {   // le chien est sauvé !
-    L.dog.saved = true; clearT = 3.2; SFX.win(); const dp = L.dog.plat;
-    confetti(dp.x + dp.w / 2, dp.y - 60, 280, 800, 650);
-    for (let i = 0; i < 10; i++) parts.push({ t: 'text', x: dp.x + dp.w / 2 + (Math.random() - .5) * 120, y: dp.y - 80 - Math.random() * 40, vx: (Math.random() - .5) * 40, vy: -60 - Math.random() * 60, g: 0, life: 2.2, max: 2.2, text: '💛', c: '#fde047' });
+    L.dog.saved = true; clearT = 3.2; SFX.win(); const dp = L.dog.plat, dgx = L.dog.x;
+    confetti(dgx, dp.y - 60, 280, 800, 650);
+    for (let i = 0; i < 10; i++) parts.push({ t: 'text', x: dgx + (Math.random() - .5) * 120, y: dp.y - 80 - Math.random() * 40, vx: (Math.random() - .5) * 40, vy: -60 - Math.random() * 60, g: 0, life: 2.2, max: 2.2, text: '💛', c: '#fde047' });
     showToast('🐶💛 Tu as sauvé notre chien !');
   } else {   // on monte l'escalier
     clearT = 1.6; P.climb = { x: d.x + 10, y: d.y + d.h }; P.x = d.x + 6; P.vx = P.vy = 0; P.face = 1;
@@ -1719,26 +1723,30 @@ function initDog3D() {
       for (let i = 0; i < pos.count; i++) { v.fromBufferAttribute(pos, i); if (mesh.isSkinnedMesh) mesh.boneTransform(i, v); v.applyMatrix4(mesh.matrixWorld); box.expandByPoint(v); }
       const c = new THREE.Vector3(), sz = new THREE.Vector3(); box.getCenter(c); box.getSize(sz); const R = Math.max(sz.x, sz.y, sz.z);
       const cam = new THREE.PerspectiveCamera(30, 1, R * .01, R * 100); cam.position.set(c.x + R * 2.25, c.y + R * .15, c.z); cam.lookAt(c);   // vue de profil, le chien regarde vers la gauche
-      Object.assign(Dog3D, { ready: true, canvas: r.domElement, r, scene, cam, mixer });
+      cam.updateMatrixWorld(); const foot = new THREE.Vector3(c.x, box.min.y, c.z).project(cam);   // où tombent les pattes dans l'image
+      Object.assign(Dog3D, { ready: true, canvas: r.domElement, r, scene, cam, mixer, footFrac: (1 - foot.y) / 2 });
     }, () => { });
   } catch (e) { }
 }
 // dessine le chien (pattes au point x,y) ; happy = il saute de joie
-function drawDog(c, x, y, size, happy, flip) {
+function drawDog(c, x, y, size, mode, flip) {
+  const happy = mode === 'happy';
   if (Dog3D.ready) {
     const now = performance.now() / 1000, dt = Math.min(.1, now - (Dog3D.last || now)); Dog3D.last = now;
-    Dog3D.mixer.update(dt * (happy ? 1.7 : .7)); Dog3D.r.render(Dog3D.scene, Dog3D.cam);
+    if (mode !== 'still') Dog3D.mixer.update(dt * (happy ? 1.7 : 1.1));   // immobile : on ne fait pas avancer l'animation
+    Dog3D.r.render(Dog3D.scene, Dog3D.cam);
     const hop = happy ? Math.abs(Math.sin(time * 7)) * 14 : 0;
     c.save(); if (flip) { c.translate(x, 0); c.scale(-1, 1); c.translate(-x, 0); }
-    c.shadowColor = 'rgba(255,240,200,.9)'; c.shadowBlur = 10;
-    c.drawImage(Dog3D.canvas, x - size / 2, y - size * .92 - hop, size, size); c.restore();
+    c.fillStyle = 'rgba(0,0,0,.28)'; c.beginPath(); c.ellipse(x, y - 1, size * .3 * (1 - hop / 40), 5, 0, 0, 7); c.fill();   // ombre au sol
+    c.shadowColor = 'rgba(255,240,200,.9)'; c.shadowBlur = 8;
+    c.drawImage(Dog3D.canvas, x - size / 2, y - size * Dog3D.footFrac - hop, size, size); c.restore();   // pattes posées exactement sur le sol
   } else {   // secours si three.js n'a pas pu se charger
     c.font = Math.round(size * .6) + 'px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'bottom';
-    c.fillText('🐶', x, y - (happy ? Math.abs(Math.sin(time * 7)) * 14 : 0));
+    c.fillText('🐶', x, y - (happy ? Math.abs(Math.sin(time * 7)) * 14 : mode === 'walk' ? Math.abs(Math.sin(time * 10)) * 4 : 0));
   }
 }
 function drawDogArea() {
-  const dg = L.dog, p = dg.plat, cx = p.x + p.w / 2;
+  const dg = L.dog, p = dg.plat, cx = dg.x;
   // tant que la plateforme est en haut : un cadenas montre qu'il faut la clé
   if (!dg.pressed) { const k = !L.needKey || L.key.got; emoji(k ? '🔑' : '🔒', cx, p.y + 46 + Math.sin(time * 4) * 4, 26); }
   // chaînes
@@ -1747,13 +1755,13 @@ function drawDogArea() {
   // plateforme
   ctx.fillStyle = '#a16207'; rr(p.x, p.y, p.w, 24, 8); ctx.fill(); ctx.fillStyle = '#fde68a'; ctx.fillRect(p.x + 5, p.y + 4, p.w - 10, 6); ctx.strokeStyle = OUT; ctx.lineWidth = 4; rr(p.x, p.y, p.w, 24, 8); ctx.stroke();
   // halo + chien
-  const g = ctx.createRadialGradient(cx, p.y - 40, 5, cx, p.y - 40, 100); g.addColorStop(0, dg.saved ? 'rgba(253,224,71,.6)' : 'rgba(255,255,255,.25)'); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.fillRect(cx - 110, p.y - 150, 220, 170);
-  drawDog(ctx, cx, p.y + 2, 120, dg.saved || dg.lowered);
+  const gy = dg.lowered ? dg.by : p.y, g = ctx.createRadialGradient(cx, gy - 40, 5, cx, gy - 40, 100); g.addColorStop(0, dg.saved ? 'rgba(253,224,71,.6)' : 'rgba(255,255,255,.25)'); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.fillRect(cx - 110, gy - 150, 220, 170);
+  drawDog(ctx, cx, dg.lowered ? dg.by : p.y, 120, dg.saved ? 'happy' : dg.walking ? 'walk' : 'still', dg.flip);
   // bulle
-  const msg = dg.saved ? 'Ouaf ! 💛' : dg.lowered ? 'Ouaf ouaf ! 🐾' : 'Ouaf… je suis coincé ! 😢';
-  ctx.font = '900 16px "Trebuchet MS",sans-serif'; const tw = ctx.measureText(msg).width + 20, by = p.y - 70 + Math.sin(time * 3) * 3, bx = p.x - 14 - tw / 2;   // bulle à gauche de la cage
+  const msg = dg.saved ? 'Ouaf ! 💛' : dg.lowered ? 'J\'arrive ! 🐾' : 'Ouaf… je suis coincé ! 😢';
+  ctx.font = '900 16px "Trebuchet MS",sans-serif'; const tw = ctx.measureText(msg).width + 20, by = gy - 70 + Math.sin(time * 3) * 3, bx = cx - 76 - tw / 2;   // bulle à gauche de la cage
   ctx.fillStyle = '#fff'; rr(bx - tw / 2, by - 15, tw, 30, 14); ctx.fill(); ctx.strokeStyle = OUT; ctx.lineWidth = 3; ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(bx + tw / 2 - 2, by - 6); ctx.lineTo(p.x - 2, by); ctx.lineTo(bx + tw / 2 - 2, by + 6); ctx.fillStyle = '#fff'; ctx.fill();
+  ctx.beginPath(); ctx.moveTo(bx + tw / 2 - 2, by - 6); ctx.lineTo(cx - 64, by); ctx.lineTo(bx + tw / 2 - 2, by + 6); ctx.fillStyle = '#fff'; ctx.fill();
   ctx.fillStyle = '#1e1b4b'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(msg, bx, by);
 }
 
@@ -2047,9 +2055,9 @@ function frame(ts) {
   render();
   if (run && state !== 'title' && state !== 'closed') updateTimer();
   if (state === 'closed') { cdT -= dt; if (cdT <= 0) { cdT = .5; updateCountdown(); } }
-  for (const [id, happy] of [['dogTitle', false], ['dogEnd', true]]) {   // petit chien 3D dans les menus
+  for (const [id, mode] of [['dogTitle', 'still'], ['dogEnd', 'happy']]) {   // petit chien 3D dans les menus
     const el = $(id); if (!el || !el.offsetParent) continue;
-    const c2 = el.getContext('2d'); c2.clearRect(0, 0, el.width, el.height); drawDog(c2, el.width / 2, el.height - 6, el.width * .95, happy);
+    const c2 = el.getContext('2d'); c2.clearRect(0, 0, el.width, el.height); drawDog(c2, el.width / 2, el.height - 6, el.width * .95, mode);
   }
 }
 function fit() { const s = Math.min(innerWidth / 960, innerHeight / 540); $('stage').style.transform = `translate(-50%,-50%) scale(${s})`; }
