@@ -320,7 +320,7 @@ const DAILY_FLOORS = 12, RUN_SECONDS = 30 * 60, VARIANTS = 20;
 const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900, SPRING = 1000;
 const PW = 28, PH = 40;
 const STEP = 1 / 120;
-const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v50';
+const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v51';
 /* [MODE TEST] Passe à false (ou supprime les blocs marqués [MODE TEST]) quand tout est réglé. */
 const TEST_MODE = true;
 
@@ -3018,7 +3018,7 @@ function balStep(dt) {
   b.slide = Math.max(0, b.slide - dt);
   balSpawn();
   const bi = biomeIdx(b.dist);
-  if (bi > b.biome && !b.over) { b.biome = bi; b.bones += 10; b.pops.push({ life: 2.2, text: BIOMES[bi].name + ' !  +10 🦴', big: true }); SFX.key(); }   // nouveau décor
+  if (bi > b.biome && !b.over) { b.biome = bi; b.bones += 10; b.pops.push({ life: 1.8, text: BIOMES[bi].name + ' !  +10 🦴', big: true }); SFX.key(); }   // nouveau décor
   const dl = Math.round(b.x / BAL_LANE) + 1;
   for (let i = b.items.length - 1; i >= 0; i--) {
     const it = b.items[i];
@@ -3442,7 +3442,15 @@ function balRender() {
   }
   if (b.pw.sprint > 0) { ctx.save(); ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.lineWidth = 3; for (let i = 0; i < 14; i++) { const a = i * 2.4 + Math.floor(time * 20) * .7, r0 = 260 + (i * 37 + time * 900) % 200; ctx.beginPath(); ctx.moveTo(W / 2 + Math.cos(a) * r0, 300 + Math.sin(a) * r0 * .6); ctx.lineTo(W / 2 + Math.cos(a) * (r0 + 60), 300 + Math.sin(a) * (r0 + 60) * .6); ctx.stroke(); } ctx.restore(); }
   ctx.textAlign = 'center'; outText('⏳ ' + fmt(BAL_SECONDS - b.t), W / 2, 34, 34, BAL_SECONDS - b.t < 30 ? '#fecaca' : '#fff'); outText(Math.round(b.dist) + ' m', W / 2, 70, 22, '#fde047');
-  for (const q of b.pops) { ctx.globalAlpha = Math.min(1, q.life * 2); if (q.big) outText(q.text, W / 2, 250 - (1.2 - q.life) * 40, 40, '#fde047'); else emoji(q.text, W / 2, 300 - (1 - q.life) * 60, 60); ctx.globalAlpha = 1; }
+  let py = 104;   // messages en haut de l'écran (sous la distance), pour ne jamais cacher les obstacles qui arrivent
+  const bigs = b.pops.filter(q => q.big).slice(-2);   // deux messages au plus, pour ne pas descendre sur le chemin
+  for (const q of b.pops) {
+    if (q.big && bigs.indexOf(q) < 0) continue;
+    ctx.globalAlpha = Math.min(1, q.life * 3);
+    if (q.big) { ctx.font = '900 20px "Trebuchet MS",sans-serif'; const tw = ctx.measureText(q.text).width + 28; ctx.fillStyle = 'rgba(15,23,42,.72)'; rr(W / 2 - tw / 2, py - 15, tw, 30, 15); ctx.fill(); outText(q.text, W / 2, py, 20, '#fde047'); py += 36; }
+    else emoji(q.text, 40 + (b.maxHearts) * 38, 34 - (1 - q.life) * 14, 30);   // 💔 ou 🛡️ : à côté des cœurs
+    ctx.globalAlpha = 1;
+  }
   if (b.t < 6 && !b.over) { ctx.globalAlpha = Math.min(1, 6 - b.t); ctx.fillStyle = 'rgba(15,23,42,.75)'; rr(W / 2 - 330, 118, 660, 78, 22); ctx.fill(); ctx.textAlign = 'center';
     outText('🐕 La grande balade !', W / 2, 142, 28, '#fde047'); outText('⬅ ➡ changer de voie  ·  ⬆ sauter  ·  ⬇ se baisser', W / 2, 174, 22, '#fff'); ctx.globalAlpha = 1; }
   ctx.textAlign = 'left';
