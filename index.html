@@ -320,7 +320,7 @@ const DAILY_FLOORS = 12, RUN_SECONDS = 30 * 60, VARIANTS = 20;
 const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900, SPRING = 1000;
 const PW = 28, PH = 40;
 const STEP = 1 / 120;
-const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v60';
+const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v61';
 /* [MODE TEST] Passe à false (ou supprime les blocs marqués [MODE TEST]) quand tout est réglé. */
 const TEST_MODE = true;
 
@@ -2144,10 +2144,12 @@ function texSlab(kind) {   // matières des plateformes (motif qui se répète)
 function slab(x, y, w, h, o, p) {   // avec « p » : l'image de la plateforme est préparée une fois puis réutilisée
   if (!(w >= 4 && h >= 2)) return;   // trop petite (pont qui commence à apparaître)
   if (p) {
-    const key = w + '|' + h + '|' + o.tex + '|' + o.top + '|' + o.color + '|' + o.tint + '|' + Math.round(x) % 997;
+    if (p._tx === undefined) p._tx = Math.round(x);   // motif fixé à la plateforme : une plateforme qui bouge n'est pas repeinte à chaque image
+    const key = w + '|' + h + '|' + o.tex + '|' + o.top + '|' + o.color + '|' + o.tint;
     if (p._sk !== key) {
-      const c = p._sc || gCanvas(Math.ceil(w) + 12, Math.ceil(h) + 26), sv = ctx; c.width = Math.ceil(w) + 12; c.height = Math.ceil(h) + 26;
-      ctx = c.getContext('2d'); slab(6, 12, w, h, o, null); ctx = sv;
+      const cw = Math.ceil(w) + 12, ch = Math.ceil(h) + 26, c = p._sc || gCanvas(cw, ch), sv = ctx;
+      if (c.width !== cw || c.height !== ch) { c.width = cw; c.height = ch; } else c.getContext('2d').clearRect(0, 0, cw, ch);
+      ctx = c.getContext('2d'); ctx.save(); ctx.translate(6 - p._tx, 12 - Math.round(y)); slab(p._tx, Math.round(y), w, h, o, null); ctx.restore(); ctx = sv;
       p._sc = c; p._sk = key;
     }
     ctx.drawImage(p._sc, x - 6, y - 12); return;
@@ -2172,7 +2174,7 @@ function slab(x, y, w, h, o, p) {   // avec « p » : l'image de la plateforme e
   if (o.top === 'moss') { ctx.fillStyle = '#5a9a3e'; for (let i = 4; i < w - 4; i += 9) { const k = gHash(Math.round(x + i), 3); if (k < .55) { ctx.beginPath(); ctx.moveTo(x + i, y + 1); ctx.lineTo(x + i + 1.5, y - 3 - k * 6); ctx.lineTo(x + i + 3, y + 1); ctx.fill(); } } }   // touffes
 }
 function drawBG(th, cx, t) {   // mur de pierre texturé (couleur du thème), fenêtres en arc, torches
-  const key = th.h + '|' + th.top, ox = ((cx * .35) % 256 + 256) % 256;
+  const key = th.h + '|' + th.top, ox = Math.round(((cx * .35) % 256 + 256) % 256);   // décalage entier : copie directe de l'image, sans lissage (bien plus rapide)
   if (!TEX.bg || TEX.bgKey !== key) {   // le mur est préparé une seule fois par étage (une seule image à afficher ensuite)
     const c = TEX.bg || gCanvas(W + 256, H), g2 = c.getContext('2d');
     g2.globalCompositeOperation = 'source-over'; g2.globalAlpha = 1; g2.fillStyle = texWallTint(th.h); g2.fillRect(0, 0, c.width, H);
@@ -2181,31 +2183,41 @@ function drawBG(th, cx, t) {   // mur de pierre texturé (couleur du thème), fe
     g2.globalCompositeOperation = 'source-over'; g2.globalAlpha = 1; TEX.bg = c; TEX.bgKey = key;
   }
   ctx.drawImage(TEX.bg, -ox, 0);
-  const sc = (cx * .5) % 480;
+  const sc = Math.round((cx * .5) % 480);
   for (let i = -1; i < 4; i++) {
     const wx = i * 480 + 140 - sc, wy = 80, ww = 78, wh = 128;
     const dsx = L && L.door && !L.door.dog && (state === 'playing' || state === 'dying' || state === 'clear' || state === 'paused') ? L.door.x + L.door.w - cam.x : -1e9;   // pas de fenêtre derrière la porte de l'escalier
     if (wx + ww > dsx - 110 && wx < dsx + 60) continue;
-    // fenêtre : encadrement de pierre, ciel nocturne, étoiles et lueur de lune
+    // fenêtre et torche : images préparées une seule fois (bien plus léger pour les petites télés), seules les flammes bougent
+    ctx.drawImage(bgSprite('win'), wx - 16, wy - 12);
+    const tx = wx + 330, fl = 1 + Math.sin(t * 9 + i) * .15 + Math.sin(t * 23 + i * 3) * .05;
+    ctx.globalAlpha = .8 + (fl - 1) * 1.2; ctx.drawImage(bgSprite('torch'), tx - 140, 110); ctx.globalAlpha = 1;
+    ctx.fillStyle = '#ea580c'; ctx.beginPath(); ctx.moveTo(tx - 8 * fl, 258); ctx.quadraticCurveTo(tx - 9, 240, tx + Math.sin(t * 12 + i) * 3, 226 - 6 * fl); ctx.quadraticCurveTo(tx + 9, 240, tx + 8 * fl, 258); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#fde047'; ctx.beginPath(); ctx.moveTo(tx - 4, 258); ctx.quadraticCurveTo(tx - 4, 246, tx + Math.sin(t * 12 + i) * 2, 238 - 3 * fl); ctx.quadraticCurveTo(tx + 4, 246, tx + 4, 258); ctx.closePath(); ctx.fill();
+  }
+}
+function bgSprite(kind) {   // fenêtre (ciel, lune, étoiles) et torche (halo, support) dessinées une fois dans une petite image
+  const k = 'spr_' + kind; if (TEX[k]) return TEX[k];
+  const c = kind === 'win' ? gCanvas(110, 166) : gCanvas(280, 280), sv = ctx; ctx = c.getContext('2d');
+  if (kind === 'win') {
+    const wx = 16, wy = 12, ww = 78, wh = 128;
     ctx.fillStyle = '#6b6258'; rr(wx - 10, wy - 10, ww + 20, wh + 18, 44); ctx.fill();
     ctx.fillStyle = 'rgba(255,245,230,.18)'; rr(wx - 10, wy - 10, ww + 20, 8, 4); ctx.fill();
     const sk = ctx.createLinearGradient(0, wy, 0, wy + wh); sk.addColorStop(0, '#0b1435'); sk.addColorStop(1, '#2a3a78');
     ctx.fillStyle = sk; rr(wx, wy, ww, wh, 39); ctx.fill();
     ctx.save(); rr(wx, wy, ww, wh, 39); ctx.clip();
     ctx.fillStyle = 'rgba(254,249,195,.9)'; ctx.beginPath(); ctx.arc(wx + 54, wy + 34, 9, 0, 7); ctx.fill();
-    ctx.fillStyle = '#fff'; for (let k = 0; k < 7; k++) { ctx.globalAlpha = .4 + .6 * Math.abs(Math.sin(t * 1.5 + k + i)); ctx.fillRect(wx + 8 + (k * 23 + i * 11) % 62, wy + 14 + (k * 37) % 100, 2, 2); } ctx.globalAlpha = 1;
+    ctx.fillStyle = '#fff'; for (let k2 = 0; k2 < 7; k2++) { ctx.globalAlpha = .45 + .5 * ((k2 * 37) % 10) / 10; ctx.fillRect(wx + 8 + (k2 * 23) % 62, wy + 14 + (k2 * 37) % 100, 2, 2); } ctx.globalAlpha = 1;
     ctx.restore();
     ctx.strokeStyle = '#2b2620'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(wx + ww / 2, wy); ctx.lineTo(wx + ww / 2, wy + wh); ctx.moveTo(wx, wy + wh * .5); ctx.lineTo(wx + ww, wy + wh * .5); ctx.stroke();
     ctx.fillStyle = '#7d7468'; ctx.fillRect(wx - 14, wy + wh + 4, ww + 28, 10); ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(wx - 14, wy + wh + 14, ww + 28, 5);   // rebord
-    // torche : support en fer, flamme et halo
-    const tx = wx + 330, fl = 1 + Math.sin(t * 9 + i) * .15 + Math.sin(t * 23 + i * 3) * .05;
-    const gl = ctx.createRadialGradient(tx, 246, 5, tx, 246, 130 * fl); gl.addColorStop(0, 'rgba(255,180,70,.45)'); gl.addColorStop(1, 'rgba(255,180,70,0)');
-    ctx.fillStyle = gl; ctx.fillRect(tx - 140, 110, 280, 280);
-    ctx.fillStyle = '#2d2a26'; ctx.fillRect(tx - 3, 262, 6, 30); ctx.fillRect(tx - 9, 288, 18, 5);
-    ctx.fillStyle = '#4b3621'; ctx.beginPath(); ctx.moveTo(tx - 9, 258); ctx.lineTo(tx + 9, 258); ctx.lineTo(tx + 5, 268); ctx.lineTo(tx - 5, 268); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#ea580c'; ctx.beginPath(); ctx.moveTo(tx - 8 * fl, 258); ctx.quadraticCurveTo(tx - 9, 240, tx + Math.sin(t * 12 + i) * 3, 226 - 6 * fl); ctx.quadraticCurveTo(tx + 9, 240, tx + 8 * fl, 258); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#fde047'; ctx.beginPath(); ctx.moveTo(tx - 4, 258); ctx.quadraticCurveTo(tx - 4, 246, tx + Math.sin(t * 12 + i) * 2, 238 - 3 * fl); ctx.quadraticCurveTo(tx + 4, 246, tx + 4, 258); ctx.closePath(); ctx.fill();
+  } else {
+    const tx = 140, gl = ctx.createRadialGradient(tx, 136, 5, tx, 136, 130); gl.addColorStop(0, 'rgba(255,180,70,.5)'); gl.addColorStop(1, 'rgba(255,180,70,0)');
+    ctx.fillStyle = gl; ctx.fillRect(0, 0, 280, 280);
+    ctx.fillStyle = '#2d2a26'; ctx.fillRect(tx - 3, 152, 6, 30); ctx.fillRect(tx - 9, 178, 18, 5);
+    ctx.fillStyle = '#4b3621'; ctx.beginPath(); ctx.moveTo(tx - 9, 148); ctx.lineTo(tx + 9, 148); ctx.lineTo(tx + 5, 158); ctx.lineTo(tx - 5, 158); ctx.closePath(); ctx.fill();
   }
+  ctx = sv; return (TEX[k] = c);
 }
 function drawPlat(p) {
   let x = p.x, y = p.y; const h = p.h;
