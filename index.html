@@ -319,7 +319,7 @@ const DAILY_FLOORS = 12, RUN_SECONDS = 30 * 60, VARIANTS = 20;
 const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900, SPRING = 1000;
 const PW = 28, PH = 40;
 const STEP = 1 / 120;
-const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v44';
+const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v45';
 /* [MODE TEST] Passe à false (ou supprime les blocs marqués [MODE TEST]) quand tout est réglé. */
 const TEST_MODE = true;
 
@@ -342,8 +342,8 @@ const THEMES = [
     desc: 'Leviers, caisses, devinettes et blocs de couleur : observe et réfléchis avant d\'agir !',
     w: { plain: 3, narrow: 1, movH: 1, movV: 1, colorUp: 3, riddle: 3 } },
   { id: 'precision', day: 'Jeudi', name: 'Précision', emoji: '🎯', hue: 350, col: '#fda4af',
-    desc: 'Plafonds de pics, plateformes en orbite, cibles minuscules : chaque saut doit être parfait !', prec: true,
-    w: { plain: 2, narrow: 3, movH: 1, movV: 1, iceRun: 2, ceil: 3, orbit: 3 } },
+    desc: 'Dalles à cœur doré, plateformes en orbite, cibles minuscules : chaque atterrissage compte !', prec: true,
+    w: { plain: 2, narrow: 3, movH: 1, movV: 1, iceRun: 2, gold: 3, orbit: 3 } },
   { id: 'vitesse', day: 'Vendredi', name: 'Vitesse', emoji: '🏃', hue: 200, col: '#7dd3fc',
     desc: 'Mur de feu qui te poursuit, propulseurs, course contre la montre : fonce !', speed: true,
     w: { plain: 2, narrow: 1, movH: 1, conv: 3, crumble: 1, chase: 3, boost: 3 } },
@@ -808,7 +808,7 @@ function genFloor(fi) {
   // zone "mémoire" : une lanterne 👁 révèle quelques secondes ce qui est caché juste après
   const newMem = (lp, dur) => { lp.busy = true; const g = { id: mem.length, rev: 0, cd: 0, dur, lx: lp.x + lp.w - 26, x1: 0 }; mem.push(g); lamps.push({ x: g.lx, y: lp.y - 36, g: g.id }); return g; };
   const forceCp = (p, fx) => { if (p.x - lastCpX > 700) { cps.push({ x: p.x + (fx || p.w / 2 - 24), y: p.y, on: false }); p.cp = true; lastCpX = p.x; } };
-  const keyCand = [];
+  const keyCand = []; let goldUsed = false;
 
   // pose une plateforme après la plateforme courante (saut garanti faisable)
   const put = (gap, dy, w, props, maxRise = 85) => {
@@ -985,14 +985,12 @@ function genFloor(fi) {
       cur = E;
     },
     // ===== JEUDI (Précision) =====
-    ceil() {   // couloir sous un plafond de pics : seulement de tout petits sauts (appuie à peine sur saut)
+    gold() {   // dalles à cœur doré : seule la zone dorée est solide, ailleurs la dalle s'effondre aussitôt
+      goldUsed = true;
       const n = 3 + Math.round(3 * D) + RI(0, 1);
-      let prev = put(R(60, 100), RI(-15, 15), 150, { spiky: true });
-      const y = prev.y;
-      for (let i = 0; i < n; i++) prev = put(R(48, 62 + 14 * D), 0, R(80 - 20 * D, 115 - 30 * D), { spiky: true, tiny: true, exact: true });
-      const end = put(R(50, 66), 0, 160, { spiky: true, exact: true });
-      const x0 = plats[plats.length - n - 2].x + 70, x1 = end.x + 30;
-      for (let x = x0; x < x1; x += 120) spikes.push({ x, y: y - 100 - 18, w: Math.min(120, x1 - x), h: 18, down: true });
+      put(R(60, 100), RI(-15, 15), 150);
+      for (let i = 0; i < n; i++) put(R(50, 80 + 30 * D), RI(-25 - 20 * D, 25 + 20 * D), R(120, 150), { type: 'crumble', cr: 0, crT: 0, delay: .2, zw: 70 - 34 * D, zoff: R(.35, .65) });
+      put(R(50, 90), RI(-20, 20), 160);
     },
     orbit() {   // plateforme qui tourne en rond au-dessus du vide : saute au bon moment
       const prev = cur, G = R(270, 300 + 50 * D), rad = 70 + 25 * D, w = 90 - 25 * D;
@@ -1231,6 +1229,7 @@ function genFloor(fi) {
   if (puz.sw === 'button') hints.push('active l\'interrupteur 🔴 pour faire apparaître le pont');
   if (puz.key) hints.push(last ? 'trouve la clé 🔑 : elle fera descendre la plateforme de notre chien 🐶' : 'trouve la clé 🔑 pour ouvrir l\'escalier');
   if (last && !puz.key) hints.push('rejoins notre chien 🐶 tout en haut');
+  if (goldUsed) hints.push('sur les dalles fragiles, pose-toi bien sur l\'or ✨');
   let hint = hints.join(' et ') + ' !'; hint = hint[0].toUpperCase() + hint.slice(1);
   if (heart && !heart.got) hint += ' ❤️ Un cœur est caché en hauteur à cet étage, gardé par un œil : 1, 2, 3… soleil !';
   const sw = puz.sw ? { kind: puz.sw, x: swPlat.x + swPlat.w / 2, y: swPlat.y, on: false, bridge: puz.sw === 'race' ? null : bridge } : null;
@@ -1401,6 +1400,7 @@ function updatePlatforms(dt) {
       const t = time * p.sp + p.ph;
       p.x = p.bx + p.ax * (p.orbit ? Math.cos(t) : Math.sin(t)); p.y = p.by + p.ay * Math.sin(p.fy ? t * p.fy + p.ph2 : t);
       p.dx = p.x - p.px; p.dy = p.y - p.py;
+    } else if (p.type === 'crumble' && p.zok > 0 && !p.cr) { p.zok -= dt;
     } else if (p.type === 'crumble' && p.cr) {
       p.crT -= dt;
       if (p.crT <= 0) {
@@ -1632,7 +1632,11 @@ function updatePlayer(dt) {
       const fresh = best !== prevStanding;
       if (p.vy > 300) { p.sx = 1.3; p.sy = .72; SFX.land(); dust(p.x + PW / 2, best.y, 6); }
       p.y = best.y - PH; p.vy = 0; p.grounded = true; p.standing = best; p.airJumps = 1;
-      if (best.type === 'crumble' && best.cr === 0) { best.cr = 1; best.crT = best.delay; }
+      if (best.type === 'crumble' && best.cr === 0) {
+        const onGold = best.zw && Math.abs(p.x + PW / 2 - (best.x + best.w * best.zoff)) <= best.zw / 2;
+        if (onGold) { if (fresh) { best.zok = .5; tone(880, 1320, .08, 'triangle', .06); sparkle(p.x + PW / 2, best.y, 6, '#fde047'); } }
+        else { best.cr = 1; best.crT = best.delay; if (best.zw && fresh) pop(p.x + PW / 2, best.y - 30, 'Raté ! 💥', '#fb7185'); }
+      }
       if (L.targets && !L.targets.done && best.type !== 'target' && L.targets.list.some(t => t.lit)) resetTargets('😬 Tu as touché le sol ! Il faut recommencer depuis le début.');
       if (best.type === 'target' && !best.lit && L.targets) {
         best.lit = true; SFX.coin(); sparkle(best.x + best.w / 2, best.y, 14, '#86efac');
@@ -2197,10 +2201,19 @@ function drawPlat(p) {
   if (p.type === 'ice') o = { tex: 'ice', top: 'frost', edge: '#0c4a6e' };
   else if (p.type === 'mover') o = { tex: 'wood', top: '#d6a35c' };
   else if (p.type === 'ghost' || p.keyplat) o = { tex: 'magic', top: '#e9d5ff' };
+  else if (p.type === 'crumble' && p.zw) o = { tex: 'stone', top: '#57534e', tint: '#44403c' };
   else if (p.type === 'crumble') o = { tex: 'sand', top: '#f3c98b' };
   else if (p.conv) o = { tex: 'metal', top: '#cbd5e1' };
   else o = { tex: 'stone', top: 'moss' };
   slab(x, y, w, h, o, p.type === 'crumble' && p.cr === 1 ? null : p);
+  if (p.zw) {   // zone dorée : la seule partie solide
+    const zx = x + w * p.zoff - p.zw / 2, ok = p.zok > 0;
+    ctx.strokeStyle = 'rgba(20,14,30,.55)'; ctx.lineWidth = 1.5; ctx.beginPath(); for (let k = 12; k < w; k += 22) { if (k > zx - x - 4 && k < zx - x + p.zw + 4) continue; ctx.moveTo(x + k, y + 3); ctx.lineTo(x + k + 5, y + 11); ctx.lineTo(x + k + 1, y + 20); } ctx.stroke();   // fissures
+    const gg = ctx.createLinearGradient(0, y, 0, y + h); gg.addColorStop(0, ok ? '#bbf7d0' : '#fff3b0'); gg.addColorStop(.4, ok ? '#22c55e' : '#f5c518'); gg.addColorStop(1, ok ? '#166534' : '#a16207');
+    ctx.fillStyle = gg; rr(zx, y, p.zw, h, 4); ctx.fill(); ctx.strokeStyle = 'rgba(20,14,30,.75)'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.fillRect(zx + 3, y + 2, p.zw - 6, 2);
+    const a = .35 + .25 * Math.sin(time * 4 + x); ctx.fillStyle = `rgba(253,224,71,${a})`; ctx.beginPath(); ctx.moveTo(zx, y); ctx.lineTo(zx + p.zw, y); ctx.lineTo(zx + p.zw - 6, y - 16); ctx.lineTo(zx + 6, y - 16); ctx.closePath(); ctx.fill();   // lueur
+  }
   if (p.type === 'ice') { ctx.fillStyle = 'rgba(255,255,255,.8)'; for (let i = 0; i < w; i += 50) ctx.fillRect(x + i + 14 + Math.sin(time * 2 + i) * 4, y + 6, 12, 2); }
   if (p.conv) {   // chevrons animés du tapis roulant
     ctx.save(); rr(x, y, w, h, 7); ctx.clip();
