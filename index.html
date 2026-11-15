@@ -64,7 +64,7 @@
         <div id="themeBox" class="bg-slate-900/70 border-4 border-slate-900 rounded-2xl px-3 py-1 text-lg font-black"></div>
       </div>
       <div class="flex gap-2 items-center">
-        <div id="scoreBox" class="bg-amber-400 text-slate-900 border-4 border-slate-900 rounded-2xl px-3 py-1 text-xl font-black tabular-nums">🪙 0</div>
+        <div id="scoreBox" class="bg-amber-400 text-slate-900 border-4 border-slate-900 rounded-2xl px-3 py-1 text-xl font-black tabular-nums">💰 0</div>
         <button data-act="quit" class="btn bg-sky-400 text-slate-900 px-2 text-xl" style="pointer-events:auto" title="Retour au menu">🏠</button>
         <button id="btnPause" class="btn bg-sky-400 text-slate-900 px-2 text-xl" style="pointer-events:auto" title="Pause (P)">⏸</button>
         <button id="btnMute" class="btn bg-sky-400 text-slate-900 px-2 text-xl" style="pointer-events:auto" title="Son (M)">🔊</button>
@@ -320,7 +320,7 @@ const DAILY_FLOORS = 12, RUN_SECONDS = 30 * 60, VARIANTS = 20;
 const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900, SPRING = 1000;
 const PW = 28, PH = 40;
 const STEP = 1 / 120;
-const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v61';
+const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v62';
 /* [MODE TEST] Passe à false (ou supprime les blocs marqués [MODE TEST]) quand tout est réglé. */
 const TEST_MODE = true;
 
@@ -454,7 +454,7 @@ function tone(f1, f2, dur, type = 'square', vol = .05, delay = 0) {
 }
 const arp = (notes, step, type, vol) => notes.forEach((f, i) => tone(f, f, .18, type, vol, i * step));
 const MEM_ORDERS = [['simon', 'pairs', 'code'], ['pairs', 'code', 'simon'], ['code', 'simon', 'pairs'], ['pairs', 'simon', 'code'], ['simon', 'code', 'pairs'], ['code', 'pairs', 'simon']];
-const CARD_SYMS = ['🍎', '⭐', '🐸', '🌙', '🍄'], SW_ICON = { button: '🔘', simon: '🧠', pairs: '🃏', code: '🪧', whack: '⚡', levers: '💡', crate: '📦', targets: '🎯', race: '⏱️', stars: '⭐', spire: '🗼' };
+const CARD_SYMS = ['🍎', '⭐', '🐸', '🌙', '🍄'], SW_ICON = { button: '🔘', simon: '🧠', pairs: '🃏', code: '📜', whack: '⚡', levers: '💡', crate: '📦', targets: '🎯', race: '⏱️', stars: '⭐', spire: '🗼' };
 const PAD_TONES = [262, 330, 392, 523], PAD_COLS = ['#ef4444', '#3b82f6', '#22c55e', '#facc15'];
 const SFX = {
   jump: () => tone(330, 700, .15), djump: () => tone(520, 1200, .22, 'triangle', .08), land: () => tone(140, 70, .07, 'sine', .07),
@@ -707,7 +707,7 @@ function makeRiddle(rng, D) {
   else if (k === 'fruit2') { const x = RI(2, 7), y = RI(2, 9); lines = [`🍎 + 🍎 = ${2 * x}`, `🍎 + ⭐ = ${x + y}`, '⭐ = ?']; ans = y; wrong = [x + y, x === y ? y + 2 : x, y + 1, y - 1]; }
   else if (k === 'fruit3') { const x = RI(2, 6), y = RI(x + 2, x + 8); lines = [`🍎 + 🍎 + 🍎 = ${3 * x}`, `⭐ + 🍎 = ${x + y}`, '⭐ − 🍎 = ?']; ans = y - x; wrong = [y, x, ans + 1, ans - 1]; }
   else {
-    const S = ['🔺', '🔵', '⭐', '🟩', '🌙'], n = k === 'forme3' ? 3 : 2, pat = [];
+    const S = ['🔺', '🔵', '⭐', '🔶', '🌙'], n = k === 'forme3' ? 3 : 2, pat = [];
     while (pat.length < n) { const c = S[RI(0, S.length - 1)]; if (!pat.includes(c)) pat.push(c); }
     if (n === 3 && rng() < .5) pat[2] = pat[1];   // ex. 🔺🔵🔵 🔺🔵🔵 …
     const len = n === 2 ? 5 : 7 + RI(0, 1), seq = []; for (let i = 0; i < len; i++) seq.push(pat[i % n]);
@@ -1295,12 +1295,12 @@ function genFloor(fi) {
   if (puz.sw === 'crate') hints.push('le pont n\'apparaît que si quelque chose appuie sur la plaque… à toi de trouver quoi 📦');
   if (puz.sw === 'whack') hints.push('tape les blocs allumés ⚡ avant qu\'ils s\'éteignent pour faire apparaître le pont');
   if (puz.sw === 'pairs') hints.push('retrouve toutes les paires de cartes 🃏 pour faire apparaître le pont');
-  if (puz.sw === 'code') hints.push('mémorise le code du panneau 🪧 puis refais-le en tapant les blocs pour faire apparaître le pont');
+  if (puz.sw === 'code') hints.push('mémorise le code du panneau 📜 puis refais-le en tapant les blocs pour faire apparaître le pont');
   if (puz.sw === 'button') hints.push('active l\'interrupteur 🔴 pour faire apparaître le pont');
   if (puz.sw === 'spire') hints.push(spireInfo && spireInfo.down ? 'descends au fond du puits appuyer sur le bouton 🔴… puis remonte : le pont sera ouvert' : 'grimpe tout en haut de la tour pour appuyer sur le bouton 🔴 qui fait apparaître le pont');
   if (puz.key) hints.push(last ? 'trouve la clé 🔑 : elle fera descendre la plateforme de notre chien 🐶' : 'trouve la clé 🔑 pour ouvrir l\'escalier');
   if (last && !puz.key) hints.push('rejoins notre chien 🐶 tout en haut');
-  if (zipUsed) hints.push('saute pour attraper la tyrolienne 🪝, saute encore pour la lâcher');
+  if (zipUsed) hints.push('saute pour attraper la tyrolienne 🚡, saute encore pour la lâcher');
   if (goldUsed) hints.push('sur les dalles fragiles, pose-toi bien sur l\'or ✨');
   let hint = hints.join(' et ') + ' !'; hint = hint[0].toUpperCase() + hint.slice(1);
   if (heart && !heart.got) hint += ' ❤️ Un cœur est caché en hauteur à cet étage, gardé par un œil : 1, 2, 3… soleil !';
@@ -1514,7 +1514,7 @@ function padHit(i) {
     if (s.prog >= s.seq.length) {
       s.done = true; openBridge(pl.x, pl.y - 20, '🌉 Bravo ! Le pont magique apparaît !');
     }
-  } else if (s.static) { s.prog = 0; SFX.locked(); shake = .2; showToast('❌ Mauvais code ! Retourne voir le panneau 🪧 si tu as oublié'); }
+  } else if (s.static) { s.prog = 0; SFX.locked(); shake = .2; showToast('❌ Mauvais code ! Retourne voir le panneau 📜 si tu as oublié'); }
   else { s.prog = 0; s.retry = 1.3; SFX.locked(); shake = .2; showToast('❌ Raté ! On regarde encore une fois…'); }
 }
 
@@ -1761,7 +1761,7 @@ function updatePlayer(dt) {
     if (g.rev <= 0 && g.cd <= 0) { g.rev = g.dur; g.cd = g.dur + 3; SFX.orb(); ring(l.x, l.y, '#fde047'); if (!L.lampTold) { L.lampTold = true; showToast('👁 Mémorise vite : ça ne dure qu\'un instant !'); } }
   }
   for (const sg of L.signs) if (!sg.told && Math.abs(sg.x - cx) < 110 && Math.abs(p.y + PH - sg.y) < 70) {
-    sg.told = true; showToast(sg.kind === 'code' ? '🪧 Retiens bien ce code couleur, il servira plus loin !' : '🪧 Retiens le chemin : ⬆ plateforme du haut, ⬇ celle du bas');
+    sg.told = true; showToast(sg.kind === 'code' ? '📜 Retiens bien ce code couleur, il servira plus loin !' : '📜 Retiens le chemin : ⬆ plateforme du haut, ⬇ celle du bas');
   }
   if (L.simon && !L.simon.done && p.vy < 0 && L.simon.cd <= 0) for (const b of L.simon.pads) if (Math.abs(b.x - cx) < 28 && Math.abs(b.y - p.y) < 34) { L.simon.cd = .35; b.bump = .2; padHit(b.pad); break; }
   if (p.grounded) p.lastGround = p.standing;
@@ -1885,10 +1885,10 @@ function endRun(kind) {
     : `Tu as quand même grimpé ${run.floorsDone} étage${run.floorsDone > 1 ? 's' : ''} sur ${n} ! Notre chien t'attend toujours là-haut… ${isDaily ? 'Reviens demain pour un nouveau défi !' : 'Réessaie !'}`;
   const box = 'bg-slate-900/70 text-white border-4 border-slate-900 rounded-2xl px-4 py-2';
   $('endStats').innerHTML = `<div class="${box}">⭐ Score : <b>${run.score}</b></div><div class="${box}">🏰 Étages : <b>${run.floorsDone}/${n}</b></div>
-    <div class="${box}">⏱ Temps : <b>${fmt(run.elapsed)}</b></div><div class="${box}">🪙 Pièces : <b>${run.coins}${win ? ' / ' + cTot : ''}</b>${allC ? ' 🏆' : ''} &nbsp; 💫 Chutes : <b>${run.deaths}</b></div>`;
+    <div class="${box}">⏱ Temps : <b>${fmt(run.elapsed)}</b></div><div class="${box}">💰 Pièces : <b>${run.coins}${win ? ' / ' + cTot : ''}</b>${allC ? ' 🏆' : ''} &nbsp; 💫 Chutes : <b>${run.deaths}</b></div>`;
   $('endRank').textContent = !win ? '' : run.elapsed < 15 * 60 ? '🧙‍♂️ Archimage du Temps !' : run.elapsed < 22 * 60 ? '⚡ Grand Magicien !' : '🎩 Apprenti Courageux !';
   const b = 'btn text-slate-900 text-xl px-5 py-2 ', hb = heartsFor(run.elapsed, run.heartsFound), tb = hb - 1 - (run.heartsFound || 0), canBal = win && (isDaily || isTest);
-  if (win) $('endMsg').textContent += allC ? (isDaily ? ` 🏆 Toutes les pièces ! Trophée de la semaine : ${run.weekDays} / 7.` : ' 🏆 Toutes les pièces !') : ` 🪙 ${run.coins} / ${cTot} pièces : ramasse-les toutes pour remplir le trophée de la semaine.`;
+  if (win) $('endMsg').textContent += allC ? (isDaily ? ` 🏆 Toutes les pièces ! Trophée de la semaine : ${run.weekDays} / 7.` : ' 🏆 Toutes les pièces !') : ` 💰 ${run.coins} / ${cTot} pièces : ramasse-les toutes pour remplir le trophée de la semaine.`;
   if (canBal) $('endMsg').textContent += ` 🐕 En récompense : la grande balade, avec ${hb} ❤️ (1 de base${tb ? ' + ' + tb + ' pour ta rapidité' : ''}${run.heartsFound ? ' + ' + run.heartsFound + ' trouvé' + (run.heartsFound > 1 ? 's' : '') + ' dans la tour' : ''}).`;
   const bs = 'btn text-slate-900 text-lg px-3 py-2 ', nw = ' style="white-space:nowrap"';
   const balBtn = canBal ? `<button data-act="balade" class="${bs}bg-lime-400 hover:bg-lime-300 pulse2"${nw}>🐕 Balade ${'❤️'.repeat(hb)}</button>` : '';
@@ -1919,7 +1919,7 @@ function updateHUD(full) {
     $('puz').innerHTML = h; $('puz').classList.toggle('off', !h);
   }
   if (full) { $('heartBox').classList.toggle('off', !heartFloors); $('heartBox').textContent = `❤️ ${run.heartsFound}/2`; }
-  const fc = run.floorCoins && run.floorCoins[floor]; setTxt('scoreBox', fc ? (fc.tot ? '🪙 ' + fc.got + '/' + fc.tot + (fc.got >= fc.tot ? ' ✔' : '') : '🪙 ✔') : '🪙 ' + run.coins); 
+  const fc = run.floorCoins && run.floorCoins[floor]; setTxt('scoreBox', fc ? (fc.tot ? '💰 ' + fc.got + '/' + fc.tot + (fc.got >= fc.tot ? ' ✔' : '') : '💰 ✔') : '💰 ' + run.coins); 
 }
 function updateTimer() {
   if (!run) return;
@@ -2418,7 +2418,7 @@ function zipCatch(p, dt) {
     const len = Math.hypot(z.x1 - z.x0, z.y1 - z.y0), ux = (z.x1 - z.x0) / len, uy = (z.y1 - z.y0) / len;
     p.zip = { i, s: Math.hypot(cx - z.x0, cy - z.y0), v: Math.max(240, p.vx * ux + Math.max(0, p.vy) * uy * .3), len, ux, uy };
     p.airJumps = 1; p.boostT = 0; tone(520, 900, .12, 'triangle', .06); sparkle(cx, cy, 6, '#e5e7eb');
-    if (!L.zipTold) { L.zipTold = true; showToast('🪝 Saute pour lâcher la tyrolienne !'); }
+    if (!L.zipTold) { L.zipTold = true; showToast('🚡 Saute pour lâcher la tyrolienne !'); }
     return;
   }
 }
@@ -2448,7 +2448,7 @@ function drawZips() {
     const on = P && P.zip && L.zips[P.zip.i] === z; if (on) continue;   // accroché : la poignée est dessinée devant le héros (drawZipHandle)
     const hx = z.x0 + 10, hy = zipCableY(z, hx);
     drawTrolley(hx, hy, Math.sin(time * 2 + z.x0) * .15);
-    if (!(P && P.zip)) { ctx.globalAlpha = .55 + .35 * Math.sin(time * 5); outText('🪝', z.x0 + 10, zipCableY(z, z.x0) - 26, 18, '#fff'); ctx.globalAlpha = 1; }
+    if (!(P && P.zip)) { ctx.globalAlpha = .55 + .35 * Math.sin(time * 5); outText('🚡', z.x0 + 10, zipCableY(z, z.x0) - 26, 18, '#fff'); ctx.globalAlpha = 1; }
   }
 }
 function drawZipHandle() { if (P && P.zip) { const z = L.zips[P.zip.i], hx = P.x + PW / 2; drawTrolley(hx, zipCableY(z, hx), 0); } }
@@ -3150,7 +3150,7 @@ function balFinish(kind) {
   bank.bones += b.bones + bonus; bank.best = Math.max(bank.best, m); saveBank(bank);
   if (b.mode === 'daily') { const s = loadSave(); if (s) { s.bal = { bones: b.bones + bonus, dist: m, done: true }; writeSave(s); } }
   state = 'balEnd'; $('balHud').classList.add('off');
-  $('balEndIcon').textContent = kind === 'win' ? '🏆' : kind === 'ko' ? '😮‍💨' : '🏠';
+  $('balEndIcon').textContent = kind === 'win' ? '🏆' : kind === 'ko' ? '😓' : '🏠';
   $('balEndTitle').textContent = kind === 'win' ? 'Balade terminée, bravo !' : kind === 'ko' ? 'Petite pause repos !' : 'Balade arrêtée';
   $('balEndMsg').textContent = kind === 'win' ? 'Vous avez tenu les 5 minutes : +50 os en cadeau ! 🦴' : kind === 'ko' ? 'Ton chien est tout essoufflé : il a besoin de se reposer… mais il est très content de sa promenade !' : 'Les os ramassés sont gardés.';
   const box = 'bg-slate-900/70 text-white border-4 border-slate-900 rounded-2xl px-4 py-2';
@@ -3486,7 +3486,7 @@ function balDrawDog() {
     const hx = p.x, hy = p.y - size * .6;
     for (let k = 0; k < 3; k++) { const u = (time * 1.6 + k / 3) % 1; ctx.globalAlpha = (1 - u) * .8; ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(hx + (k - 1) * g.s * .35 + Math.sin(time * 3 + k) * 4, hy - u * g.s * .9, g.s * (.1 + u * .12), 0, 7); ctx.fill(); }
     ctx.globalAlpha = 1; ctx.fillStyle = '#7dd3fc'; for (const sd of [-1, 1]) { const u = (time * 1.3 + (sd > 0 ? .5 : 0)) % 1; ctx.globalAlpha = 1 - u; ctx.beginPath(); ctx.ellipse(hx + sd * g.s * .55, hy + g.s * .2 + u * g.s * .5, g.s * .05, g.s * .08, 0, 0, 7); ctx.fill(); }
-    ctx.globalAlpha = Math.min(1, b.overT * 3); ctx.font = '900 18px "Trebuchet MS",sans-serif'; const txt = 'Ouf… je suis fatigué ! 😮‍💨', tw = ctx.measureText(txt).width + 24;
+    ctx.globalAlpha = Math.min(1, b.overT * 3); ctx.font = '900 18px "Trebuchet MS",sans-serif'; const txt = 'Ouf… je suis fatigué ! 😓', tw = ctx.measureText(txt).width + 24;
     ctx.fillStyle = 'rgba(255,255,255,.95)'; rr(hx - tw / 2, hy - g.s * 1.6 - 20, tw, 32, 16); ctx.fill(); ctx.fillStyle = '#1e1b4b'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(txt, hx, hy - g.s * 1.6 - 4); ctx.globalAlpha = 1;
   }
 }
@@ -3528,7 +3528,7 @@ function balRender() {
   if (b.flash > 0) { ctx.fillStyle = `rgba(244,63,94,${b.flash * .45})`; ctx.fillRect(0, 0, W, H); }
   // affichage : cœurs, os, temps, distance
   ctx.font = '30px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-  for (let i = 0; i < b.maxHearts; i++) { ctx.globalAlpha = i < b.hearts ? 1 : .25; ctx.fillText(i < b.hearts ? '❤️' : '🤍', 18 + i * 38, 34); } ctx.globalAlpha = 1;   // cœurs blancs : de l'énergie en moins
+  for (let i = 0; i < b.maxHearts; i++) { ctx.globalAlpha = i < b.hearts ? 1 : .25; ctx.fillText(i < b.hearts ? '❤️' : '❤️', 18 + i * 38, 34); } ctx.globalAlpha = 1;   // cœurs blancs : de l'énergie en moins
   outText('🦴 ' + b.bones, 62 + String(b.bones).length * 8, 78, 30, '#fff');
   let hy = 118; for (const q of POWERS) {   // bonus en cours, avec le temps qui reste
     const left = q.id === 'shield' ? b.shield : b.pw[q.id] || 0; if (left <= 0) continue;
@@ -3566,7 +3566,7 @@ const DECOS = [
   { id: 'wizard', slot: 'head', icon: '🧙', name: 'Chapeau de sorcier', price: 300 },
   { id: 'crown', slot: 'head', icon: '👑', name: 'Couronne', price: 450 },
   { id: 'bandana', slot: 'neck', icon: '🧣', name: 'Bandana', price: 100 },
-  { id: 'wings', slot: 'neck', icon: '🪽', name: 'Ailes d\'ange', price: 300 },
+  { id: 'wings', slot: 'neck', icon: '👼', name: 'Ailes d\'ange', price: 300 },
   { id: 'cape', slot: 'neck', icon: '🦸', name: 'Cape de héros', price: 350 },
   { id: 'stars', slot: 'trail', icon: '✨', name: 'Traînée d\'étoiles', price: 200 },
   { id: 'hearts', slot: 'trail', icon: '💖', name: 'Traînée de cœurs', price: 250 },
