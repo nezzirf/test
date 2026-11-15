@@ -325,7 +325,7 @@ const DAILY_FLOORS = 12, RUN_SECONDS = 30 * 60, VARIANTS = 20;
 const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900, SPRING = 1000;
 const PW = 28, PH = 40;
 const STEP = 1 / 120;
-const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v65';
+const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v66';
 /* [MODE TEST] Passe à false (ou supprime les blocs marqués [MODE TEST]) quand tout est réglé. */
 const TEST_MODE = true;
 
@@ -2527,8 +2527,26 @@ function drawTrap(t) {
 function drawDoor() {   // escalier de pierre contre le mur de droite, avec une vraie porte en bois en haut
   const d = L.door; if (d.dog) { drawDogArea(); return; }
   const open = !L.needKey || L.key.got, TOP = d.top || 70, n = 7, st = (d.w - TOP) / (n - 1), sh = d.h / n, SW = (n - 1) * st, X = d.x, Y = d.y, B = d.y + d.h, WX = d.x + d.w;   // SW : largeur des marches ; WX : face du mur
+  if (X > cam.x + W + 40 || WX + 150 < cam.x) return;   // hors de l'écran : rien à dessiner
+  const dx = X + SW + 9, dw = WX - dx - 9, dh = 96, dy = Y - dh;
+  const k = open ? 1 : 0; d._spr = d._spr || [];
+  if (!d._spr[k]) {   // mur, escalier, rampe et porte : dessinés une seule fois dans une image (des centaines de traits en moins à chaque image)
+    const x0 = Math.floor(X - 20), y0 = Math.floor(Y - 1100), c = gCanvas(Math.ceil(WX + 150 - x0), Math.ceil(B + 420 - y0)), sv = ctx;
+    ctx = c.getContext('2d'); ctx.translate(-x0, -y0); drawDoorStatic(d, open); ctx = sv; d._spr[k] = { c, x0, y0 };
+  }
+  const sp = d._spr[k]; ctx.drawImage(sp.c, sp.x0, sp.y0);
+  if (cam.y - 40 < sp.y0) { ctx.save(); ctx.translate(WX, 0); ctx.fillStyle = texSlab('stone'); ctx.fillRect(0, cam.y - 40, 140, sp.y0 - cam.y + 41); ctx.fillStyle = 'rgba(25,18,30,.45)'; ctx.fillRect(0, cam.y - 40, 140, sp.y0 - cam.y + 41); ctx.restore(); }   // très haut : on prolonge le mur
+  // lanterne accrochée au mur, à côté de la porte
+  const lx = dx - 24, ly = dy + 20, fl = 1 + Math.sin(time * 9) * .08;
+  const lg2 = ctx.createRadialGradient(lx, ly, 3, lx, ly, 60 * fl); lg2.addColorStop(0, 'rgba(255,200,90,.45)'); lg2.addColorStop(1, 'rgba(255,200,90,0)'); ctx.fillStyle = lg2; ctx.fillRect(lx - 60, ly - 60, 120, 120);
+  ctx.fillStyle = '#27272a'; ctx.fillRect(lx - 1.5, ly - 22, 3, 10); ctx.fillRect(lx - 8, ly - 13, 16, 3); ctx.fillRect(lx - 7, ly + 9, 14, 3);
+  ctx.fillStyle = '#fde68a'; ctx.fillRect(lx - 6, ly - 10, 12, 19); ctx.strokeStyle = '#27272a'; ctx.lineWidth = 1.5; ctx.strokeRect(lx - 6, ly - 10, 12, 19); ctx.beginPath(); ctx.moveTo(lx, ly - 10); ctx.lineTo(lx, ly + 9); ctx.stroke();
+  if (open) outText('⬆', dx + dw / 2, dy - 34 + Math.sin(time * 5) * 5, 26, '#fde047');
+}
+function drawDoorStatic(d, open) {
+  const TOP = d.top || 70, n = 7, st = (d.w - TOP) / (n - 1), sh = d.h / n, SW = (n - 1) * st, X = d.x, Y = d.y, B = d.y + d.h, WX = d.x + d.w;   // SW : largeur des marches ; WX : face du mur
   // mur de droite (fin de l'étage), du haut de l'écran jusqu'en bas
-  ctx.save(); ctx.translate(WX, 0); ctx.fillStyle = texSlab('stone'); const top = cam.y - 40, bot = B + 400;
+  ctx.save(); ctx.translate(WX, 0); ctx.fillStyle = texSlab('stone'); const top = Y - 1100, bot = B + 400;
   ctx.fillRect(0, top, 140, bot - top); ctx.fillStyle = 'rgba(25,18,30,.45)'; ctx.fillRect(0, top, 140, bot - top);
   ctx.strokeStyle = 'rgba(20,14,10,.6)'; ctx.lineWidth = 2;
   for (let yy = Math.floor(top / 30) * 30; yy < bot; yy += 30) { ctx.beginPath(); ctx.moveTo(0, yy); ctx.lineTo(140, yy); ctx.stroke(); for (let xx = ((yy / 30) % 2 ? 0 : 22); xx < 140; xx += 44) { ctx.beginPath(); ctx.moveTo(xx, yy); ctx.lineTo(xx, yy + 30); ctx.stroke(); } }
@@ -2585,12 +2603,6 @@ function drawDoor() {   // escalier de pierre contre le mur de droite, avec une 
   ctx.fillStyle = '#6b4423'; ctx.fillRect(X + 4, B - 58, 11, 58); ctx.fillStyle = 'rgba(255,220,170,.3)'; ctx.fillRect(X + 5, B - 58, 3, 58);   // pilier de départ
   ctx.strokeStyle = 'rgba(20,14,30,.85)'; ctx.lineWidth = 2; ctx.strokeRect(X + 4, B - 58, 11, 58);
   const bg = ctx.createRadialGradient(X + 8, B - 66, 1, X + 9.5, B - 63, 8); bg.addColorStop(0, '#d6a46a'); bg.addColorStop(1, '#5a3a1c'); ctx.fillStyle = bg; ctx.beginPath(); ctx.arc(X + 9.5, B - 63, 7, 0, 7); ctx.fill(); ctx.stroke();
-  // lanterne accrochée au mur, à côté de la porte
-  const lx = dx - 24, ly = dy + 20, fl = 1 + Math.sin(time * 9) * .08;
-  const lg2 = ctx.createRadialGradient(lx, ly, 3, lx, ly, 60 * fl); lg2.addColorStop(0, 'rgba(255,200,90,.45)'); lg2.addColorStop(1, 'rgba(255,200,90,0)'); ctx.fillStyle = lg2; ctx.fillRect(lx - 60, ly - 60, 120, 120);
-  ctx.fillStyle = '#27272a'; ctx.fillRect(lx - 1.5, ly - 22, 3, 10); ctx.fillRect(lx - 8, ly - 13, 16, 3); ctx.fillRect(lx - 7, ly + 9, 14, 3);
-  ctx.fillStyle = '#fde68a'; ctx.fillRect(lx - 6, ly - 10, 12, 19); ctx.strokeStyle = '#27272a'; ctx.lineWidth = 1.5; ctx.strokeRect(lx - 6, ly - 10, 12, 19); ctx.beginPath(); ctx.moveTo(lx, ly - 10); ctx.lineTo(lx, ly + 9); ctx.stroke();
-  if (open) outText('⬆', dx + dw / 2, dy - 34 + Math.sin(time * 5) * 5, 26, '#fde047');
 }
 
 /* ---------- Le chien en 3D (modèle .glb intégré, rendu avec three.js) ---------- */
@@ -2678,7 +2690,7 @@ function drawKey() {
 }
 
 function drawCoins() {
-  if (L.heart && !L.heart.got) {   // cœur caché et son gardien
+  if (L.heart && !L.heart.got && (L.heart.in || L.heart.zap > 0 || (L.heart.x > cam.x - 80 && L.heart.x < cam.x + W + 80))) {   // cœur caché et son gardien (seulement s'il est à l'écran)
     const h = L.heart, k = 1 + Math.sin(time * 5) * .1, y = h.y + Math.sin(time * 2.5) * 4, e = heartEye(h), ex = h.x, ey = h.y - 62;
     drawHeartGem(h.x, y, k);
     const awake = h.in && e.open, o = awake ? Math.min(1, e.since / .12) : 0;
@@ -2885,6 +2897,7 @@ function drawMemory() {   // lanternes, panneaux et cartes du thème Mémoire
 
 function drawCheckpoints() {
   for (let i = 1; i < L.cps.length; i++) {
+    if (L.cps[i].x < cam.x - 80 || L.cps[i].x > cam.x + W + 80) continue;   // hors de l'écran
     drawFlag(L.cps[i], i);
   }
 }
