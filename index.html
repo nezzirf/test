@@ -17,9 +17,8 @@
   .screen{position:absolute;left:0;top:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;border-radius:22px}
   .off{display:none!important}
   body.light #cv{border-radius:0;box-shadow:0 0 0 5px #0f172a}
-  .bgL{position:absolute;left:0;top:0;pointer-events:none;will-change:transform}
+  .bgL{position:absolute;left:0;top:0;pointer-events:none;will-change:transform;background:#222}
   #bgBox{position:absolute;left:0;top:0;width:960px;height:540px;overflow:hidden;pointer-events:none}
-  #vigL{position:absolute;left:0;top:0;width:960px;height:540px;pointer-events:none;background:radial-gradient(ellipse 620px 620px at 50% 50%,rgba(0,0,0,0) 45%,rgba(0,0,0,.4) 100%)}
   .btn{cursor:pointer;font-weight:900;border:4px solid #0f172a;border-radius:18px;box-shadow:0 6px 0 #0f172a;transition:transform .08s,box-shadow .08s}
   .btn:active{transform:translateY(5px);box-shadow:0 1px 0 #0f172a}
   .padfocus{outline:5px solid #fde047!important;outline-offset:4px;transform:scale(1.04)}
@@ -60,7 +59,6 @@
 <div id="stage">
   <div id="bgBox" class="off"></div>
   <canvas id="cv" width="960" height="540"></canvas>
-  <div id="vigL" class="off"></div>
 
   <!-- ============ HUD ============ -->
   <div id="hud" class="off" style="position:absolute;left:12px;right:12px;top:10px;pointer-events:none">
@@ -327,7 +325,7 @@ const DAILY_FLOORS = 12, RUN_SECONDS = 30 * 60, VARIANTS = 20;
 const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900, SPRING = 1000;
 const PW = 28, PH = 40;
 const STEP = 1 / 120;
-const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v64';
+const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v65';
 /* [MODE TEST] Passe à false (ou supprime les blocs marqués [MODE TEST]) quand tout est réglé. */
 const TEST_MODE = true;
 
@@ -2186,31 +2184,38 @@ function slab(x, y, w, h, o, p) {   // avec « p » : l'image de la plateforme e
 const BGD = { on: false };
 function bgDom(on) {
   if (BGD.on === on) return; BGD.on = on;
-  $('bgBox').classList.toggle('off', !on); $('vigL').classList.toggle('off', !on);
+  $('bgBox').classList.toggle('off', !on);
 }
+const BGP = 512;   // mode léger : fenêtres tous les 512 px, comme le motif du mur, pour tout réunir en une seule image
 function drawBGLight(th, cx, t) {
-  const key = th.h + '|' + th.top, ox = Math.round(((cx * .35) % 256 + 256) % 256), sc = Math.round((cx * .5) % 480);
-  bgTex(th, key);
-  if (!BGD.wall) {
-    const box = $('bgBox'); BGD.wall = gCanvas(W + 256, H); BGD.wall.className = 'bgL'; box.appendChild(BGD.wall);
-    const spr = gCanvas(486, 390), g = spr.getContext('2d'); g.drawImage(bgSprite('win'), 0, 68); g.drawImage(bgSprite('torch'), 206, 110);
-    BGD.deco = []; for (let i = 0; i < 5; i++) { const c = gCanvas(486, 390); c.className = 'bgL'; c.getContext('2d').drawImage(spr, 0, 0); box.appendChild(c); BGD.deco.push({ el: c, tf: '', vis: true }); }
-    BGD.tf = '';
+  const key = th.h + '|' + th.top, ox = Math.round(((cx * .35) % BGP + BGP) % BGP);
+  if (!BGD.wall) { BGD.wall = gCanvas(W + BGP, H); BGD.wall.className = 'bgL'; $('bgBox').appendChild(BGD.wall); BGD.plain = gCanvas(W + BGP, H); BGD.tf = ''; }
+  if (BGD.key !== key) {   // une seule image opaque : mur, fenêtres, halos des torches, haut et bas assombris
+    BGD.key = key; const pg = BGD.plain.getContext('2d'), w2 = W + BGP;
+    pg.globalCompositeOperation = 'source-over'; pg.globalAlpha = 1; pg.fillStyle = texWallTint(th.h); pg.fillRect(0, 0, w2, H);
+    const g = pg.createLinearGradient(0, 0, 0, H); g.addColorStop(0, th.top); g.addColorStop(1, th.bot);
+    pg.globalCompositeOperation = 'multiply'; pg.globalAlpha = .75; pg.fillStyle = g; pg.fillRect(0, 0, w2, H); pg.globalCompositeOperation = 'source-over'; pg.globalAlpha = 1;
+    const v = pg.createLinearGradient(0, 0, 0, H); v.addColorStop(0, 'rgba(0,0,0,.3)'); v.addColorStop(.25, 'rgba(0,0,0,0)'); v.addColorStop(.75, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,.35)');
+    pg.fillStyle = v; pg.fillRect(0, 0, w2, H);
+    const wg = BGD.wall.getContext('2d'); wg.drawImage(BGD.plain, 0, 0);
+    for (let k = -1; k * BGP < w2; k++) { const wx = k * BGP + 140; wg.drawImage(bgSprite('win'), wx - 16, 68); wg.drawImage(bgSprite('torch'), wx + 190, 110); }
   }
-  if (BGD.key !== key) { BGD.key = key; const g = BGD.wall.getContext('2d'); g.clearRect(0, 0, W + 256, H); g.drawImage(TEX.bg, 0, 0); }
   const tf = 'translate3d(' + (-ox) + 'px,0,0)'; if (BGD.tf !== tf) { BGD.tf = tf; BGD.wall.style.transform = tf; }
   bgDom(true);
-  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, W, H); ctx.restore();
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, W, H);
   const dsx = L && L.door && !L.door.dog && (state === 'playing' || state === 'dying' || state === 'clear' || state === 'paused') ? L.door.x + L.door.w - cam.x : -1e9;
-  for (let i = -1; i < 4; i++) {
-    const d = BGD.deco[i + 1], wx = i * 480 + 140 - sc, vis = !(wx + 78 > dsx - 110 && wx < dsx + 60);
-    if (d.vis !== vis) { d.vis = vis; d.el.style.display = vis ? '' : 'none'; }
-    const tf2 = 'translate3d(' + (wx - 16) + 'px,0,0)'; if (d.tf !== tf2) { d.tf = tf2; d.el.style.transform = tf2; }
-    if (!vis) continue;
-    const tx = wx + 330, fl = 1 + Math.sin(t * 9 + i) * .15 + Math.sin(t * 23 + i * 3) * .05;   // seules les flammes sont dessinées
+  for (let k = -1; k * BGP - ox < W + 200; k++) {
+    const wx = k * BGP + 140 - ox, tx = wx + 330;
+    if (wx + 78 > dsx - 110 && wx < dsx + 60) {   // pas de fenêtre ni de torche derrière la porte : on y remet le mur nu
+      for (const [x0, y0, w0, h0] of [[wx - 16, 68, 110, 166], [tx - 140, 110, 280, 280]]) { const sx = Math.max(0, x0 + ox), dx = sx - ox; ctx.drawImage(BGD.plain, sx, y0, w0, h0, dx, y0, w0, h0); }
+      continue;
+    }
+    if (tx < -20 || tx > W + 20) continue;
+    const i = k, fl = 1 + Math.sin(t * 9 + i) * .15 + Math.sin(t * 23 + i * 3) * .05;   // seules les flammes sont dessinées
     ctx.fillStyle = '#ea580c'; ctx.beginPath(); ctx.moveTo(tx - 8 * fl, 258); ctx.quadraticCurveTo(tx - 9, 240, tx + Math.sin(t * 12 + i) * 3, 226 - 6 * fl); ctx.quadraticCurveTo(tx + 9, 240, tx + 8 * fl, 258); ctx.closePath(); ctx.fill();
     ctx.fillStyle = '#fde047'; ctx.beginPath(); ctx.moveTo(tx - 4, 258); ctx.quadraticCurveTo(tx - 4, 246, tx + Math.sin(t * 12 + i) * 2, 238 - 3 * fl); ctx.quadraticCurveTo(tx + 4, 246, tx + 4, 258); ctx.closePath(); ctx.fill();
   }
+  ctx.restore();
 }
 function bgTex(th, key) {
   if (!TEX.bg || TEX.bgKey !== key) {   // le mur est préparé une seule fois par étage (une seule image à afficher ensuite)
@@ -3064,7 +3069,7 @@ function render() {
   drawParticles();
   ctx.restore();
   if (flash > 0) { ctx.fillStyle = `rgba(244,63,94,${flash * .5})`; ctx.fillRect(0, 0, W, H); }
-  if (!DG('novig') && !LIGHT) {   // (mode léger : les bords assombris sont une image fixe posée par-dessus)
+  if (!DG('novig') && !LIGHT) {   // (mode léger : le haut et le bas assombris sont dans l'image du mur)
   const vg = VIGNETTE || (VIGNETTE = ctx.createRadialGradient(W / 2, H / 2, 280, W / 2, H / 2, 620)); if (!vg.done) { vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.4)'); vg.done = true; }
   ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
   }
