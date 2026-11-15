@@ -320,7 +320,7 @@ const DAILY_FLOORS = 12, RUN_SECONDS = 30 * 60, VARIANTS = 20;
 const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900, SPRING = 1000;
 const PW = 28, PH = 40;
 const STEP = 1 / 120;
-const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v58';
+const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v59';
 /* [MODE TEST] Passe à false (ou supprime les blocs marqués [MODE TEST]) quand tout est réglé. */
 const TEST_MODE = true;
 
@@ -1233,7 +1233,7 @@ function genFloor(fi) {
     dog = { plat: dp, x: dp.x + dp.w / 2, minX: end.x + 30, bx: end.x + 120, by: end.y, walking: false, flip: false, pressed: false, lowered: false, saved: false, told: false, bark: 2 };
     door = { x: dp.x, y: dp.y - 90, w: dp.w, h: 90, dog: true };
     Wend = dp.x + dp.w + 140;
-  } else { door = { x: end.x + end.w - 192, y: end.y - 126, w: 192, sw: 192, h: 126, stairs: true }; Wend = end.x + end.w + 44; }   // l'escalier va jusqu'au mur, sous la porte (bord droit de l'écran)
+  } else { door = { x: end.x + end.w - 192, y: end.y - 192, w: 192, sw: 192, h: 192, stairs: true }; Wend = end.x + end.w + 44; }   // même pente qu'avant (marches de 18) ; l'escalier continue jusqu'au mur, au bord droit de l'écran
 
   // clé sur une petite plateforme en hauteur
   let key = null;
@@ -1307,7 +1307,7 @@ function genFloor(fi) {
   const sw = puz.sw ? { kind: puz.sw, x: swPlat.x + swPlat.w / 2, y: swPlat.y, on: false, bridge: puz.sw === 'race' ? null : bridge } : null;
   const cst = {}; for (let g = 0; g < grpN; g++) cst[g] = grpInit[g] || 'b';
   return { f, fi, last, plats, spikes, traps, coins, orbs, cps, door, key, sw, simon, pairs, whack, mem, lamps, signs, fires, lasers, saws, levers, plate, crates, cbtns, riddles, grpInit, cpuz, tblocks, winds, chasers, targets, race, stars, cst, heart, heartOk, zips, needKey: puz.key, dog, W: Wend,
-    top: Math.min(0, minY - 260, dog ? dog.plat.y - 230 : 0), respawn: cps[0], hint, th: theme(f) };
+    top: Math.min(0, minY - 260, dog ? dog.plat.y - 230 : 0, door.stairs ? door.y - 160 : 0), respawn: cps[0], hint, th: theme(f) };   // (top : la porte en haut de l'escalier reste visible)
 }
 
 /* ======================================================================
@@ -1443,8 +1443,8 @@ function step(dt) {
     clearT -= dt; fade = Math.max(fade, Math.min(1, (0.5 - clearT) / .5));
     if (P.climb) {   // il monte les marches, puis avance sur le palier jusqu'à la porte
       const d = L.door;
-      P.x += 110 * dt; P.y = Math.max(d.y - PH, P.y - 110 * dt * d.h / d.w);   // il suit la pente des marches
-      P.grounded = true; P.vx = 110; if (P.x + PW / 2 > d.x + d.w - 40) P.hidden = true;
+      P.x += 125 * dt; P.y = Math.max(d.y - PH, P.y - 125 * dt * d.h / d.w);   // il suit la pente des marches
+      P.grounded = true; P.vx = 125; if (P.x + PW / 2 > d.x + d.w - 40) P.hidden = true;
     }
     if (clearT <= 0) { if (finalWin) endRun('win'); else { loadFloor(floor + 1); state = 'playing'; } }
   }
@@ -2465,7 +2465,7 @@ function drawTrap(t) {
 
 function drawDoor() {   // escalier de pierre contre le mur de droite, avec une vraie porte en bois en haut
   const d = L.door; if (d.dog) { drawDogArea(); return; }
-  const open = !L.needKey || L.key.got, SW = d.sw || d.w, n = 10, st = SW / n, sh = d.h / n, X = d.x, Y = d.y, B = d.y + d.h, WX = d.x + d.w;   // SW : largeur des marches ; WX : face du mur
+  const open = !L.needKey || L.key.got, SW = d.sw || d.w, n = Math.round(SW / 18), st = SW / n, sh = d.h / n, X = d.x, Y = d.y, B = d.y + d.h, WX = d.x + d.w;   // SW : largeur des marches ; WX : face du mur
   // mur de droite (fin de l'étage), du haut de l'écran jusqu'en bas
   ctx.save(); ctx.translate(WX, 0); ctx.fillStyle = texSlab('stone'); const top = cam.y - 40, bot = B + 400;
   ctx.fillRect(0, top, 140, bot - top); ctx.fillStyle = 'rgba(25,18,30,.45)'; ctx.fillRect(0, top, 140, bot - top);
@@ -2502,7 +2502,7 @@ function drawDoor() {   // escalier de pierre contre le mur de droite, avec une 
   ctx.save(); ctx.beginPath(); ctx.moveTo(X, B); for (let i = 0; i < n; i++) { ctx.lineTo(X + i * st, B - (i + 1) * sh); ctx.lineTo(X + (i + 1) * st, B - (i + 1) * sh); } ctx.lineTo(WX, B); ctx.closePath(); ctx.clip();
   ctx.translate(X, B - d.h); ctx.fillStyle = texSlab('stone'); ctx.fillRect(0, 0, d.w, d.h);
   ctx.fillStyle = 'rgba(30,20,10,.38)'; ctx.fillRect(0, 0, d.w, d.h);
-  ctx.strokeStyle = 'rgba(25,18,12,.55)'; ctx.lineWidth = 2; for (let r = 1; r < 7; r++) { ctx.beginPath(); ctx.moveTo(0, r * 18); ctx.lineTo(d.w, r * 18); ctx.stroke(); for (let c = (r % 2) * 20; c < d.w; c += 40) { ctx.beginPath(); ctx.moveTo(c, r * 18); ctx.lineTo(c, r * 18 + 18); ctx.stroke(); } }
+  ctx.strokeStyle = 'rgba(25,18,12,.55)'; ctx.lineWidth = 2; for (let r = 1; r * 18 < d.h; r++) { ctx.beginPath(); ctx.moveTo(0, r * 18); ctx.lineTo(d.w, r * 18); ctx.stroke(); for (let c = (r % 2) * 20; c < d.w; c += 40) { ctx.beginPath(); ctx.moveTo(c, r * 18); ctx.lineTo(c, r * 18 + 18); ctx.stroke(); } }
   const sg2 = ctx.createLinearGradient(0, 0, d.w, 0); sg2.addColorStop(0, 'rgba(0,0,0,.25)'); sg2.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = sg2; ctx.fillRect(0, 0, d.w, d.h);
   ctx.restore();
   // marches : contremarche (face avant, à l'ombre) + giron (dessus, éclairé) + nez de marche
