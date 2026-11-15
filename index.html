@@ -319,7 +319,7 @@ const DAILY_FLOORS = 12, RUN_SECONDS = 30 * 60, VARIANTS = 20;
 const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900, SPRING = 1000;
 const PW = 28, PH = 40;
 const STEP = 1 / 120;
-const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v45';
+const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v46';
 /* [MODE TEST] Passe à false (ou supprime les blocs marqués [MODE TEST]) quand tout est réglé. */
 const TEST_MODE = true;
 
@@ -985,11 +985,11 @@ function genFloor(fi) {
       cur = E;
     },
     // ===== JEUDI (Précision) =====
-    gold() {   // dalles à cœur doré : seule la zone dorée est solide, ailleurs la dalle s'effondre aussitôt
+    gold() {   // dalles à cœur doré : seule la zone dorée est solide, ailleurs on passe à travers
       goldUsed = true;
       const n = 3 + Math.round(3 * D) + RI(0, 1);
       put(R(60, 100), RI(-15, 15), 150);
-      for (let i = 0; i < n; i++) put(R(50, 80 + 30 * D), RI(-25 - 20 * D, 25 + 20 * D), R(120, 150), { type: 'crumble', cr: 0, crT: 0, delay: .2, zw: 70 - 34 * D, zoff: R(.35, .65) });
+      for (let i = 0; i < n; i++) put(R(50, 80 + 30 * D), RI(-25 - 20 * D, 25 + 20 * D), R(120, 150), { type: 'crumble', cr: 0, crT: 0, delay: .2, zw: 70 - 34 * D, zoff: R(.35, .65) });   // hors de l'or : pas solide du tout
       put(R(50, 90), RI(-20, 20), 160);
     },
     orbit() {   // plateforme qui tourne en rond au-dessus du vide : saute au bon moment
@@ -1622,6 +1622,10 @@ function updatePlayer(dt) {
     let best = null;
     for (const pl of L.plats) {
       if (pl.x > p.x + PW || pl.x + pl.w < p.x || (!pl.fake && !solidNow(pl))) continue;
+      if (pl.zw && Math.abs(p.x + PW / 2 - (pl.x + pl.w * pl.zoff)) > pl.zw / 2) {   // dalle à cœur doré : hors de l'or, on passe à travers
+        if (prevBottom <= pl.y + 1 && p.y + PH >= pl.y) { pop(p.x + PW / 2, pl.y - 24, 'Raté ! 💥', '#fb7185'); dust(p.x + PW / 2, pl.y, 5); }
+        continue;
+      }
       const pw = platW(pl);
       if (p.x + PW - 3 > pl.x && p.x + 3 < pl.x + pw && prevBottom <= pl.y + 8 && p.y + PH >= pl.y) {
         if (pl.fake) { if (!pl.found) { pl.found = true; SFX.crumble(); dust(pl.x + pl.w / 2, pl.y + 8, 10); pop(pl.x + pl.w / 2, pl.y - 20, 'Piège ! ❌', '#fb7185'); } }
@@ -1635,7 +1639,7 @@ function updatePlayer(dt) {
       if (best.type === 'crumble' && best.cr === 0) {
         const onGold = best.zw && Math.abs(p.x + PW / 2 - (best.x + best.w * best.zoff)) <= best.zw / 2;
         if (onGold) { if (fresh) { best.zok = .5; tone(880, 1320, .08, 'triangle', .06); sparkle(p.x + PW / 2, best.y, 6, '#fde047'); } }
-        else { best.cr = 1; best.crT = best.delay; if (best.zw && fresh) pop(p.x + PW / 2, best.y - 30, 'Raté ! 💥', '#fb7185'); }
+        else { best.cr = 1; best.crT = best.delay; }
       }
       if (L.targets && !L.targets.done && best.type !== 'target' && L.targets.list.some(t => t.lit)) resetTargets('😬 Tu as touché le sol ! Il faut recommencer depuis le début.');
       if (best.type === 'target' && !best.lit && L.targets) {
@@ -2205,7 +2209,9 @@ function drawPlat(p) {
   else if (p.type === 'crumble') o = { tex: 'sand', top: '#f3c98b' };
   else if (p.conv) o = { tex: 'metal', top: '#cbd5e1' };
   else o = { tex: 'stone', top: 'moss' };
+  if (p.zw) ctx.globalAlpha = .45;   // autour de l'or : pierre fantôme, on passe au travers
   slab(x, y, w, h, o, p.type === 'crumble' && p.cr === 1 ? null : p);
+  ctx.globalAlpha = 1;
   if (p.zw) {   // zone dorée : la seule partie solide
     const zx = x + w * p.zoff - p.zw / 2, ok = p.zok > 0;
     ctx.strokeStyle = 'rgba(20,14,30,.55)'; ctx.lineWidth = 1.5; ctx.beginPath(); for (let k = 12; k < w; k += 22) { if (k > zx - x - 4 && k < zx - x + p.zw + 4) continue; ctx.moveTo(x + k, y + 3); ctx.lineTo(x + k + 5, y + 11); ctx.lineTo(x + k + 1, y + 20); } ctx.stroke();   // fissures
