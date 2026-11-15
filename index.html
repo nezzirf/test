@@ -312,7 +312,7 @@ const DAILY_FLOORS = 12, RUN_SECONDS = 30 * 60, VARIANTS = 20;
 const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900, SPRING = 1000;
 const PW = 28, PH = 40;
 const STEP = 1 / 120;
-const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v42';
+const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v43';
 /* [MODE TEST] Passe à false (ou supprime les blocs marqués [MODE TEST]) quand tout est réglé. */
 const TEST_MODE = true;
 
@@ -1910,7 +1910,8 @@ function initTitle() {
    RENDU
    ====================================================================== */
 function rr(x, y, w, h, r) {
-  r = Math.min(r, w / 2, h / 2);
+  if (w < 0) { x += w; w = -w; } if (h < 0) { y += h; h = -h; }   // jamais de taille négative (sinon le dessin plante)
+  r = Math.max(0, Math.min(r, w / 2, h / 2));
   ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
   ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
 }
@@ -2004,6 +2005,7 @@ function texSlab(kind) {   // matières des plateformes (motif qui se répète)
 }
 // dessine une plateforme : matière, dessus (mousse, neige…), relief et ombre portée
 function slab(x, y, w, h, o, p) {   // avec « p » : l'image de la plateforme est préparée une fois puis réutilisée
+  if (!(w >= 4 && h >= 2)) return;   // trop petite (pont qui commence à apparaître)
   if (p) {
     const key = w + '|' + h + '|' + o.tex + '|' + o.top + '|' + o.color + '|' + o.tint + '|' + Math.round(x) % 997;
     if (p._sk !== key) {
