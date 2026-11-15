@@ -16,6 +16,10 @@
   #cv{position:absolute;left:0;top:0;width:960px;height:540px;border-radius:22px;box-shadow:0 0 0 5px #0f172a,0 20px 60px rgba(0,0,0,.6)}
   .screen{position:absolute;left:0;top:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;border-radius:22px}
   .off{display:none!important}
+  body.light #cv{border-radius:0;box-shadow:0 0 0 5px #0f172a}
+  .bgL{position:absolute;left:0;top:0;pointer-events:none;will-change:transform}
+  #bgBox{position:absolute;left:0;top:0;width:960px;height:540px;overflow:hidden;pointer-events:none}
+  #vigL{position:absolute;left:0;top:0;width:960px;height:540px;pointer-events:none;background:radial-gradient(ellipse 620px 620px at 50% 50%,rgba(0,0,0,0) 45%,rgba(0,0,0,.4) 100%)}
   .btn{cursor:pointer;font-weight:900;border:4px solid #0f172a;border-radius:18px;box-shadow:0 6px 0 #0f172a;transition:transform .08s,box-shadow .08s}
   .btn:active{transform:translateY(5px);box-shadow:0 1px 0 #0f172a}
   .padfocus{outline:5px solid #fde047!important;outline-offset:4px;transform:scale(1.04)}
@@ -54,7 +58,9 @@
 </head>
 <body>
 <div id="stage">
+  <div id="bgBox" class="off"></div>
   <canvas id="cv" width="960" height="540"></canvas>
+  <div id="vigL" class="off"></div>
 
   <!-- ============ HUD ============ -->
   <div id="hud" class="off" style="position:absolute;left:12px;right:12px;top:10px;pointer-events:none">
@@ -321,7 +327,7 @@ const DAILY_FLOORS = 12, RUN_SECONDS = 30 * 60, VARIANTS = 20;
 const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900, SPRING = 1000;
 const PW = 28, PH = 40;
 const STEP = 1 / 120;
-const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v63';
+const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v64';
 /* [MODE TEST] Passe à false (ou supprime les blocs marqués [MODE TEST]) quand tout est réglé. */
 const TEST_MODE = true;
 
@@ -595,7 +601,7 @@ function readPads() {
   if (window.SOEN_APP) {   // A / centre = sauter + valider · B / retour = sauter + revenir · X, Y, haut = sauter
     const k = Object.assign({}, appKeys), A = window.SoenAndroid;
     if (A && A.state) {   // l'application garde l'état des touches : on le lit à chaque image
-      let m = 0, n = 0; try { m = A.state(); n = A.presses(); } catch (e) { }
+      let m = 0, n = 0; try { if (A.state2) { const v = A.state2(); m = v & 0xFFF; n = v >>> 12; } else { m = A.state(); n = A.presses(); } } catch (e) { }
       if (n !== appPresses) { appPresses = n; pad.connected = true; pad.used = true; lastAppKeyT = performance.now(); lastAppKey = 'appui ' + n; if (!appSeen) { appSeen = true; try { A.seen(); } catch (e) { } } }
       if (m & 257) k.left = true; if (m & 514) k.right = true; if (m & 1028) k.up = true; if (m & 2056) k.down = true;
       if (m & 16) k.a = true; if (m & 32) k.b = true; if (m & 64) k.x = true; if (m & 128) k.pause = true;
@@ -2175,8 +2181,38 @@ function slab(x, y, w, h, o, p) {   // avec « p » : l'image de la plateforme e
   ctx.strokeStyle = o.edge || 'rgba(20,14,30,.85)'; ctx.lineWidth = 2; rr(x, y, w, h, r); ctx.stroke();
   if (o.top === 'moss') { ctx.fillStyle = '#5a9a3e'; for (let i = 4; i < w - 4; i += 9) { const k = gHash(Math.round(x + i), 3); if (k < .55) { ctx.beginPath(); ctx.moveTo(x + i, y + 1); ctx.lineTo(x + i + 1.5, y - 3 - k * 6); ctx.lineTo(x + i + 3, y + 1); ctx.fill(); } } }   // touffes
 }
-function drawBG(th, cx, t) {   // mur de pierre texturé (couleur du thème), fenêtres en arc, torches
-  const key = th.h + '|' + th.top, ox = Math.round(((cx * .35) % 256 + 256) % 256);   // décalage entier : copie directe de l'image, sans lissage (bien plus rapide)
+/* Mode télé léger : le mur, les fenêtres et le halo des torches sont de vraies images posées derrière le jeu,
+   que la télé fait glisser sans les redessiner (sur les petits appareils, redessiner tout l'écran à chaque image coûte très cher) */
+const BGD = { on: false };
+function bgDom(on) {
+  if (BGD.on === on) return; BGD.on = on;
+  $('bgBox').classList.toggle('off', !on); $('vigL').classList.toggle('off', !on);
+}
+function drawBGLight(th, cx, t) {
+  const key = th.h + '|' + th.top, ox = Math.round(((cx * .35) % 256 + 256) % 256), sc = Math.round((cx * .5) % 480);
+  bgTex(th, key);
+  if (!BGD.wall) {
+    const box = $('bgBox'); BGD.wall = gCanvas(W + 256, H); BGD.wall.className = 'bgL'; box.appendChild(BGD.wall);
+    const spr = gCanvas(486, 390), g = spr.getContext('2d'); g.drawImage(bgSprite('win'), 0, 68); g.drawImage(bgSprite('torch'), 206, 110);
+    BGD.deco = []; for (let i = 0; i < 5; i++) { const c = gCanvas(486, 390); c.className = 'bgL'; c.getContext('2d').drawImage(spr, 0, 0); box.appendChild(c); BGD.deco.push({ el: c, tf: '', vis: true }); }
+    BGD.tf = '';
+  }
+  if (BGD.key !== key) { BGD.key = key; const g = BGD.wall.getContext('2d'); g.clearRect(0, 0, W + 256, H); g.drawImage(TEX.bg, 0, 0); }
+  const tf = 'translate3d(' + (-ox) + 'px,0,0)'; if (BGD.tf !== tf) { BGD.tf = tf; BGD.wall.style.transform = tf; }
+  bgDom(true);
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, W, H); ctx.restore();
+  const dsx = L && L.door && !L.door.dog && (state === 'playing' || state === 'dying' || state === 'clear' || state === 'paused') ? L.door.x + L.door.w - cam.x : -1e9;
+  for (let i = -1; i < 4; i++) {
+    const d = BGD.deco[i + 1], wx = i * 480 + 140 - sc, vis = !(wx + 78 > dsx - 110 && wx < dsx + 60);
+    if (d.vis !== vis) { d.vis = vis; d.el.style.display = vis ? '' : 'none'; }
+    const tf2 = 'translate3d(' + (wx - 16) + 'px,0,0)'; if (d.tf !== tf2) { d.tf = tf2; d.el.style.transform = tf2; }
+    if (!vis) continue;
+    const tx = wx + 330, fl = 1 + Math.sin(t * 9 + i) * .15 + Math.sin(t * 23 + i * 3) * .05;   // seules les flammes sont dessinées
+    ctx.fillStyle = '#ea580c'; ctx.beginPath(); ctx.moveTo(tx - 8 * fl, 258); ctx.quadraticCurveTo(tx - 9, 240, tx + Math.sin(t * 12 + i) * 3, 226 - 6 * fl); ctx.quadraticCurveTo(tx + 9, 240, tx + 8 * fl, 258); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#fde047'; ctx.beginPath(); ctx.moveTo(tx - 4, 258); ctx.quadraticCurveTo(tx - 4, 246, tx + Math.sin(t * 12 + i) * 2, 238 - 3 * fl); ctx.quadraticCurveTo(tx + 4, 246, tx + 4, 258); ctx.closePath(); ctx.fill();
+  }
+}
+function bgTex(th, key) {
   if (!TEX.bg || TEX.bgKey !== key) {   // le mur est préparé une seule fois par étage (une seule image à afficher ensuite)
     const c = TEX.bg || gCanvas(W + 256, H), g2 = c.getContext('2d');
     g2.globalCompositeOperation = 'source-over'; g2.globalAlpha = 1; g2.fillStyle = texWallTint(th.h); g2.fillRect(0, 0, c.width, H);
@@ -2184,6 +2220,11 @@ function drawBG(th, cx, t) {   // mur de pierre texturé (couleur du thème), fe
     g2.globalCompositeOperation = 'multiply'; g2.globalAlpha = .75; g2.fillStyle = g; g2.fillRect(0, 0, c.width, H);
     g2.globalCompositeOperation = 'source-over'; g2.globalAlpha = 1; TEX.bg = c; TEX.bgKey = key;
   }
+}
+function drawBG(th, cx, t) {   // mur de pierre texturé (couleur du thème), fenêtres en arc, torches
+  if (LIGHT) return drawBGLight(th, cx, t);
+  const key = th.h + '|' + th.top, ox = Math.round(((cx * .35) % 256 + 256) % 256);   // décalage entier : copie directe de l'image, sans lissage (bien plus rapide)
+  bgTex(th, key);
   ctx.drawImage(TEX.bg, -ox, 0);
   const sc = Math.round((cx * .5) % 480);
   for (let i = -1; i < 4; i++) {
@@ -2946,6 +2987,7 @@ function bakeDog() {
   D.lt = 0; return true;
 }
 function applyLight() {   // coupe (ou remet) les effets de lueur, très lents sur les télés
+  document.body.classList.toggle('light', LIGHT); if (!LIGHT) bgDom(false);
   if (LIGHT) Object.defineProperty(ctx, 'shadowBlur', { configurable: true, get() { return 0; }, set() { } });
   else delete ctx.shadowBlur;
   for (const el of document.querySelectorAll('.btnLight')) el.textContent = '📺 Mode télé léger : ' + (LIGHT ? 'oui' : 'non') + (lightPref ? '' : ' (auto)');
@@ -2995,13 +3037,14 @@ function drawParticles() {
 let VIGNETTE = null;
 function render() {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  if (DG('blank')) { ctx.fillStyle = '#1e1b4b'; ctx.fillRect(0, 0, W, H); return; }
+  if (DG('blank')) { bgDom(false); ctx.fillStyle = '#1e1b4b'; ctx.fillRect(0, 0, W, H); return; }
+  if (bal && (state === 'balade' || state === 'balEnd' || (state === 'paused' && prevState === 'balade'))) bgDom(false);
   if (bal && (state === 'balade' || state === 'balEnd' || (state === 'paused' && prevState === 'balade'))) { balRender(); return; }
   const playing = L && run && (state === 'playing' || state === 'dying' || state === 'clear' || state === 'paused' || state === 'end');
   if (!playing) { drawBG(theme(Math.floor(time / 8) % 12), time * 40, time); return; }
   const sx = shake ? (Math.random() - .5) * shake * 22 : 0, sy = shake ? (Math.random() - .5) * shake * 22 : 0;
   ctx.save(); ctx.translate(sx, sy);
-  if (DG('nobg')) { ctx.fillStyle = '#3b3550'; ctx.fillRect(0, 0, W, H); } else drawBG(L.th, cam.x, time);
+  if (DG('nobg')) { bgDom(false); ctx.fillStyle = '#3b3550'; ctx.fillRect(0, 0, W, H); } else drawBG(L.th, cam.x, time);
   ctx.translate(-Math.round(cam.x), -Math.round(cam.y));
   if (!DG('noobj')) {
   const x0 = cam.x - 60, x1 = cam.x + W + 60;
@@ -3021,7 +3064,7 @@ function render() {
   drawParticles();
   ctx.restore();
   if (flash > 0) { ctx.fillStyle = `rgba(244,63,94,${flash * .5})`; ctx.fillRect(0, 0, W, H); }
-  if (!DG('novig')) {
+  if (!DG('novig') && !LIGHT) {   // (mode léger : les bords assombris sont une image fixe posée par-dessus)
   const vg = VIGNETTE || (VIGNETTE = ctx.createRadialGradient(W / 2, H / 2, 280, W / 2, H / 2, 620)); if (!vg.done) { vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.4)'); vg.done = true; }
   ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
   }
