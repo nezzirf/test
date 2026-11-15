@@ -320,7 +320,7 @@ const DAILY_FLOORS = 12, RUN_SECONDS = 30 * 60, VARIANTS = 20;
 const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900, SPRING = 1000;
 const PW = 28, PH = 40;
 const STEP = 1 / 120;
-const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v54';
+const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v55';
 /* [MODE TEST] Passe à false (ou supprime les blocs marqués [MODE TEST]) quand tout est réglé. */
 const TEST_MODE = true;
 
@@ -1233,7 +1233,7 @@ function genFloor(fi) {
     dog = { plat: dp, x: dp.x + dp.w / 2, minX: end.x + 30, bx: end.x + 120, by: end.y, walking: false, flip: false, pressed: false, lowered: false, saved: false, told: false, bark: 2 };
     door = { x: dp.x, y: dp.y - 90, w: dp.w, h: 90, dog: true };
     Wend = dp.x + dp.w + 140;
-  } else door = { x: end.x + end.w - 160, y: end.y - 126, w: 126, h: 126, stairs: true };
+  } else { door = { x: end.x + end.w - 126, y: end.y - 126, w: 126, h: 126, stairs: true }; Wend = end.x + end.w + 44; }   // l'escalier finit contre le mur, au bord de l'écran
 
   // clé sur une petite plateforme en hauteur
   let key = null;
@@ -2179,6 +2179,8 @@ function drawBG(th, cx, t) {   // mur de pierre texturé (couleur du thème), fe
   const sc = (cx * .5) % 480;
   for (let i = -1; i < 4; i++) {
     const wx = i * 480 + 140 - sc, wy = 80, ww = 78, wh = 128;
+    const dsx = L && L.door && !L.door.dog && (state === 'playing' || state === 'dying' || state === 'clear' || state === 'paused') ? L.door.x + L.door.w - cam.x : -1e9;   // pas de fenêtre derrière la porte de l'escalier
+    if (wx + ww > dsx - 110 && wx < dsx + 60) continue;
     // fenêtre : encadrement de pierre, ciel nocturne, étoiles et lueur de lune
     ctx.fillStyle = '#6b6258'; rr(wx - 10, wy - 10, ww + 20, wh + 18, 44); ctx.fill();
     ctx.fillStyle = 'rgba(255,245,230,.18)'; rr(wx - 10, wy - 10, ww + 20, 8, 4); ctx.fill();
@@ -2457,26 +2459,49 @@ function drawTrap(t) {
   if (e > 0 && e < .6) { ctx.fillStyle = 'rgba(250,204,21,.35)'; ctx.fillRect(t.x, t.y - 3 - 19 * e, t.w, 19 * e + 3); }   // avertissement
 }
 
-function drawDoor() {   // escalier de pierre vers l'étage du dessus
+function drawDoor() {   // escalier de pierre contre le mur de droite, avec une vraie porte en bois en haut
   const d = L.door; if (d.dog) { drawDogArea(); return; }
-  const open = !L.needKey || L.key.got, n = 7, st = d.w / n, X = d.x, Y = d.y, B = d.y + d.h;
-  // porte en arc en haut à droite, avec sa lumière
-  const ax = X + d.w - 54, aw = 62, ah = 92, ay = Y - ah + 6;
-  if (open) { const g = ctx.createRadialGradient(ax + aw / 2, ay + ah * .55, 6, ax + aw / 2, ay + ah * .55, 150); g.addColorStop(0, 'rgba(255,214,120,.55)'); g.addColorStop(1, 'rgba(255,214,120,0)'); ctx.fillStyle = g; ctx.fillRect(ax - 140, ay - 120, aw + 280, ah + 260); }
-  ctx.fillStyle = '#5b544c'; rr(ax - 12, ay - 12, aw + 24, ah + 14, (aw + 24) / 2); ctx.fill();   // encadrement
-  ctx.strokeStyle = 'rgba(25,18,12,.7)'; ctx.lineWidth = 2;
-  for (let k = 0; k <= 8; k++) { const a = Math.PI + k / 8 * Math.PI, r0 = aw / 2, r1 = aw / 2 + 12, cxA = ax + aw / 2, cyA = ay + aw / 2; ctx.beginPath(); ctx.moveTo(cxA + Math.cos(a) * r0, cyA + Math.sin(a) * r0); ctx.lineTo(cxA + Math.cos(a) * r1, cyA + Math.sin(a) * r1); ctx.stroke(); }   // claveaux
-  for (let k = 0; k < 3; k++) for (const sx of [ax - 12, ax + aw]) { ctx.strokeRect(sx, ay + aw / 2 + k * 18, 12, 18); }
-  const ig = ctx.createLinearGradient(0, ay, 0, ay + ah); ig.addColorStop(0, open ? '#fff1c1' : '#0a0f25'); ig.addColorStop(1, open ? '#f59e0b' : '#1b2148');
-  ctx.fillStyle = ig; rr(ax, ay, aw, ah, aw / 2); ctx.fill();
-  if (open) { ctx.fillStyle = 'rgba(120,70,20,.35)'; for (let k = 0; k < 4; k++) ctx.fillRect(ax + 8 + k * 12, ay + ah - 14 - k * 12, aw - 8 - k * 12, 4); }   // marches dans la lumière
-  else { ctx.strokeStyle = '#3f3f46'; ctx.lineWidth = 3; ctx.beginPath(); for (let k = 1; k < 5; k++) { ctx.moveTo(ax + k * aw / 5, ay + 4); ctx.lineTo(ax + k * aw / 5, ay + ah); } ctx.moveTo(ax, ay + ah * .45); ctx.lineTo(ax + aw, ay + ah * .45); ctx.stroke(); }   // herse
+  const open = !L.needKey || L.key.got, n = 7, st = d.w / n, X = d.x, Y = d.y, B = d.y + d.h, WX = d.x + d.w;   // WX : face du mur
+  // mur de droite (fin de l'étage), du haut de l'écran jusqu'en bas
+  ctx.save(); ctx.translate(WX, 0); ctx.fillStyle = texSlab('stone'); const top = cam.y - 40, bot = B + 400;
+  ctx.fillRect(0, top, 140, bot - top); ctx.fillStyle = 'rgba(25,18,30,.45)'; ctx.fillRect(0, top, 140, bot - top);
+  ctx.strokeStyle = 'rgba(20,14,10,.6)'; ctx.lineWidth = 2;
+  for (let yy = Math.floor(top / 30) * 30; yy < bot; yy += 30) { ctx.beginPath(); ctx.moveTo(0, yy); ctx.lineTo(140, yy); ctx.stroke(); for (let xx = ((yy / 30) % 2 ? 0 : 22); xx < 140; xx += 44) { ctx.beginPath(); ctx.moveTo(xx, yy); ctx.lineTo(xx, yy + 30); ctx.stroke(); } }
+  const sg = ctx.createLinearGradient(0, 0, 26, 0); sg.addColorStop(0, 'rgba(255,240,220,.22)'); sg.addColorStop(1, 'rgba(255,240,220,0)'); ctx.fillStyle = sg; ctx.fillRect(0, top, 26, bot - top);   // arête éclairée
+  ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(-10, top, 10, bot - top);   // ombre du mur sur le fond
+  ctx.restore();
+  // porte en haut de l'escalier : encadrement de pierre, battant en planches, ferrures
+  const dw = 58, dh = 96, dx = WX - dw - 8, dy = Y - dh;
+  if (open) { const g = ctx.createRadialGradient(dx + dw / 2, dy + dh * .5, 6, dx + dw / 2, dy + dh * .5, 140); g.addColorStop(0, 'rgba(255,214,120,.5)'); g.addColorStop(1, 'rgba(255,214,120,0)'); ctx.fillStyle = g; ctx.fillRect(dx - 140, dy - 120, dw + 280, dh + 240); }
+  ctx.fillStyle = '#6b6258'; ctx.fillRect(dx - 11, dy - 14, dw + 22, dh + 14);   // montants et linteau
+  ctx.fillStyle = 'rgba(255,245,230,.16)'; ctx.fillRect(dx - 11, dy - 14, dw + 22, 4);
+  ctx.strokeStyle = 'rgba(25,18,12,.7)'; ctx.lineWidth = 2; for (let k = 0; k < 4; k++) { ctx.strokeRect(dx - 11, dy + k * 24, 11, 24); ctx.strokeRect(dx + dw, dy + k * 24, 11, 24); }
+  ctx.strokeRect(dx - 11, dy - 14, dw + 22, 14); ctx.fillStyle = '#857b70'; ctx.beginPath(); ctx.moveTo(dx + dw / 2 - 8, dy - 14); ctx.lineTo(dx + dw / 2 + 8, dy - 14); ctx.lineTo(dx + dw / 2 + 5, dy); ctx.lineTo(dx + dw / 2 - 5, dy); ctx.closePath(); ctx.fill(); ctx.stroke();   // clé de voûte
+  const inner = ctx.createLinearGradient(0, dy, 0, dy + dh); inner.addColorStop(0, open ? '#fff3c4' : '#1a1410'); inner.addColorStop(1, open ? '#f59e0b' : '#0d0a08');
+  ctx.fillStyle = inner; ctx.fillRect(dx, dy, dw, dh);
+  if (open) { ctx.fillStyle = 'rgba(120,70,20,.35)'; for (let k = 0; k < 4; k++) ctx.fillRect(dx + 6 + k * 10, dy + dh - 12 - k * 12, dw - 6 - k * 10, 4); }   // marches dans la lumière
+  const leaf = (x0, w) => {   // battant en planches avec ses ferrures
+    const wg = ctx.createLinearGradient(x0, 0, x0 + w, 0); wg.addColorStop(0, '#5a3417'); wg.addColorStop(.5, '#8b5a2b'); wg.addColorStop(1, '#4a2c12'); ctx.fillStyle = wg; ctx.fillRect(x0, dy, w, dh);
+    ctx.strokeStyle = 'rgba(30,15,5,.6)'; ctx.lineWidth = 1.5; for (let k = 1; k < 4; k++) { ctx.beginPath(); ctx.moveTo(x0 + k * w / 4, dy); ctx.lineTo(x0 + k * w / 4, dy + dh); ctx.stroke(); }
+    ctx.fillStyle = '#2d2a26'; for (const yy of [dy + 16, dy + dh - 22]) { ctx.fillRect(x0, yy, w, 6); ctx.fillStyle = '#9ca3af'; for (let k = 0; k < 4; k++) { ctx.beginPath(); ctx.arc(x0 + 5 + k * (w - 10) / 3, yy + 3, 1.4, 0, 7); ctx.fill(); } ctx.fillStyle = '#2d2a26'; }
+  };
+  if (open) leaf(dx, 16);   // porte entrouverte (vue de biais)
+  else {
+    leaf(dx, dw);
+    ctx.strokeStyle = '#d4a017'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(dx + dw - 12, dy + dh * .52, 5, 0, 7); ctx.stroke();   // anneau
+    ctx.strokeStyle = '#71717a'; ctx.lineWidth = 3; ctx.setLineDash([5, 3]); ctx.beginPath(); ctx.moveTo(dx - 2, dy + 22); ctx.lineTo(dx + dw + 2, dy + dh - 26); ctx.moveTo(dx + dw + 2, dy + 22); ctx.lineTo(dx - 2, dy + dh - 26); ctx.stroke(); ctx.setLineDash([]);   // chaînes
+    const lx = dx + dw / 2, ly = dy + dh / 2 - 2;   // cadenas
+    ctx.strokeStyle = '#9ca3af'; ctx.lineWidth = 3.5; ctx.beginPath(); ctx.arc(lx, ly - 5, 6, Math.PI, 0); ctx.stroke();
+    const pg = ctx.createLinearGradient(lx - 9, 0, lx + 9, 0); pg.addColorStop(0, '#b45309'); pg.addColorStop(.5, '#fbbf24'); pg.addColorStop(1, '#92400e'); ctx.fillStyle = pg; rr(lx - 9, ly - 5, 18, 14, 3); ctx.fill();
+    ctx.fillStyle = '#1f2937'; ctx.beginPath(); ctx.arc(lx, ly + 1, 2.2, 0, 7); ctx.fill(); ctx.fillRect(lx - 1, ly + 1, 2, 5);
+  }
+  ctx.fillStyle = '#7d7468'; ctx.fillRect(dx - 13, dy + dh, dw + 26, 5);   // seuil
   // flanc de l'escalier (maçonnerie), sous les marches
   ctx.save(); ctx.beginPath(); ctx.moveTo(X, B); for (let i = 0; i < n; i++) { ctx.lineTo(X + i * st, B - (i + 1) * st); ctx.lineTo(X + (i + 1) * st, B - (i + 1) * st); } ctx.lineTo(X + d.w, B); ctx.closePath(); ctx.clip();
   ctx.translate(X, B - d.h); ctx.fillStyle = texSlab('stone'); ctx.fillRect(0, 0, d.w, d.h);
   ctx.fillStyle = 'rgba(30,20,10,.38)'; ctx.fillRect(0, 0, d.w, d.h);
   ctx.strokeStyle = 'rgba(25,18,12,.55)'; ctx.lineWidth = 2; for (let r = 1; r < 7; r++) { ctx.beginPath(); ctx.moveTo(0, r * 18); ctx.lineTo(d.w, r * 18); ctx.stroke(); for (let c = (r % 2) * 20; c < d.w; c += 40) { ctx.beginPath(); ctx.moveTo(c, r * 18); ctx.lineTo(c, r * 18 + 18); ctx.stroke(); } }
-  const sg = ctx.createLinearGradient(0, 0, d.w, 0); sg.addColorStop(0, 'rgba(0,0,0,.25)'); sg.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = sg; ctx.fillRect(0, 0, d.w, d.h);
+  const sg2 = ctx.createLinearGradient(0, 0, d.w, 0); sg2.addColorStop(0, 'rgba(0,0,0,.25)'); sg2.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = sg2; ctx.fillRect(0, 0, d.w, d.h);
   ctx.restore();
   // marches : contremarche (face avant, à l'ombre) + giron (dessus, éclairé) + nez de marche
   for (let i = 0; i < n; i++) {
@@ -2486,27 +2511,23 @@ function drawDoor() {   // escalier de pierre vers l'étage du dessus
     ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.fillRect(x, y, d.w - i * st, 1.5);
     ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.fillRect(x, y + 6, d.w - i * st, 2);
   }
-  ctx.strokeStyle = 'rgba(20,14,30,.85)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(X, B); for (let i = 0; i < n; i++) { ctx.lineTo(X + i * st, B - (i + 1) * st); ctx.lineTo(X + (i + 1) * st, B - (i + 1) * st); } ctx.lineTo(X + d.w, B); ctx.stroke();
-  // rampe : balustres en fer et main courante en bois
-  const rh = 40, rail = t => [X + 10 + t * (d.w - 16), B - 10 - t * (d.h - 16) - rh];
+  ctx.strokeStyle = 'rgba(20,14,30,.85)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(X, B); for (let i = 0; i < n; i++) { ctx.lineTo(X + i * st, B - (i + 1) * st); ctx.lineTo(X + (i + 1) * st, B - (i + 1) * st); } ctx.stroke();
+  // rampe : balustres en fer et main courante en bois (elle s'arrête contre le mur)
+  const rh = 40, rail = t => [X + 10 + t * (d.w - 30), B - 10 - t * (d.h - 30) - rh];
   const [r0x, r0y] = rail(0), [r1x, r1y] = rail(1), railY = x => r0y + (x - r0x) * (r1y - r0y) / (r1x - r0x);
   ctx.strokeStyle = '#8a8a93'; ctx.lineWidth = 2.5; ctx.beginPath();
-  for (let i = 0; i < n; i++) { const bx = X + i * st + st * .5, by = B - (i + 1) * st; ctx.moveTo(bx, by); ctx.lineTo(bx, railY(bx)); } ctx.stroke();
+  for (let i = 0; i < n - 1; i++) { const bx = X + i * st + st * .5, by = B - (i + 1) * st; ctx.moveTo(bx, by); ctx.lineTo(bx, railY(bx)); } ctx.stroke();
   ctx.lineCap = 'round'; ctx.strokeStyle = '#3b2412'; ctx.lineWidth = 8; ctx.beginPath(); ctx.moveTo(r0x, r0y); ctx.lineTo(r1x, r1y); ctx.stroke();
   ctx.strokeStyle = '#8b5a2b'; ctx.lineWidth = 5; ctx.stroke(); ctx.strokeStyle = 'rgba(255,220,170,.5)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(r0x, r0y - 1.5); ctx.lineTo(r1x, r1y - 1.5); ctx.stroke(); ctx.lineCap = 'butt';
-  // pilier de départ avec sa boule
-  ctx.fillStyle = '#6b4423'; ctx.fillRect(X + 4, B - 58, 11, 58); ctx.fillStyle = 'rgba(255,220,170,.3)'; ctx.fillRect(X + 5, B - 58, 3, 58);
+  ctx.fillStyle = '#6b4423'; ctx.fillRect(X + 4, B - 58, 11, 58); ctx.fillStyle = 'rgba(255,220,170,.3)'; ctx.fillRect(X + 5, B - 58, 3, 58);   // pilier de départ
   ctx.strokeStyle = 'rgba(20,14,30,.85)'; ctx.lineWidth = 2; ctx.strokeRect(X + 4, B - 58, 11, 58);
   const bg = ctx.createRadialGradient(X + 8, B - 66, 1, X + 9.5, B - 63, 8); bg.addColorStop(0, '#d6a46a'); bg.addColorStop(1, '#5a3a1c'); ctx.fillStyle = bg; ctx.beginPath(); ctx.arc(X + 9.5, B - 63, 7, 0, 7); ctx.fill(); ctx.stroke();
-  if (open) outText('⬆', ax + aw / 2, ay - 22 + Math.sin(time * 5) * 5, 26, '#fde047');
-  else {   // grille en fer fermée au pied de l'escalier, avec un cadenas
-    ctx.strokeStyle = '#1f2937'; ctx.lineWidth = 4; ctx.beginPath(); for (let k = 0; k < 5; k++) { ctx.moveTo(X - 14 + k * 14, B); ctx.lineTo(X - 14 + k * 14, B - 84); } ctx.moveTo(X - 18, B - 80); ctx.lineTo(X + 46, B - 80); ctx.moveTo(X - 18, B - 40); ctx.lineTo(X + 46, B - 40); ctx.stroke();
-    ctx.fillStyle = '#9ca3af'; for (let k = 0; k < 5; k++) { ctx.beginPath(); ctx.moveTo(X - 14 + k * 14, B - 92); ctx.lineTo(X - 18 + k * 14, B - 84); ctx.lineTo(X - 10 + k * 14, B - 84); ctx.fill(); }
-    const lx = X + 14, ly = B - 44;   // cadenas
-    ctx.strokeStyle = '#9ca3af'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(lx, ly - 6, 7, Math.PI, 0); ctx.stroke();
-    const pg = ctx.createLinearGradient(lx - 10, 0, lx + 10, 0); pg.addColorStop(0, '#b45309'); pg.addColorStop(.5, '#fbbf24'); pg.addColorStop(1, '#92400e'); ctx.fillStyle = pg; rr(lx - 10, ly - 6, 20, 16, 3); ctx.fill();
-    ctx.strokeStyle = 'rgba(20,14,30,.85)'; ctx.lineWidth = 1.5; rr(lx - 10, ly - 6, 20, 16, 3); ctx.stroke(); ctx.fillStyle = '#1f2937'; ctx.beginPath(); ctx.arc(lx, ly + 1, 2.5, 0, 7); ctx.fill(); ctx.fillRect(lx - 1, ly + 1, 2, 5);
-  }
+  // lanterne accrochée au mur, à côté de la porte
+  const lx = dx - 24, ly = dy + 20, fl = 1 + Math.sin(time * 9) * .08;
+  const lg2 = ctx.createRadialGradient(lx, ly, 3, lx, ly, 60 * fl); lg2.addColorStop(0, 'rgba(255,200,90,.45)'); lg2.addColorStop(1, 'rgba(255,200,90,0)'); ctx.fillStyle = lg2; ctx.fillRect(lx - 60, ly - 60, 120, 120);
+  ctx.fillStyle = '#27272a'; ctx.fillRect(lx - 1.5, ly - 22, 3, 10); ctx.fillRect(lx - 8, ly - 13, 16, 3); ctx.fillRect(lx - 7, ly + 9, 14, 3);
+  ctx.fillStyle = '#fde68a'; ctx.fillRect(lx - 6, ly - 10, 12, 19); ctx.strokeStyle = '#27272a'; ctx.lineWidth = 1.5; ctx.strokeRect(lx - 6, ly - 10, 12, 19); ctx.beginPath(); ctx.moveTo(lx, ly - 10); ctx.lineTo(lx, ly + 9); ctx.stroke();
+  if (open) outText('⬆', dx + dw / 2, dy - 34 + Math.sin(time * 5) * 5, 26, '#fde047');
 }
 
 /* ---------- Le chien en 3D (modèle .glb intégré, rendu avec three.js) ---------- */
