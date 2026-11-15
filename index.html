@@ -325,7 +325,7 @@ const DAILY_FLOORS = 12, RUN_SECONDS = 30 * 60, VARIANTS = 20;
 const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900, SPRING = 1000;
 const PW = 28, PH = 40;
 const STEP = 1 / 120;
-const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v69';
+const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v70';
 /* [MODE TEST] Passe à false (ou supprime les blocs marqués [MODE TEST]) quand tout est réglé. */
 const TEST_MODE = true;
 
@@ -3302,7 +3302,8 @@ function balFinish(kind) {
 }
 
 /* ---------- Rendu de la balade (fausse 3D : tout est projeté depuis une caméra derrière le chien) ---------- */
-function balProj(x, y, z) { const zr = Math.max(.5, z - bal.dist + BAL_D0), s = 420 / zr; return { x: W / 2 + (x - bal.x * .55) * s, y: 190 + (3 - y) * s, s, zr }; }
+const BAL_HZ = 150, BAL_CAMH = 4;   // horizon à l'écran et hauteur de la caméra (vue d'assez haut pour voir derrière les obstacles)
+function balProj(x, y, z) { const zr = Math.max(.5, z - bal.dist + BAL_D0), s = 420 / zr; return { x: W / 2 + (x - bal.x * .55) * s, y: BAL_HZ + (BAL_CAMH - y) * s, s, zr }; }
 function balHash(i, k) { let h = Math.imul(i * 374761393 + k * 668265263, 1274126177); h ^= h >>> 15; return ((h >>> 0) % 10000) / 10000; }
 /* ---------- Décors de la balade : ils changent au fil de la distance ---------- */
 const BIOMES = [
@@ -3652,11 +3653,11 @@ function balDrawDog() {
   }
 }
 function balRender() {
-  const b = bal, hz = 190, camX = b.x * .55;
+  const b = bal, hz = BAL_HZ, camX = b.x * .55;
   ctx.save(); if (b.shake > 0) ctx.translate((Math.random() - .5) * b.shake * 16, (Math.random() - .5) * b.shake * 16);
   balDrawSky(b, hz, camX);
   // sol : bandes d'herbe et chemin de terre qui défilent
-  const L0 = 5, i0 = Math.floor((b.dist - BAL_D0 + 3.3) / L0), yAt = z => 190 + 1260 / Math.max(3.3, z - b.dist + BAL_D0), sAt = z => 420 / Math.max(3.3, z - b.dist + BAL_D0);
+  const L0 = 5, i0 = Math.floor((b.dist - BAL_D0 + 3.3) / L0), yAt = z => BAL_HZ + BAL_CAMH * 420 / Math.max(3.3, z - b.dist + BAL_D0), sAt = z => 420 / Math.max(3.3, z - b.dist + BAL_D0);
   for (let i = i0 + 25; i >= i0; i--) {
     const z1 = i * L0, z2 = z1 + L0, y1 = yAt(z1), y2 = yAt(z2), s1 = sAt(z1), s2 = sAt(z2), odd = ((i % 2) + 2) % 2;
     const m = biomeMix(z1 + 2.5), band = (a, c, col) => { ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(W / 2 + (a - camX) * s1, y1 + .5); ctx.lineTo(W / 2 + (c - camX) * s1, y1 + .5); ctx.lineTo(W / 2 + (c - camX) * s2, y2 - .5); ctx.lineTo(W / 2 + (a - camX) * s2, y2 - .5); ctx.fill(); };
