@@ -319,7 +319,7 @@ const DAILY_FLOORS = 12, RUN_SECONDS = 30 * 60, VARIANTS = 20;
 const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900, SPRING = 1000;
 const PW = 28, PH = 40;
 const STEP = 1 / 120;
-const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v47';
+const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v48';
 /* [MODE TEST] Passe à false (ou supprime les blocs marqués [MODE TEST]) quand tout est réglé. */
 const TEST_MODE = true;
 
@@ -345,14 +345,14 @@ const THEMES = [
     desc: 'Dalles à cœur doré, plateformes en orbite, cibles minuscules : chaque atterrissage compte !', prec: true,
     w: { plain: 2, narrow: 3, movH: 1, movV: 1, iceRun: 2, gold: 3, orbit: 3 } },
   { id: 'vitesse', day: 'Vendredi', name: 'Vitesse', emoji: '🏃', hue: 200, col: '#7dd3fc',
-    desc: 'Mur de feu qui te poursuit, propulseurs, course contre la montre : fonce !', speed: true,
-    w: { plain: 2, narrow: 1, movH: 1, conv: 3, crumble: 1, chase: 3, boost: 3 } },
+    desc: 'Tyroliennes, mur de feu qui te poursuit, propulseurs, course contre la montre : fonce !', speed: true,
+    w: { plain: 2, narrow: 1, movH: 1, conv: 2, crumble: 1, chase: 3, boost: 2, zip: 3 } },
   { id: 'altitude', day: 'Samedi', name: 'Altitude', emoji: '🚀', hue: 225, col: '#a5b4fc', alt: true,
     desc: 'Courants d\'air, ascenseurs, ressorts et étoiles dans le ciel : grimpe le plus haut possible !', sky: true,
     w: { plain: 1, narrow: 1, movV: 1, climb: 3, spring: 2, wind: 3, lift: 3 } },
   { id: 'defi', day: 'Dimanche', name: 'Grand Défi', emoji: '👑', hue: 315, col: '#f0abfc', alt: true, mix: true,
     desc: 'Le mélange de tous les pièges de la semaine. Es-tu prêt ?',
-    w: { plain: 2, narrow: 1, movH: 1, movV: 1, crumble: 1, trap: 1, fire: 1, laser: 1, saw: 1, blink: 1, ghost: 1, decoy: 1, colorUp: 1, riddle: 1, conv: 1, climb: 1, spring: 1, iceRun: 1 } }
+    w: { plain: 2, narrow: 1, movH: 1, movV: 1, crumble: 1, trap: 1, fire: 1, laser: 1, saw: 1, blink: 1, ghost: 1, decoy: 1, colorUp: 1, riddle: 1, conv: 1, climb: 1, spring: 1, iceRun: 1, zip: 1 } }
 ];
 
 /* ---------- Aléatoire à graine (seed) ---------- */
@@ -808,7 +808,7 @@ function genFloor(fi) {
   // zone "mémoire" : une lanterne 👁 révèle quelques secondes ce qui est caché juste après
   const newMem = (lp, dur) => { lp.busy = true; const g = { id: mem.length, rev: 0, cd: 0, dur, lx: lp.x + lp.w - 26, x1: 0 }; mem.push(g); lamps.push({ x: g.lx, y: lp.y - 36, g: g.id }); return g; };
   const forceCp = (p, fx) => { if (p.x - lastCpX > 700) { cps.push({ x: p.x + (fx || p.w / 2 - 24), y: p.y, on: false }); p.cp = true; lastCpX = p.x; } };
-  const keyCand = []; let goldUsed = false;
+  const keyCand = []; let goldUsed = false, zipUsed = false; const zips = [];
 
   // pose une plateforme après la plateforme courante (saut garanti faisable)
   const put = (gap, dy, w, props, maxRise = 85) => {
@@ -999,6 +999,19 @@ function genFloor(fi) {
       if (D > .55 && rng() < .6) addSpikes(p, 1);
     },
     // ===== VENDREDI (Vitesse) =====
+    zip() {   // tyroliennes au-dessus du vide (plusieurs à enchaîner en haut de la tour, avec des scies sur le câble)
+      zipUsed = true;
+      const A = put(R(60, 100), RI(-30, 0), 190); if (!A.cp) { cps.push({ x: A.x + 30, y: A.y, on: false }); A.cp = true; lastCpX = A.x; }   // drapeau juste avant
+      const n = 1 + (D > .3 ? 1 : 0) + (D > .65 ? 1 : 0);
+      let sx = A.x + A.w - 40, sy = A.y - 112, y1 = sy;
+      for (let i = 0; i < n; i++) {
+        const len = R(520, 680), room = (ymax - 90) - sy - 15 * (n - i - 1), drop = Math.max(30, Math.min(R(70, 130), room));
+        const x1 = sx + len; y1 = sy + drop; zips.push({ x0: sx, y0: sy, x1, y1 });
+        if (D > .4 && rng() < .75) { const f = R(.45, .7), px = sx + len * f; saws.push({ x0: px, x1: px + .001, y: sy + drop * f + 28, sp: 0, ph: 0 }); }   // scie sur le câble : sauter par-dessus
+        if (i < n - 1) { const up = D > .6 && rng() < .6; sx = x1 + R(80, 120); sy = up ? Math.max(ymin + 30, y1 - R(20, 45)) : Math.min(ymax - 120, y1 + R(25, 50)); }   // la suivante : plus haut = lâcher au bon moment
+      }
+      const B = mk({ x: sx + (zips[zips.length - 1].x1 - sx) - 70, y: Math.min(ymax, y1 + 85), w: 300, type: 'normal' }); cur = B; forceCp(B, 120);
+    },
     chase() {   // un mur de feu te poursuit : pas le temps d'hésiter !
       const st = put(R(60, 110), RI(-20, 20), 220, { spiky: true });
       const n = 4 + Math.round(4 * D);
@@ -1237,12 +1250,13 @@ function genFloor(fi) {
   if (puz.sw === 'button') hints.push('active l\'interrupteur 🔴 pour faire apparaître le pont');
   if (puz.key) hints.push(last ? 'trouve la clé 🔑 : elle fera descendre la plateforme de notre chien 🐶' : 'trouve la clé 🔑 pour ouvrir l\'escalier');
   if (last && !puz.key) hints.push('rejoins notre chien 🐶 tout en haut');
+  if (zipUsed) hints.push('saute pour attraper la tyrolienne 🪝, saute encore pour la lâcher');
   if (goldUsed) hints.push('sur les dalles fragiles, pose-toi bien sur l\'or ✨');
   let hint = hints.join(' et ') + ' !'; hint = hint[0].toUpperCase() + hint.slice(1);
   if (heart && !heart.got) hint += ' ❤️ Un cœur est caché en hauteur à cet étage, gardé par un œil : 1, 2, 3… soleil !';
   const sw = puz.sw ? { kind: puz.sw, x: swPlat.x + swPlat.w / 2, y: swPlat.y, on: false, bridge: puz.sw === 'race' ? null : bridge } : null;
   const cst = {}; for (let g = 0; g < grpN; g++) cst[g] = grpInit[g] || 'b';
-  return { f, fi, last, plats, spikes, traps, coins, orbs, cps, door, key, sw, simon, pairs, whack, mem, lamps, signs, fires, lasers, saws, levers, plate, crates, cbtns, riddles, grpInit, cpuz, tblocks, winds, chasers, targets, race, stars, cst, heart, heartOk, needKey: puz.key, dog, W: Wend,
+  return { f, fi, last, plats, spikes, traps, coins, orbs, cps, door, key, sw, simon, pairs, whack, mem, lamps, signs, fires, lasers, saws, levers, plate, crates, cbtns, riddles, grpInit, cpuz, tblocks, winds, chasers, targets, race, stars, cst, heart, heartOk, zips, needKey: puz.key, dog, W: Wend,
     top: Math.min(0, minY - 260, dog ? dog.plat.y - 230 : 0), respawn: cps[0], hint, th: theme(f) };
 }
 
@@ -1587,11 +1601,14 @@ function updatePlayer(dt) {
     if (p.standing.mv) { p.x += p.standing.dx; p.y += p.standing.dy; }
     if (p.standing.conv) p.x += p.standing.conv * dt;
   }
+  const zipping = L.zips && L.zips.length && zipStep(p, dt);
+  if (!zipping) {
   const dir = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
   if (dir) p.face = dir;
   const ice = p.grounded && p.standing && p.standing.type === 'ice';
   const target = dir * MOVE;
-  const acc = p.grounded ? (ice ? (dir ? 480 : 260) : 3400) : 2400;
+  p.flingT = Math.max(0, (p.flingT || 0) - dt);
+  const acc = p.grounded ? (ice ? (dir ? 480 : 260) : 3400) : (p.flingT > 0 && Math.abs(p.vx) > MOVE && Math.sign(p.vx) !== -dir ? 380 : 2400);   // après la tyrolienne, on garde l'élan
   if (p.vx < target) p.vx = Math.min(target, p.vx + acc * dt); else if (p.vx > target) p.vx = Math.max(target, p.vx - acc * dt);
   if (p.grounded && p.standing && p.standing.boost && p.x + PW / 2 > p.standing.x + p.standing.w - 85 && !p.boostT) { p.boostT = .6; SFX.spring(); ring(p.x + PW / 2, p.y + PH, '#fde047'); }
   if (p.boostT > 0) { p.boostT = Math.max(0, p.boostT - dt); p.vx = 620; p.face = 1; if (Math.random() < .5) dust(p.x, p.y + PH - 6, 1); }
@@ -1662,6 +1679,8 @@ function updatePlayer(dt) {
         SFX.spring(); ring(p.x + PW / 2, best.y, '#f472b6'); sparkle(p.x + PW / 2, best.y, 10, '#f9a8d4');
       }
     }
+  }
+  if (L.zips && L.zips.length && !p.zip) zipCatch(p, dt);
   }
   const k = Math.min(1, dt * 14); p.sx += (1 - p.sx) * k; p.sy += (1 - p.sy) * k;
   p.inv = Math.max(0, p.inv - dt);
@@ -2319,6 +2338,59 @@ function drawHeartGem(x, y, k) {   // cœur en verre rouge brillant
   ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.beginPath(); ctx.ellipse(-8, -7, 4, 2.5, -.6, 0, 7); ctx.fill();
   ctx.restore();
 }
+/* ---------- Tyrolienne (Vitesse) : on attrape la poignée en sautant, on glisse, on lâche en sautant ---------- */
+function zipCableY(z, x) { return z.y0 + (x - z.x0) * (z.y1 - z.y0) / (z.x1 - z.x0); }
+function zipCatch(p, dt) {
+  if (p.zipCd > 0) { p.zipCd -= dt; return; }
+  const cx = p.x + PW / 2;
+  for (let i = 0; i < L.zips.length; i++) {
+    const z = L.zips[i]; if (cx < z.x0 + 4 || cx > z.x1 - 24) continue;
+    const cy = zipCableY(z, cx); if (p.y < cy - 8 || p.y > cy + 20 || p.grounded) continue;
+    const len = Math.hypot(z.x1 - z.x0, z.y1 - z.y0), ux = (z.x1 - z.x0) / len, uy = (z.y1 - z.y0) / len;
+    p.zip = { i, s: Math.hypot(cx - z.x0, cy - z.y0), v: Math.max(240, p.vx * ux + Math.max(0, p.vy) * uy * .3), len, ux, uy };
+    p.airJumps = 1; p.boostT = 0; tone(520, 900, .12, 'triangle', .06); sparkle(cx, cy, 6, '#e5e7eb');
+    if (!L.zipTold) { L.zipTold = true; showToast('🪝 Saute pour lâcher la tyrolienne !'); }
+    return;
+  }
+}
+function zipStep(p, dt) {   // déplacement le long du câble ; renvoie true si le héros est accroché
+  const q = p.zip; if (!q) return false; const z = L.zips[q.i];
+  q.v = Math.max(240, Math.min(760, q.v + 1700 * q.uy * dt + 40 * dt)); q.s += q.v * dt;
+  if (p.jbuf > 0 || q.s >= q.len) {   // on lâche : en sautant (on monte un peu) ou au bout du câble ; on garde l'élan
+    const jumped = p.jbuf > 0; q.s = Math.min(q.s, q.len);
+    p.vx = q.v * q.ux; p.vy = jumped ? -JUMP * .78 : q.v * q.uy; p.zip = null; p.zipCd = .22; p.flingT = .8; p.jbuf = 0; p.cut = !jumped; p.airJumps = 1;
+    if (jumped) { SFX.jump(); p.sx = .78; p.sy = 1.25; }
+    p.x = z.x0 + q.ux * q.s - PW / 2; p.y = z.y0 + q.uy * q.s + 6; p.grounded = false; p.standing = null; return true;
+  }
+  p.x = z.x0 + q.ux * q.s - PW / 2; p.y = z.y0 + q.uy * q.s + 6; p.vx = q.v * q.ux; p.vy = q.v * q.uy; p.face = 1; p.grounded = false; p.standing = null;
+  if (Math.random() < .3) sparkle(p.x + PW / 2, p.y - 4, 1, '#fde68a');   // étincelles de la poulie
+  return true;
+}
+function drawZips() {
+  for (const z of L.zips) {
+    if (z.x1 < cam.x - 80 || z.x0 > cam.x + W + 80) continue;
+    for (const [ax, ay] of [[z.x0 - 12, zipCableY(z, z.x0 - 12)], [z.x1 + 12, zipCableY(z, z.x1 + 12)]]) {   // ancrages : chaîne vers le plafond et anneau
+      ctx.strokeStyle = '#52525b'; ctx.lineWidth = 3; ctx.setLineDash([6, 4]); ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(ax, ay - 140); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = '#3f3f46'; ctx.beginPath(); ctx.arc(ax, ay, 6, 0, 7); ctx.fill(); ctx.fillStyle = '#a1a1aa'; ctx.beginPath(); ctx.arc(ax - 1.5, ay - 1.5, 2, 0, 7); ctx.fill();
+    }
+    const xa = z.x0 - 12, xb = z.x1 + 12;
+    ctx.strokeStyle = '#27272a'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(xa, zipCableY(z, xa)); ctx.lineTo(xb, zipCableY(z, xb)); ctx.stroke();   // câble d'acier
+    ctx.strokeStyle = 'rgba(228,228,231,.55)'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(xa, zipCableY(z, xa) - 1.2); ctx.lineTo(xb, zipCableY(z, xb) - 1.2); ctx.stroke();
+    const on = P && P.zip && L.zips[P.zip.i] === z; if (on) continue;   // accroché : la poignée est dessinée devant le héros (drawZipHandle)
+    const hx = z.x0 + 10, hy = zipCableY(z, hx);
+    drawTrolley(hx, hy, Math.sin(time * 2 + z.x0) * .15);
+    if (!(P && P.zip)) { ctx.globalAlpha = .55 + .35 * Math.sin(time * 5); outText('🪝', z.x0 + 10, zipCableY(z, z.x0) - 26, 18, '#fff'); ctx.globalAlpha = 1; }
+  }
+}
+function drawZipHandle() { if (P && P.zip) { const z = L.zips[P.zip.i], hx = P.x + PW / 2; drawTrolley(hx, zipCableY(z, hx), 0); } }
+function drawTrolley(hx, hy, sw) {   // chariot, poulie et poignée rouge
+  {
+    ctx.fillStyle = '#71717a'; rr(hx - 10, hy - 7, 20, 8, 3); ctx.fill();   // chariot et poulie
+    ctx.fillStyle = '#d4d4d8'; ctx.beginPath(); ctx.arc(hx, hy - 1, 4, 0, 7); ctx.fill();
+    ctx.save(); ctx.translate(hx, hy + 1); ctx.rotate(sw); ctx.strokeStyle = '#3f3f46'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, 6); ctx.stroke();
+    ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 5; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(-9, 7); ctx.lineTo(9, 7); ctx.stroke(); ctx.lineCap = 'butt'; ctx.restore();   // poignée
+  }
+}
 function drawSpikeRow(x, y, w, hgt, col) {
   spikeRowReal(x, y, w, hgt, false); return;
   const n = Math.round(w / 20);
@@ -2850,8 +2922,8 @@ function render() {
   }
   drawNewDays();
   for (const t of L.traps) if (t.x + t.w > x0 && t.x < x1) drawTrap(t);
-  drawCheckpoints(); drawMemory(); drawReflex(); drawLogic(); drawDoor(); drawSwitch(); drawKey(); drawCoins(); drawOrbs();
-  drawPlayer();
+  drawZips(); drawCheckpoints(); drawMemory(); drawReflex(); drawLogic(); drawDoor(); drawSwitch(); drawKey(); drawCoins(); drawOrbs();
+  drawPlayer(); drawZipHandle();
   drawParticles();
   ctx.restore();
   if (flash > 0) { ctx.fillStyle = `rgba(244,63,94,${flash * .5})`; ctx.fillRect(0, 0, W, H); }
