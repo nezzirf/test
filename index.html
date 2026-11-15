@@ -110,7 +110,8 @@
           <button data-act="shop" class="btn bg-emerald-400 hover:bg-emerald-300 text-slate-900 text-2xl px-4 py-2" style="width:214px">🛒 Boutique</button>
           <button data-act="options" class="btn bg-sky-300 hover:bg-sky-200 text-slate-900 text-2xl px-4 py-2" style="width:214px">⚙️ Options</button>
         </div>
-        <button data-act="test" class="testOnly btn bg-lime-400 hover:bg-lime-300 text-slate-900 text-sm px-3 py-1">🧪 Mode test</button>
+        <div class="flex gap-3"><button data-act="test" class="testOnly btn bg-lime-400 hover:bg-lime-300 text-slate-900 text-sm px-3 py-1">🧪 Mode test</button>
+        <button data-act="diag" class="testOnly btn bg-lime-400 hover:bg-lime-300 text-slate-900 text-sm px-3 py-1">⚡ Diagnostic vitesse</button></div>
       </div>
       <div id="dateTag" class="testOnly mt-4 text-xs font-bold text-indigo-300"></div>
     </div>
@@ -320,7 +321,7 @@ const DAILY_FLOORS = 12, RUN_SECONDS = 30 * 60, VARIANTS = 20;
 const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900, SPRING = 1000;
 const PW = 28, PH = 40;
 const STEP = 1 / 120;
-const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v62';
+const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v63';
 /* [MODE TEST] Passe à false (ou supprime les blocs marqués [MODE TEST]) quand tout est réglé. */
 const TEST_MODE = true;
 
@@ -1967,6 +1968,7 @@ document.addEventListener('click', e => {
   else if (a === 'train') { state = 'title'; $('hud').classList.add('off'); showScreen('trainPick'); }
   else if (a === 'trainGo') startRun(false, +b.dataset.i);
   // [MODE TEST]
+  else if (a === 'diag') startDiag();
   else if (a === 'test') { state = 'title'; $('hud').classList.add('off'); renderTest(); showScreen('testPick'); }
   else if (a === 'testTheme') { testSel.theme = +b.dataset.i; renderTest(); }
   else if (a === 'testVar') { testSel.variant = (testSel.variant + +b.dataset.d + VARIANTS) % VARIANTS; renderTest(); }
@@ -2993,13 +2995,15 @@ function drawParticles() {
 let VIGNETTE = null;
 function render() {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
+  if (DG('blank')) { ctx.fillStyle = '#1e1b4b'; ctx.fillRect(0, 0, W, H); return; }
   if (bal && (state === 'balade' || state === 'balEnd' || (state === 'paused' && prevState === 'balade'))) { balRender(); return; }
   const playing = L && run && (state === 'playing' || state === 'dying' || state === 'clear' || state === 'paused' || state === 'end');
   if (!playing) { drawBG(theme(Math.floor(time / 8) % 12), time * 40, time); return; }
   const sx = shake ? (Math.random() - .5) * shake * 22 : 0, sy = shake ? (Math.random() - .5) * shake * 22 : 0;
   ctx.save(); ctx.translate(sx, sy);
-  drawBG(L.th, cam.x, time);
+  if (DG('nobg')) { ctx.fillStyle = '#3b3550'; ctx.fillRect(0, 0, W, H); } else drawBG(L.th, cam.x, time);
   ctx.translate(-Math.round(cam.x), -Math.round(cam.y));
+  if (!DG('noobj')) {
   const x0 = cam.x - 60, x1 = cam.x + W + 60;
   for (const p of L.plats) if (p.x + p.w > x0 && p.x < x1) drawPlat(p);
   for (const s of L.spikes) if (s.x + s.w > x0 && s.x < x1) {
@@ -3012,12 +3016,15 @@ function render() {
   drawNewDays();
   for (const t of L.traps) if (t.x + t.w > x0 && t.x < x1) drawTrap(t);
   drawZips(); drawCheckpoints(); drawMemory(); drawReflex(); drawLogic(); drawDoor(); drawSwitch(); drawKey(); drawCoins(); drawOrbs();
-  drawPlayer(); drawZipHandle();
+  }
+  if (!DG('nohero')) { drawPlayer(); drawZipHandle(); }
   drawParticles();
   ctx.restore();
   if (flash > 0) { ctx.fillStyle = `rgba(244,63,94,${flash * .5})`; ctx.fillRect(0, 0, W, H); }
+  if (!DG('novig')) {
   const vg = VIGNETTE || (VIGNETTE = ctx.createRadialGradient(W / 2, H / 2, 280, W / 2, H / 2, 620)); if (!vg.done) { vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.4)'); vg.done = true; }
   ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+  }
   if (fade > 0) { ctx.fillStyle = `rgba(10,6,40,${Math.min(1, fade)})`; ctx.fillRect(0, 0, W, H); }
 }
 
@@ -3816,12 +3823,51 @@ function drawTrailBit(c, kind, x, y, s, a, k) {
 /* ======================================================================
    BOUCLE PRINCIPALE
    ====================================================================== */
+/* [MODE TEST] diagnostic de vitesse : coupe les éléments un par un et mesure les images par seconde sur l'appareil */
+let DIAG = null;
+function DG(k) { return !!(DIAG && DIAG.c && DIAG.c[k]); }
+const DIAG_CFG = [
+  ['Jeu complet', {}], ['Jeu figé, décor qui défile', { freeze: 1 }], ['Sans le fond', { freeze: 1, nobg: 1 }],
+  ['Sans plateformes ni objets', { freeze: 1, noobj: 1 }], ['Sans héros ni chien', { freeze: 1, nohero: 1 }],
+  ['Sans bords assombris', { freeze: 1, novig: 1 }], ['Sans barre du haut', { freeze: 1, nohud: 1 }],
+  ['Fond seul', { freeze: 1, noobj: 1, nohero: 1, novig: 1, nohud: 1 }],
+  ['Écran vide', { freeze: 1, blank: 1, nohud: 1 }], ['Écran vide, sans manette', { freeze: 1, blank: 1, nohud: 1, nopad: 1 }]];
+function startDiag() {
+  startRun(false, 0, { theme: 1, variant: 2, floor: 4 });
+  DIAG = { i: 0, t: 0, n: 0, js: 0, ft: 0, res: [], c: DIAG_CFG[0][1] };
+}
+function diagTick(dt, js) {
+  const d = DIAG;
+  if (state === 'title' || state === 'closed') { DIAG = null; $('hud').style.visibility = ''; return; }
+  if (!d.done) {
+    d.t += dt; if (d.t > .8) { d.n++; d.js += js; d.ft += dt; }
+    if (d.t > 4) {
+      d.res.push([DIAG_CFG[d.i][0], d.n / d.ft, d.js / d.n]); d.i++; d.t = d.n = d.js = d.ft = 0;
+      if (d.i >= DIAG_CFG.length) { d.done = true; d.c = { freeze: 1 }; } else d.c = DIAG_CFG[d.i][1];
+      $('hud').style.visibility = d.c.nohud ? 'hidden' : '';
+    }
+  }
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  const lines = d.res.map(r => r[0] + ' : ' + Math.round(r[1]) + ' i/s · calcul ' + r[2].toFixed(1) + ' ms');
+  lines.unshift(d.done ? 'Diagnostic terminé : prends une photo de cet écran 📷' : 'Diagnostic ' + (d.i + 1) + ' / ' + DIAG_CFG.length + ' : ' + DIAG_CFG[d.i][0] + '…');
+  lines.push('Écran ' + innerWidth + '×' + innerHeight + ' · zoom ' + (devicePixelRatio || 1) + (LIGHT ? ' · léger' : '') + ' · ' + VERSION);
+  if (d.done) lines.push('Pour sortir : Pause puis Accueil');
+  ctx.font = '800 16px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillStyle = 'rgba(10,6,40,.85)'; ctx.fillRect(170, 110, 620, lines.length * 22 + 16);
+  lines.forEach((l, k) => { ctx.fillStyle = k === 0 ? '#fde047' : '#fff'; ctx.fillText(l, 182, 118 + k * 22); });
+}
 let last = performance.now(), accT = 0, cdT = 0, fpsN = 0, fpsT = 0, fpsV = 0;
-function frame(ts) {
+function frame(ts) {   // [MODE TEST] enveloppe : mesure du temps de calcul pour le diagnostic de vitesse
+  const j0 = performance.now(), dt0 = (ts - last) / 1000;
+  frameBody(ts);
+  if (DIAG) diagTick(dt0, performance.now() - j0);
+}
+function frameBody(ts) {
   requestAnimationFrame(frame);
   const dt = Math.min(.1, (ts - last) / 1000); last = ts;
-  pollPads(dt);
-  if (state !== 'paused') { accT += dt; let n = 0; while (accT >= STEP && n++ < 20) { step(STEP); accT -= STEP; } }
+  if (!DG('nopad')) pollPads(dt);
+  if (DG('freeze') && state === 'playing') { DIAG.cx = (DIAG.cx || 0) + dt * 150; const span = Math.max(1, L.W - W); cam.x = span * (.5 - .5 * Math.cos(DIAG.cx / span * Math.PI)); }
+  else if (state !== 'paused') { accT += dt; let n = 0; while (accT >= STEP && n++ < 20) { step(STEP); accT -= STEP; } }
   else accT = 0;
   render();
   if (TEST_MODE) {   // [MODE TEST] images par seconde, pour mesurer sur la télé
