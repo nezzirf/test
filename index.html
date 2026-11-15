@@ -62,10 +62,8 @@
       <div class="flex gap-2 items-center">
         <div id="floorBox" class="bg-indigo-600 border-4 border-slate-900 rounded-2xl px-3 py-1 text-xl font-black">Étage 1/12</div>
         <div id="themeBox" class="bg-slate-900/70 border-4 border-slate-900 rounded-2xl px-3 py-1 text-lg font-black"></div>
-        <div id="deathBox" class="bg-slate-900/70 border-4 border-slate-900 rounded-2xl px-3 py-1 text-lg font-black tabular-nums" title="Chutes">💫 0</div>
       </div>
       <div class="flex gap-2 items-center">
-        <div id="puz" class="bg-slate-900/70 border-4 border-slate-900 rounded-2xl px-3 py-1 text-xl font-black"></div>
         <div id="scoreBox" class="bg-amber-400 text-slate-900 border-4 border-slate-900 rounded-2xl px-3 py-1 text-xl font-black tabular-nums">🪙 0</div>
         <button data-act="quit" class="btn bg-sky-400 text-slate-900 px-2 text-xl" style="pointer-events:auto" title="Retour au menu">🏠</button>
         <button id="btnPause" class="btn bg-sky-400 text-slate-900 px-2 text-xl" style="pointer-events:auto" title="Pause (P)">⏸</button>
@@ -74,7 +72,10 @@
     </div>
     <div style="position:absolute;left:0;right:0;top:0;display:flex;flex-direction:column;align-items:center">
       <div id="timer" class="bg-slate-900/80 text-white border-4 border-amber-300 rounded-2xl px-5 py-1 text-3xl font-black tabular-nums">⏳ 30:00</div>
-      <div id="heartBox" class="off mt-1 bg-slate-900/80 border-2 border-rose-300 rounded-full px-3 text-sm font-black tabular-nums" title="Cœurs trouvés pour la balade">❤️ 0/2</div>
+      <div class="flex gap-2 mt-1">
+        <div id="heartBox" class="off bg-slate-900/80 border-2 border-rose-300 rounded-full px-3 text-sm font-black tabular-nums" title="Cœurs trouvés pour la balade">❤️ 0/2</div>
+        <div id="puz" class="off bg-slate-900/80 border-2 border-slate-500 rounded-full px-3 text-sm font-black"></div>
+      </div>
       <div id="trainTag" class="off mt-1 bg-fuchsia-500 border-2 border-slate-900 rounded-full px-3 text-xs font-black tracking-widest">ENTRAÎNEMENT</div>
     </div>
   </div>
@@ -319,7 +320,7 @@ const DAILY_FLOORS = 12, RUN_SECONDS = 30 * 60, VARIANTS = 20;
 const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900, SPRING = 1000;
 const PW = 28, PH = 40;
 const STEP = 1 / 120;
-const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v48';
+const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v49';
 /* [MODE TEST] Passe à false (ou supprime les blocs marqués [MODE TEST]) quand tout est réglé. */
 const TEST_MODE = true;
 
@@ -1861,10 +1862,10 @@ function updateHUD(full) {
     let h = '';
     if (L.needKey) h += `<span style="${L.key.got ? '' : 'filter:grayscale(1);opacity:.5'}">🔑${L.key.got ? '✔' : ''}</span> `;
     if (L.sw) h += `<span style="${L.sw.on ? '' : 'filter:grayscale(1);opacity:.5'}">${SW_ICON[L.sw.kind]}${L.sw.on ? '✔' : ''}</span>`;
-    $('puz').innerHTML = h;
+    $('puz').innerHTML = h; $('puz').classList.toggle('off', !h);
   }
   if (full) { $('heartBox').classList.toggle('off', !heartFloors); $('heartBox').textContent = `❤️ ${run.heartsFound}/2`; }
-  const fc = run.floorCoins && run.floorCoins[floor]; setTxt('scoreBox', fc ? '🪙 ' + fc.got + '/' + fc.tot + (fc.got >= fc.tot ? ' ✔' : '') : '🪙 ' + run.coins); setTxt('deathBox', '💫 ' + run.deaths);
+  const fc = run.floorCoins && run.floorCoins[floor]; setTxt('scoreBox', fc ? (fc.tot ? '🪙 ' + fc.got + '/' + fc.tot + (fc.got >= fc.tot ? ' ✔' : '') : '🪙 ✔') : '🪙 ' + run.coins); 
 }
 function updateTimer() {
   if (!run) return;
