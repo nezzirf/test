@@ -320,7 +320,7 @@ const DAILY_FLOORS = 12, RUN_SECONDS = 30 * 60, VARIANTS = 20;
 const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900, SPRING = 1000;
 const PW = 28, PH = 40;
 const STEP = 1 / 120;
-const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v51';
+const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v52';
 /* [MODE TEST] Passe à false (ou supprime les blocs marqués [MODE TEST]) quand tout est réglé. */
 const TEST_MODE = true;
 
@@ -349,7 +349,7 @@ const THEMES = [
     desc: 'Tyroliennes, mur de feu qui te poursuit, propulseurs, course contre la montre : fonce !', speed: true,
     w: { plain: 2, narrow: 1, movH: 1, conv: 2, crumble: 1, chase: 3, boost: 2, zip: 3 } },
   { id: 'altitude', day: 'Samedi', name: 'Altitude', emoji: '🚀', hue: 225, col: '#a5b4fc', alt: true,
-    desc: 'Courants d\'air, ascenseurs, ressorts et étoiles dans le ciel : grimpe le plus haut possible !', sky: true,
+    desc: 'Tours d\'escalade, puits, courants d\'air en rafales, ascenseurs et ressorts : grimpe le plus haut possible !', sky: true,
     w: { plain: 1, narrow: 1, movV: 1, climb: 3, spring: 2, wind: 3, lift: 3 } },
   { id: 'defi', day: 'Dimanche', name: 'Grand Défi', emoji: '👑', hue: 315, col: '#f0abfc', alt: true, mix: true,
     desc: 'Le mélange de tous les pièges de la semaine. Es-tu prêt ?',
@@ -443,7 +443,7 @@ function tone(f1, f2, dur, type = 'square', vol = .05, delay = 0) {
 }
 const arp = (notes, step, type, vol) => notes.forEach((f, i) => tone(f, f, .18, type, vol, i * step));
 const MEM_ORDERS = [['simon', 'pairs', 'code'], ['pairs', 'code', 'simon'], ['code', 'simon', 'pairs'], ['pairs', 'simon', 'code'], ['simon', 'code', 'pairs'], ['code', 'pairs', 'simon']];
-const CARD_SYMS = ['🍎', '⭐', '🐸', '🌙', '🍄'], SW_ICON = { button: '🔘', simon: '🧠', pairs: '🃏', code: '🪧', whack: '⚡', levers: '💡', crate: '📦', targets: '🎯', race: '⏱️', stars: '⭐' };
+const CARD_SYMS = ['🍎', '⭐', '🐸', '🌙', '🍄'], SW_ICON = { button: '🔘', simon: '🧠', pairs: '🃏', code: '🪧', whack: '⚡', levers: '💡', crate: '📦', targets: '🎯', race: '⏱️', stars: '⭐', spire: '🗼' };
 const PAD_TONES = [262, 330, 392, 523], PAD_COLS = ['#ef4444', '#3b82f6', '#22c55e', '#facc15'];
 const SFX = {
   jump: () => tone(330, 700, .15), djump: () => tone(520, 1200, .22, 'triangle', .08), land: () => tone(140, 70, .07, 'sine', .07),
@@ -666,7 +666,7 @@ function puzzleFor(fi) {
   if (THEME.simon) return { key: last || f % 4 === 3, sw: MEM_ORDERS[hashStr(SEED + '#mem') % 6][f % 3] };   // 3 énigmes de mémoire qui alternent
   if (THEME.prec || THEME.speed || THEME.sky) {   // énigme propre au jour, en alternance avec l'interrupteur
     const sp = THEME.prec ? 'targets' : THEME.speed ? 'race' : 'stars';
-    return { key: last || r > 1 - (f / 11) * .5, sw: (f + (hashStr(SEED) & 1)) % 2 ? 'button' : sp };
+    return { key: last || r > 1 - (f / 11) * .5, sw: (f + (hashStr(SEED) & 1)) % 2 ? (THEME.sky ? 'spire' : 'button') : sp };
   }
   if (THEME.logic) return { key: last || r > 1 - (f / 11) * .5, sw: (f + (hashStr(SEED) & 1)) % 2 ? 'levers' : 'crate' };   // leviers et caisse en alternance
   if (THEME.whack) return { key: last || r > 1 - (f / 11) * .6, sw: (f + (hashStr(SEED) & 1)) % 2 ? 'button' : 'whack' };   // tape-éclair un étage sur deux
@@ -809,7 +809,7 @@ function genFloor(fi) {
   // zone "mémoire" : une lanterne 👁 révèle quelques secondes ce qui est caché juste après
   const newMem = (lp, dur) => { lp.busy = true; const g = { id: mem.length, rev: 0, cd: 0, dur, lx: lp.x + lp.w - 26, x1: 0 }; mem.push(g); lamps.push({ x: g.lx, y: lp.y - 36, g: g.id }); return g; };
   const forceCp = (p, fx) => { if (p.x - lastCpX > 700) { cps.push({ x: p.x + (fx || p.w / 2 - 24), y: p.y, on: false }); p.cp = true; lastCpX = p.x; } };
-  const keyCand = []; let goldUsed = false, zipUsed = false; const zips = [];
+  const keyCand = []; let goldUsed = false, zipUsed = false, spireInfo = null; const zips = [];
 
   // pose une plateforme après la plateforme courante (saut garanti faisable)
   const put = (gap, dy, w, props, maxRise = 85) => {
@@ -924,8 +924,9 @@ function genFloor(fi) {
       put(R(60, 200), RI(-40, 40), R(180 - 60 * D, 220 - 60 * D));
     },
     climb() {
-      const up = cur.y - 90 > ymin + 60, n = 3 + Math.round(3 * D) + RI(0, 1);
-      for (let i = 0; i < n; i++) put(R(40 + 20 * D, 70 + 70 * D), up ? -R(50 + 15 * D, 70 + 15 * D) : R(60, 120), R(150 - 70 * D, 180 - 70 * D));
+      const up = cur.y - 90 > ymin + 60, n = 3 + Math.round(3 * D) + RI(0, 1), bper = R(2.6, 3) - .8 * D;   // même rythme pour toutes les marches qui clignotent
+      for (let i = 0; i < n; i++) { const tr = D > .35 && rng() < .2 + .35 * D ? (rng() < .5 ? { type: 'crumble', cr: 0, crT: 0, delay: .7 - .3 * D } : { type: 'blink', per: bper, ph: (i % 2) * .5 }) : null;   // marches qui s'effondrent ou clignotent
+        put(R(40 + 20 * D, 70 + 70 * D), up ? -R(50 + 15 * D, 70 + 15 * D) : R(60, 120), R(150 - 70 * D, 180 - 70 * D), tr); }
     },
     spring() {
       put(R(50, 110), RI(-10, 20), R(140 - 30 * D, 160 - 30 * D), { spring: true, springT: 0, spiky: true });
@@ -1027,9 +1028,9 @@ function genFloor(fi) {
     // ===== SAMEDI (Altitude) =====
     wind() {   // courant d'air : saute dedans pour t'envoler, puis sors sur le côté
       let h = R(260, 300 + 90 * D); const A = put(R(60, 110), RI(-20, 20), 160, { spiky: true });
-      h = Math.min(h, A.y - ymin - 40); if (h < 240) { SEG.climb(); return; }
+      h = Math.min(h, A.y - ymin - 40, D > .5 ? 300 : 1e9); if (h < 240) { SEG.climb(); return; }   // avec les rafales : pas trop haut
       const zx = A.x + A.w + R(25, 45), zw = 92 - 22 * D;
-      winds.push({ x: zx, w: zw, yTop: A.y - h, yBot: A.y + 260 });
+      winds.push(D > .5 ? { x: zx, w: zw, yTop: A.y - h, yBot: A.y + 260, gust: true, per: R(2.3, 2.8) - .4 * D, ph: rng() } : { x: zx, w: zw, yTop: A.y - h, yBot: A.y + 260 });   // en haut : par rafales
       cur = mk({ x: zx + zw + R(45, 70 + 30 * D), y: A.y - h + R(20, 45), w: R(130 - 30 * D, 180 - 40 * D), type: 'normal' });
     },
     lift() {   // ascenseur : il monte quand tu es dessus… et redescend vite en haut de la tour
@@ -1066,6 +1067,36 @@ function genFloor(fi) {
       const Q = put(R(70, 120), RI(-30, 30), 200);
       const T = (Q.x - B.x - B.w) / MOVE * (1.9 - .6 * D) + 1.2;
       race = { base: B, bx: B.x + B.w - 60, T: Math.round(T * 10) / 10, t: 0, list, goal: Q, done: false, told: false };
+    },
+    spire() {   // SAMEDI : tour d'escalade (ou puits) jusqu'au bouton ; ses paliers ont leurs propres mécaniques
+      let n = 4 + Math.round(3 * D); const sy = R(92, 98 + 6 * D), pw = 92 - 24 * D;
+      const kinds = ['normal', 'normal'].concat(D > .15 ? ['mover'] : [], D > .3 ? ['crumble'] : [], D > .45 ? ['blink', 'mover'] : [], D > .6 ? ['ice', 'crumble'] : []);
+      const level = (x, y, i) => {   // un palier de la tour, avec sa mécanique
+        const k = i === 0 ? 'normal' : kinds[Math.floor(rng() * kinds.length)], o = { x, y, w: pw, tower: true, busy: true };
+        if (k === 'mover') Object.assign(o, { type: 'mover', mv: true, bx: x, by: y, ax: R(22, 30 + 12 * D), ay: 0, sp: R(1, 1.3 + .5 * D), ph: R(0, 6) });
+        else if (k === 'crumble') Object.assign(o, { type: 'crumble', cr: 0, crT: 0, delay: .75 - .35 * D });
+        else if (k === 'blink') Object.assign(o, { type: 'blink', per: R(2.6, 3) - .7 * D, ph: rng() });
+        else if (k === 'ice') o.type = 'ice'; else o.type = 'normal';
+        return mk(o);
+      };
+      const up0 = cur.y - (n + 1) * sy > ymin + 40, down0 = cur.y + (n + 1) * sy + 40 < 600;
+      const down = down0 && (!up0 || rng() < .45);
+      if (!up0 && !down) n = 3;
+      if (!down) {   // vers le haut : la tour se dresse au-dessus de la grande dalle
+        const B = put(R(60, 110), RI(-20, 20), 460, { spiky: true }); spireInfo = { down: false };
+        const xL = B.x + 110, xR = B.x + 250;
+        for (let i = 0; i < n; i++) level(i % 2 ? xR : xL, B.y - (i + 1) * sy, i);
+        swPlat = mk({ x: (n % 2 ? xR : xL) - 10, y: B.y - (n + 1) * sy, w: 115, type: 'normal', tower: true, busy: true });
+        cur = B;
+      } else {   // vers le bas : un puits à côté, le bouton est au fond… et il faut remonter
+        const A = put(R(60, 110), RI(-20, 20), 200, { spiky: true }); spireInfo = { down: true };
+        const wx = A.x + A.w, G = 190;
+        for (let i = 0; i < n; i++) level(i % 2 ? wx + G - pw - 8 : wx + 8, A.y + (i + 1) * sy, n - i);
+        swPlat = mk({ x: wx - 30, y: A.y + (n + 1) * sy, w: G + 60, type: 'normal', tower: true, busy: true });
+        cur = mk({ x: wx + G, y: A.y, w: 240, type: 'normal' });
+      }
+      bridge = mk({ x: cur.x + cur.w, y: cur.y, w: 420, type: 'bridge', grow: 0, active: false });
+      put(420, 0, R(150, 210), { exact: true });
     },
     stars() {   // SAMEDI : attraper les étoiles du ciel avec le courant d'air, le ressort et l'ascenseur
       const B = put(R(60, 110), RI(-20, 20), 640, { sw: true, spiky: true, busy: true }); swPlat = B;
@@ -1249,6 +1280,7 @@ function genFloor(fi) {
   if (puz.sw === 'pairs') hints.push('retrouve toutes les paires de cartes 🃏 pour faire apparaître le pont');
   if (puz.sw === 'code') hints.push('mémorise le code du panneau 🪧 puis refais-le en tapant les blocs pour faire apparaître le pont');
   if (puz.sw === 'button') hints.push('active l\'interrupteur 🔴 pour faire apparaître le pont');
+  if (puz.sw === 'spire') hints.push(spireInfo && spireInfo.down ? 'descends au fond du puits appuyer sur le bouton 🔴… puis remonte : le pont sera ouvert' : 'grimpe tout en haut de la tour pour appuyer sur le bouton 🔴 qui fait apparaître le pont');
   if (puz.key) hints.push(last ? 'trouve la clé 🔑 : elle fera descendre la plateforme de notre chien 🐶' : 'trouve la clé 🔑 pour ouvrir l\'escalier');
   if (last && !puz.key) hints.push('rejoins notre chien 🐶 tout en haut');
   if (zipUsed) hints.push('saute pour attraper la tyrolienne 🪝, saute encore pour la lâcher');
@@ -1628,7 +1660,7 @@ function updatePlayer(dt) {
     }
   }
   if (!keys.jump && !p.cut && p.vy < -260) { p.vy *= .5; p.cut = true; }
-  for (const wz of L.winds) if (p.x + PW > wz.x + 6 && p.x < wz.x + wz.w - 6 && p.y + PH > wz.yTop && p.y + PH < wz.yBot) { p.vy = Math.max(-430, p.vy - 3100 * dt); p.airJumps = 1; p.inWind = true; }
+  for (const wz of L.winds) if (windOn(wz) && p.x + PW > wz.x + 6 && p.x < wz.x + wz.w - 6 && p.y + PH > wz.yTop && p.y + PH < wz.yBot) { p.vy = Math.max(-430, p.vy - 3100 * dt); p.airJumps = 1; p.inWind = true; }
   p.vy = Math.min(MAXFALL, p.vy + GRAV * dt);
 
   p.x += p.vx * dt;
@@ -1753,7 +1785,7 @@ function updatePlayer(dt) {
     L.key.got = true; SFX.key(); confetti(L.key.x, L.key.y, 50, 400, 350); updateHUD(true);
     showToast('🔑 Tu as la clé ! Direction ' + (L.last ? 'notre chien 🐶 !' : 'l\'escalier !'));
   }
-  if (L.sw && L.sw.kind === 'button' && !L.sw.on && Math.abs(L.sw.x - cx) < 34 && p.grounded && Math.abs((p.y + PH) - L.sw.y) < 6) {
+  if (L.sw && (L.sw.kind === 'button' || L.sw.kind === 'spire') && !L.sw.on && Math.abs(L.sw.x - cx) < 34 && p.grounded && Math.abs((p.y + PH) - L.sw.y) < 6) {
     L.sw.on = true; L.sw.bridge.active = true; SFX.sw(); shake = .35; confetti(L.sw.x, L.sw.y - 10, 60, 500, 400);
     updateHUD(true); showToast('🌉 Un pont magique apparaît !');
   }
@@ -2527,7 +2559,7 @@ function drawDogArea() {
 }
 
 function drawSwitch() {
-  const s = L.sw; if (!s || s.kind !== 'button') return;
+  const s = L.sw; if (!s || (s.kind !== 'button' && s.kind !== 'spire')) return;
   const bg = ctx.createLinearGradient(0, s.y - 9, 0, s.y); bg.addColorStop(0, '#a1a1aa'); bg.addColorStop(1, '#3f3f46'); ctx.fillStyle = bg; rr(s.x - 25, s.y - 9, 50, 9, 3); ctx.fill();
   ctx.strokeStyle = 'rgba(20,14,30,.85)'; ctx.lineWidth = 1.5; ctx.stroke(); ctx.fillStyle = '#d4d4d8'; for (const dx of [-20, 20]) { ctx.beginPath(); ctx.arc(s.x + dx, s.y - 4.5, 1.5, 0, 7); ctx.fill(); }
   const bh = s.on ? 4 : 12, c1 = s.on ? ['#bbf7d0', '#16a34a', '#14532d'] : ['#fecaca', '#dc2626', '#7f1d1d'];
@@ -2628,9 +2660,12 @@ function drawReflex() {   // boules de feu, lasers, scies et blocs du tape-écla
   if (q && !q.done) outText('⚡ ' + q.streak + ' / ' + q.need, q.base.x + q.base.w / 2, q.base.y - 160, 24, '#fde047');
 }
 
+function windOn(wz) { return !wz.gust || ((time / wz.per + wz.ph) % 1) < .62; }   // rafale : souffle un peu plus de la moitié du temps
 function drawNewDays() {   // courants d'air, mur de feu, cibles, chrono, étoiles, propulseurs
   for (const wz of L.winds) {
     if (wz.x + wz.w < cam.x - 40 || wz.x > cam.x + W + 40) continue;
+    const on = windOn(wz), u = wz.gust ? (time / wz.per + wz.ph) % 1 : 0, soon = wz.gust && !on && u > .85;
+    if (!on) { ctx.save(); ctx.setLineDash([6, 8]); ctx.strokeStyle = soon && Math.floor(time * 10) % 2 ? 'rgba(165,243,252,.8)' : 'rgba(165,243,252,.3)'; ctx.lineWidth = 2; ctx.strokeRect(wz.x, wz.yTop - 40, wz.w, wz.yBot - wz.yTop + 40); ctx.restore(); continue; }   // à l'arrêt (clignote juste avant de repartir)
     const g = ctx.createLinearGradient(0, wz.yTop - 40, 0, wz.yBot); g.addColorStop(0, 'rgba(165,243,252,0)'); g.addColorStop(.2, 'rgba(165,243,252,.28)'); g.addColorStop(1, 'rgba(165,243,252,.08)');
     ctx.fillStyle = g; ctx.fillRect(wz.x, wz.yTop - 40, wz.w, wz.yBot - wz.yTop + 40);
     ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 2;
