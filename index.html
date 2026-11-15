@@ -320,7 +320,7 @@ const DAILY_FLOORS = 12, RUN_SECONDS = 30 * 60, VARIANTS = 20;
 const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900, SPRING = 1000;
 const PW = 28, PH = 40;
 const STEP = 1 / 120;
-const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v56';
+const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v57';
 /* [MODE TEST] Passe à false (ou supprime les blocs marqués [MODE TEST]) quand tout est réglé. */
 const TEST_MODE = true;
 
@@ -1233,7 +1233,7 @@ function genFloor(fi) {
     dog = { plat: dp, x: dp.x + dp.w / 2, minX: end.x + 30, bx: end.x + 120, by: end.y, walking: false, flip: false, pressed: false, lowered: false, saved: false, told: false, bark: 2 };
     door = { x: dp.x, y: dp.y - 90, w: dp.w, h: 90, dog: true };
     Wend = dp.x + dp.w + 140;
-  } else { door = { x: end.x + end.w - 192, y: end.y - 126, w: 192, sw: 126, h: 126, stairs: true }; Wend = end.x + end.w + 44; }   // 126 de marches + un palier devant la porte   // l'escalier finit contre le mur, au bord de l'écran
+  } else { door = { x: end.x + end.w - 192, y: end.y - 126, w: 192, sw: 192, h: 126, stairs: true }; Wend = end.x + end.w + 44; }   // l'escalier va jusqu'au mur, sous la porte (bord droit de l'écran)
 
   // clé sur une petite plateforme en hauteur
   let key = null;
@@ -1442,9 +1442,9 @@ function step(dt) {
   else if (state === 'clear') {
     clearT -= dt; fade = Math.max(fade, Math.min(1, (0.5 - clearT) / .5));
     if (P.climb) {   // il monte les marches, puis avance sur le palier jusqu'à la porte
-      const d = L.door, sw = d.sw || d.w;
-      if (P.y + PH > d.y + 1) { P.x += 110 * dt; P.y = Math.max(d.y - PH, P.y - 110 * dt); } else P.x += 110 * dt;
-      P.grounded = true; P.vx = 110; if (P.x + PW / 2 > d.x + sw + (d.w - sw) / 2) P.hidden = true;
+      const d = L.door;
+      P.x += 110 * dt; P.y = Math.max(d.y - PH, P.y - 110 * dt * d.h / d.w);   // il suit la pente des marches
+      P.grounded = true; P.vx = 110; if (P.x + PW / 2 > d.x + d.w - 40) P.hidden = true;
     }
     if (clearT <= 0) { if (finalWin) endRun('win'); else { loadFloor(floor + 1); state = 'playing'; } }
   }
@@ -2465,7 +2465,7 @@ function drawTrap(t) {
 
 function drawDoor() {   // escalier de pierre contre le mur de droite, avec une vraie porte en bois en haut
   const d = L.door; if (d.dog) { drawDogArea(); return; }
-  const open = !L.needKey || L.key.got, SW = d.sw || d.w, n = 7, st = SW / n, X = d.x, Y = d.y, B = d.y + d.h, WX = d.x + d.w;   // SW : largeur des marches ; WX : face du mur
+  const open = !L.needKey || L.key.got, SW = d.sw || d.w, n = 10, st = SW / n, sh = d.h / n, X = d.x, Y = d.y, B = d.y + d.h, WX = d.x + d.w;   // SW : largeur des marches ; WX : face du mur
   // mur de droite (fin de l'étage), du haut de l'écran jusqu'en bas
   ctx.save(); ctx.translate(WX, 0); ctx.fillStyle = texSlab('stone'); const top = cam.y - 40, bot = B + 400;
   ctx.fillRect(0, top, 140, bot - top); ctx.fillStyle = 'rgba(25,18,30,.45)'; ctx.fillRect(0, top, 140, bot - top);
@@ -2475,7 +2475,7 @@ function drawDoor() {   // escalier de pierre contre le mur de droite, avec une 
   ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(-10, top, 10, bot - top);   // ombre du mur sur le fond
   ctx.restore();
   // porte en haut de l'escalier : encadrement de pierre, battant en planches, ferrures
-  const dw = 58, dh = 96, dx = X + SW + (WX - X - SW - dw) / 2, dy = Y - dh;   // porte au fond du palier, en face de l'arrivée des marches
+  const dw = 58, dh = 96, dx = WX - dw - 10, dy = Y - dh;   // porte dans le mur du fond, en haut des marches
   if (open) { const g = ctx.createRadialGradient(dx + dw / 2, dy + dh * .5, 6, dx + dw / 2, dy + dh * .5, 140); g.addColorStop(0, 'rgba(255,214,120,.5)'); g.addColorStop(1, 'rgba(255,214,120,0)'); ctx.fillStyle = g; ctx.fillRect(dx - 140, dy - 120, dw + 280, dh + 240); }
   ctx.fillStyle = '#6b6258'; ctx.fillRect(dx - 11, dy - 14, dw + 22, dh + 14);   // montants et linteau
   ctx.fillStyle = 'rgba(255,245,230,.16)'; ctx.fillRect(dx - 11, dy - 14, dw + 22, 4);
@@ -2501,7 +2501,7 @@ function drawDoor() {   // escalier de pierre contre le mur de droite, avec une 
   }
   ctx.fillStyle = '#7d7468'; ctx.fillRect(dx - 13, dy + dh, dw + 26, 5);   // seuil
   // flanc de l'escalier (maçonnerie), sous les marches
-  ctx.save(); ctx.beginPath(); ctx.moveTo(X, B); for (let i = 0; i < n; i++) { ctx.lineTo(X + i * st, B - (i + 1) * st); ctx.lineTo(X + (i + 1) * st, B - (i + 1) * st); } ctx.lineTo(WX, B - d.h); ctx.lineTo(WX, B); ctx.closePath(); ctx.clip();   // marches + palier
+  ctx.save(); ctx.beginPath(); ctx.moveTo(X, B); for (let i = 0; i < n; i++) { ctx.lineTo(X + i * st, B - (i + 1) * sh); ctx.lineTo(X + (i + 1) * st, B - (i + 1) * sh); } ctx.lineTo(WX, B); ctx.closePath(); ctx.clip();
   ctx.translate(X, B - d.h); ctx.fillStyle = texSlab('stone'); ctx.fillRect(0, 0, d.w, d.h);
   ctx.fillStyle = 'rgba(30,20,10,.38)'; ctx.fillRect(0, 0, d.w, d.h);
   ctx.strokeStyle = 'rgba(25,18,12,.55)'; ctx.lineWidth = 2; for (let r = 1; r < 7; r++) { ctx.beginPath(); ctx.moveTo(0, r * 18); ctx.lineTo(d.w, r * 18); ctx.stroke(); for (let c = (r % 2) * 20; c < d.w; c += 40) { ctx.beginPath(); ctx.moveTo(c, r * 18); ctx.lineTo(c, r * 18 + 18); ctx.stroke(); } }
@@ -2509,18 +2509,18 @@ function drawDoor() {   // escalier de pierre contre le mur de droite, avec une 
   ctx.restore();
   // marches : contremarche (face avant, à l'ombre) + giron (dessus, éclairé) + nez de marche
   for (let i = 0; i < n; i++) {
-    const x = X + i * st, y = B - (i + 1) * st;
-    ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.fillRect(x, y + 5, 4, st - 5);
-    const tg = ctx.createLinearGradient(0, y, 0, y + 6); tg.addColorStop(0, '#d9cfc2'); tg.addColorStop(1, '#a89c8c'); ctx.fillStyle = tg; ctx.fillRect(x, y, SW - i * st + (i === n - 1 ? WX - X - SW : 0), 6);
-    ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.fillRect(x, y, SW - i * st + (i === n - 1 ? WX - X - SW : 0), 1.5);
-    ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.fillRect(x, y + 6, SW - i * st + (i === n - 1 ? WX - X - SW : 0), 2);
+    const x = X + i * st, y = B - (i + 1) * sh;
+    ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.fillRect(x, y + 5, 4, sh - 5);
+    const tg = ctx.createLinearGradient(0, y, 0, y + 6); tg.addColorStop(0, '#d9cfc2'); tg.addColorStop(1, '#a89c8c'); ctx.fillStyle = tg; ctx.fillRect(x, y, SW - i * st, 6);
+    ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.fillRect(x, y, SW - i * st, 1.5);
+    ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.fillRect(x, y + 6, SW - i * st, 2);
   }
-  ctx.strokeStyle = 'rgba(20,14,30,.85)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(X, B); for (let i = 0; i < n; i++) { ctx.lineTo(X + i * st, B - (i + 1) * st); ctx.lineTo(X + (i + 1) * st, B - (i + 1) * st); } ctx.lineTo(WX, B - d.h); ctx.stroke();
+  ctx.strokeStyle = 'rgba(20,14,30,.85)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(X, B); for (let i = 0; i < n; i++) { ctx.lineTo(X + i * st, B - (i + 1) * sh); ctx.lineTo(X + (i + 1) * st, B - (i + 1) * sh); } ctx.stroke();
   // rampe : balustres en fer et main courante en bois (elle s'arrête contre le mur)
-  const rh = 40, rail = t => [X + 10 + t * (SW - 18), B - 10 - t * (d.h - 18) - rh];
+  const rh = 40, rail = t => [X + 10 + t * (SW - 90), B - 10 - t * (SW - 90) * d.h / SW - rh];   // la rampe s'arrête avant la porte
   const [r0x, r0y] = rail(0), [r1x, r1y] = rail(1), railY = x => r0y + (x - r0x) * (r1y - r0y) / (r1x - r0x);
   ctx.strokeStyle = '#8a8a93'; ctx.lineWidth = 2.5; ctx.beginPath();
-  for (let i = 0; i < n - 1; i++) { const bx = X + i * st + st * .5, by = B - (i + 1) * st; ctx.moveTo(bx, by); ctx.lineTo(bx, railY(bx)); } ctx.stroke();
+  for (let i = 0; i < n; i++) { const bx = X + i * st + st * .5, by = B - (i + 1) * sh; if (bx > r1x) break; ctx.moveTo(bx, by); ctx.lineTo(bx, railY(bx)); } ctx.stroke();
   ctx.lineCap = 'round'; ctx.strokeStyle = '#3b2412'; ctx.lineWidth = 8; ctx.beginPath(); ctx.moveTo(r0x, r0y); ctx.lineTo(r1x, r1y); ctx.stroke();
   ctx.strokeStyle = '#8b5a2b'; ctx.lineWidth = 5; ctx.stroke(); ctx.strokeStyle = 'rgba(255,220,170,.5)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(r0x, r0y - 1.5); ctx.lineTo(r1x, r1y - 1.5); ctx.stroke(); ctx.lineCap = 'butt';
   ctx.fillStyle = '#6b4423'; ctx.fillRect(X + 4, B - 58, 11, 58); ctx.fillStyle = 'rgba(255,220,170,.3)'; ctx.fillRect(X + 5, B - 58, 3, 58);   // pilier de départ
