@@ -325,7 +325,7 @@ const DAILY_FLOORS = 12, RUN_SECONDS = 30 * 60, VARIANTS = 20;
 const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900, SPRING = 1000;
 const PW = 28, PH = 40;
 const STEP = 1 / 120;
-const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v67';
+const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v68';
 /* [MODE TEST] Passe à false (ou supprime les blocs marqués [MODE TEST]) quand tout est réglé. */
 const TEST_MODE = true;
 
@@ -630,6 +630,18 @@ function readPads() {
   }
   return st;
 }
+function padMove(btns, cur, dx, dy) {   // menus : va vers le bouton le plus proche dans la direction choisie (grilles d'étages, de thèmes, boutique…)
+  const r = el => { const b = el.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2, w: b.width, h: b.height }; };
+  const c = r(btns[cur]); let best = -1, bs = 1e9;
+  btns.forEach((el, i) => {
+    if (i === cur) return; const o = r(el), ex = o.x - c.x, ey = o.y - c.y;
+    const along = dx ? ex * dx : ey * dy, across = Math.abs(dx ? ey : ex);
+    if (along < 8) return;   // pas dans cette direction
+    const sc = dy ? along * 3 + across : along + across * 3; if (sc < bs) { bs = sc; best = i; }   // d'abord la rangée la plus proche, puis le bouton le plus aligné
+  });
+  if (best >= 0) return best;
+  return (cur + (dx || dy) + btns.length) % btns.length;   // rien dans cette direction : bouton suivant / précédent, comme avant
+}
 function pollPads(dt) {
   if (padCfg.cap) { if (appKeys.b) { padStopCap(); return; } padCapPoll(dt); pad.prev = readPads(); return; }   // réglage des touches en cours
   if (!pad.connected) return;
@@ -650,13 +662,16 @@ function pollPads(dt) {
     // menus : on se déplace entre les boutons de l'écran affiché
     const btns = [...document.querySelectorAll('.screen:not(.off) [data-act]')].filter(el => el.offsetParent);
     if (btns.length) {
-      if (pad.focus < 0 || pad.focus >= btns.length) pad.focus = Math.max(0, btns.findIndex(el => el.classList.contains('pulse2') || el.dataset.act === 'resume' || el.dataset.act === 'shopBack'));
-      const dir = st.right || st.down ? 1 : st.left || st.up ? -1 : 0;
+      if (pad.focus < 0 || pad.focus >= btns.length) {
+        const kp = pad.keep ? btns.findIndex(el => el.dataset.act === pad.keep.act && el.dataset.i === pad.keep.i) : -1;   // après un clic, on reste sur le même bouton
+        pad.focus = kp >= 0 ? kp : Math.max(0, btns.findIndex(el => el.classList.contains('pulse2') || el.dataset.act === 'resume' || el.dataset.act === 'shopBack'));
+      }
+      const dx = st.right ? 1 : st.left ? -1 : 0, dy = st.down ? 1 : st.up ? -1 : 0;
       pad.repeat = Math.max(0, pad.repeat - dt);
-      if (dir && (pad.repeat <= 0 || !(pr.left || pr.right || pr.up || pr.down))) { pad.focus = (pad.focus + dir + btns.length) % btns.length; pad.repeat = .28; }
-      if (!dir) pad.repeat = 0;
+      if ((dx || dy) && (pad.repeat <= 0 || !(pr.left || pr.right || pr.up || pr.down))) { pad.focus = padMove(btns, pad.focus, dx, dy); pad.repeat = .22; }
+      if (!dx && !dy) pad.repeat = 0;
       btns.forEach((el, i) => el.classList.toggle('padfocus', pad.used && i === pad.focus));
-      if (press('ok') || (press('pause') && state === 'paused')) { const el = btns[pad.focus]; pad.focus = -1; btns.forEach(x => x.classList.remove('padfocus')); el.click(); }
+      if (press('ok') || (press('pause') && state === 'paused')) { const el = btns[pad.focus]; pad.focus = -1; pad.keep = { act: el.dataset.act, i: el.dataset.i }; btns.forEach(x => x.classList.remove('padfocus')); el.click(); }
       else if (press('back')) { const home = btns.find(el => el.dataset.act === 'home' || el.dataset.act === 'resume' || el.dataset.act === 'shopBack' || el.dataset.act === 'introOk'); if (home) { pad.focus = -1; home.click(); } }
     }
   }
