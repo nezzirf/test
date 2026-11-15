@@ -320,7 +320,7 @@ const DAILY_FLOORS = 12, RUN_SECONDS = 30 * 60, VARIANTS = 20;
 const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900, SPRING = 1000;
 const PW = 28, PH = 40;
 const STEP = 1 / 120;
-const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v53';
+const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v54';
 /* [MODE TEST] Passe à false (ou supprime les blocs marqués [MODE TEST]) quand tout est réglé. */
 const TEST_MODE = true;
 
@@ -396,9 +396,20 @@ function addPerfectDay(di) {   // retourne le nombre de jours parfaits de la sem
   const t = loadTrophies(), k = String(di.week), arr = t.perfect[k] || [];
   if (arr.indexOf(di.wd) < 0) arr.push(di.wd); t.perfect[k] = arr; saveTrophies(t); return arr.length;
 }
+const PLAYED_KEY = 'soen.joues.v1', START_KEY = 'soen.debut.v1';
+function playedDays() { try { return JSON.parse(localStorage.getItem(PLAYED_KEY)) || []; } catch (e) { return []; } }
+function markPlayed() { const a = playedDays(), k = todayKey(); if (a.indexOf(k) < 0) { a.push(k); try { localStorage.setItem(PLAYED_KEY, JSON.stringify(a.slice(-400))); } catch (e) { } } }
+function firstDay() { let d = null; try { d = localStorage.getItem(START_KEY); if (!d) { d = todayKey(); localStorage.setItem(START_KEY, d); } } catch (e) { d = todayKey(); } return d; }
 function trophyState() {   // les 20 trophées du cycle en cours
-  const di = dayInfo(), start = di.week - di.variant, t = loadTrophies();
-  return Array.from({ length: VARIANTS }, (_, i) => ({ n: (t.perfect[String(start + i)] || []).length, cur: i === di.variant, past: i < di.variant }));
+  const di = dayInfo(), start = di.week - di.variant, t = loadTrophies(), played = playedDays(), today = todayKey(), deb = firstDay();
+  return Array.from({ length: VARIANTS }, (_, i) => {
+    const set = new Set(t.perfect[String(start + i)] || []); let rest = 0;
+    for (let d = 0; d < 7; d++) {   // un jour passé où le jeu n'a pas été ouvert compte comme validé (jour de repos)
+      const k = dateKey(new Date(2024, 0, 1 + (start + i) * 7 + d));
+      if (k < today && k >= deb && played.indexOf(k) < 0 && !set.has(d)) { set.add(d); rest++; }
+    }
+    return { n: set.size, rest, cur: i === di.variant, past: i < di.variant };
+  });
 }
 function drawTrophy(c, x, y, s, fill, cur, dim) {   // coupe : contour, or qui monte du bas selon le remplissage
   const cup = () => { c.beginPath(); c.moveTo(x - s * .42, y - s * .95); c.lineTo(x + s * .42, y - s * .95); c.bezierCurveTo(x + s * .42, y - s * .5, x + s * .25, y - s * .38, x + s * .08, y - s * .36);
@@ -1339,7 +1350,7 @@ function startRun(daily, themeIdx, test) {
   $('trainTag').classList.toggle('off', daily);
   $('trainTag').textContent = isTest ? `MODE TEST · variante ${VARIANT + 1} · N : étage suivant · B : étage précédent` : 'ENTRAÎNEMENT';
   $('themeBox').textContent = THEME.emoji + ' ' + THEME.name;
-  if (daily) saveProgress('started');
+  if (daily) { saveProgress('started'); markPlayed(); }
   hideScreens(); $('hud').classList.remove('off');
   loadFloor(test ? test.floor : 0, true);
   state = 'playing';
@@ -3092,7 +3103,7 @@ function balStep(dt) {
       else if (hit && b.inv <= 0) {
         it.fly = b.lane === 0 ? 1 : b.lane === 2 ? -1 : (b.rng() < .5 ? 1 : -1); it.done = true;   // la voie est libérée
         b.hearts--; b.inv = 1.6; b.flash = 1; b.shake = 1; SFX.hurt();
-        b.pops.push({ life: 1, text: '💔' });
+        b.pops.push({ life: 1, text: '💦' });
         if (b.hearts <= 0) { b.over = 'ko'; b.overT = 0; }
       } else if (!hit && Math.abs(dz) < .25) it.done = true;
     }
@@ -3103,9 +3114,9 @@ function balFinish(kind) {
   bank.bones += b.bones + bonus; bank.best = Math.max(bank.best, m); saveBank(bank);
   if (b.mode === 'daily') { const s = loadSave(); if (s) { s.bal = { bones: b.bones + bonus, dist: m, done: true }; writeSave(s); } }
   state = 'balEnd'; $('balHud').classList.add('off');
-  $('balEndIcon').textContent = kind === 'win' ? '🏆' : kind === 'ko' ? '🐾' : '🏠';
-  $('balEndTitle').textContent = kind === 'win' ? 'Balade terminée, bravo !' : kind === 'ko' ? 'Fin de la balade !' : 'Balade arrêtée';
-  $('balEndMsg').textContent = kind === 'win' ? 'Vous avez tenu les 5 minutes : +50 os en cadeau ! 🦴' : kind === 'ko' ? 'Plus de cœur… Ton chien est fatigué mais très content de sa promenade !' : 'Les os ramassés sont gardés.';
+  $('balEndIcon').textContent = kind === 'win' ? '🏆' : kind === 'ko' ? '😮‍💨' : '🏠';
+  $('balEndTitle').textContent = kind === 'win' ? 'Balade terminée, bravo !' : kind === 'ko' ? 'Petite pause repos !' : 'Balade arrêtée';
+  $('balEndMsg').textContent = kind === 'win' ? 'Vous avez tenu les 5 minutes : +50 os en cadeau ! 🦴' : kind === 'ko' ? 'Ton chien est tout essoufflé : il a besoin de se reposer… mais il est très content de sa promenade !' : 'Les os ramassés sont gardés.';
   const box = 'bg-slate-900/70 text-white border-4 border-slate-900 rounded-2xl px-4 py-2';
   $('balEndStats').innerHTML = `<div class="${box}">🦴 Os ramassés : <b>${b.bones}${bonus ? ' + ' + bonus : ''}</b></div><div class="${box}">📏 Distance : <b>${m} m</b>${rec ? ' 🌟 Record !' : ''}</div>
     <div class="${box}">⏱ Temps : <b>${fmt(b.t)}</b> · ${BIOMES[b.biome].name}</div><div class="${box}">💰 Total d'os : <b>${bank.bones}</b></div>`;
@@ -3419,7 +3430,7 @@ function balDrawDog() {
   const b = bal, g = balProj(b.x, 0, b.dist), p = balProj(b.x, b.y, b.dist), size = g.s * 3.3, sq = b.slide > 0 ? .55 : 1;
   ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(g.x, g.y, g.s * .55 * (1 - b.y * .2), g.s * .13, 0, 0, 7); ctx.fill();
   if (b.inv > 0 && Math.floor(b.inv * 12) % 2 === 0 && !b.over) return;   // clignote après un choc
-  ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(b.lean * .16 + (b.over === 'ko' ? Math.min(1.5, b.overT * 2) : 0)); ctx.scale(1 + (1 - sq) * .3, sq);
+  ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(b.lean * .16); ctx.scale(1 + (1 - sq) * .3, sq * (b.over === 'ko' ? 1 + Math.sin(time * 14) * .025 : 1));   // essoufflé : il respire fort
   if (dog3DOk() && Dog3D.camBack) {
     const now = performance.now() / 1000, dt = Math.min(.1, now - (Dog3D.last || now)); Dog3D.last = now;
     let img = Dog3D.canvas;
@@ -3434,6 +3445,13 @@ function balDrawDog() {
   if (b.shield > 0) {   // bulle du bouclier
     ctx.save(); ctx.globalAlpha = b.shield < 2 && Math.floor(b.shield * 8) % 2 ? .25 : .55; ctx.fillStyle = 'rgba(125,211,252,.35)'; ctx.strokeStyle = '#7dd3fc'; ctx.lineWidth = 4;
     ctx.beginPath(); ctx.ellipse(p.x, p.y - g.s * .9, g.s * 1.05, g.s * 1.2, 0, 0, 7); ctx.fill(); ctx.stroke(); ctx.restore();
+  }
+  if (b.over === 'ko') {   // fatigué : souffle, gouttes de sueur et petite bulle
+    const hx = p.x, hy = p.y - size * .6;
+    for (let k = 0; k < 3; k++) { const u = (time * 1.6 + k / 3) % 1; ctx.globalAlpha = (1 - u) * .8; ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(hx + (k - 1) * g.s * .35 + Math.sin(time * 3 + k) * 4, hy - u * g.s * .9, g.s * (.1 + u * .12), 0, 7); ctx.fill(); }
+    ctx.globalAlpha = 1; ctx.fillStyle = '#7dd3fc'; for (const sd of [-1, 1]) { const u = (time * 1.3 + (sd > 0 ? .5 : 0)) % 1; ctx.globalAlpha = 1 - u; ctx.beginPath(); ctx.ellipse(hx + sd * g.s * .55, hy + g.s * .2 + u * g.s * .5, g.s * .05, g.s * .08, 0, 0, 7); ctx.fill(); }
+    ctx.globalAlpha = Math.min(1, b.overT * 3); ctx.font = '900 18px "Trebuchet MS",sans-serif'; const txt = 'Ouf… je suis fatigué ! 😮‍💨', tw = ctx.measureText(txt).width + 24;
+    ctx.fillStyle = 'rgba(255,255,255,.95)'; rr(hx - tw / 2, hy - g.s * 1.6 - 20, tw, 32, 16); ctx.fill(); ctx.fillStyle = '#1e1b4b'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(txt, hx, hy - g.s * 1.6 - 4); ctx.globalAlpha = 1;
   }
 }
 function balRender() {
@@ -3474,7 +3492,7 @@ function balRender() {
   if (b.flash > 0) { ctx.fillStyle = `rgba(244,63,94,${b.flash * .45})`; ctx.fillRect(0, 0, W, H); }
   // affichage : cœurs, os, temps, distance
   ctx.font = '30px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-  for (let i = 0; i < b.maxHearts; i++) { ctx.globalAlpha = i < b.hearts ? 1 : .25; ctx.fillText(i < b.hearts ? '❤️' : '🖤', 18 + i * 38, 34); } ctx.globalAlpha = 1;
+  for (let i = 0; i < b.maxHearts; i++) { ctx.globalAlpha = i < b.hearts ? 1 : .25; ctx.fillText(i < b.hearts ? '❤️' : '🤍', 18 + i * 38, 34); } ctx.globalAlpha = 1;   // cœurs blancs : de l'énergie en moins
   outText('🦴 ' + b.bones, 62 + String(b.bones).length * 8, 78, 30, '#fff');
   let hy = 118; for (const q of POWERS) {   // bonus en cours, avec le temps qui reste
     const left = q.id === 'shield' ? b.shield : b.pw[q.id] || 0; if (left <= 0) continue;
@@ -3782,7 +3800,7 @@ function frame(ts) {
   if (state === 'padcfg') { if (!padCfg.cap) padCfgLive(); cdT -= dt; if (cdT <= 0) { cdT = 1; if (!padCfg.cap) renderPadCfg(); } }
   for (const tc of document.querySelectorAll('.trophyCv')) if (tc.offsetParent) {
     drawTrophyRow(tc); const st = trophyState(), full = st.filter(t => t.n >= 7).length, cur = st.find(t => t.cur);
-    const txt = `🏆 Trophées : ${full} / ${VARIANTS}  ·  Semaine ${dayInfo().variant + 1} : ${cur.n} / 7 jours avec toutes les pièces`;
+    const txt = `🏆 Trophées : ${full} / ${VARIANTS}  ·  Semaine ${dayInfo().variant + 1} : ${cur.n} / 7 jours` + (cur.rest ? ` (dont ${cur.rest} de repos)` : '');
     const el = tc.parentNode.querySelector('.trophyTxt'); if (el.textContent !== txt) el.textContent = txt;
   }
   const sdg = $('shopDog'); if (sdg && sdg.offsetParent) {   // aperçu du chien déguisé dans la boutique
@@ -3800,6 +3818,7 @@ window.fitStage && window.fitStage();
 /* ---------- Démarrage ---------- */
 initDog3D(); initHero3D();
 initTitle(); applyLight();
+firstDay();   // retient le jour du premier lancement (les jours d'avant ne comptent pas)
 (function boot() {
   const s = loadSave();
   if (s) showClosed(s); else { state = 'title'; showScreen('title'); }
