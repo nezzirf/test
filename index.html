@@ -97,7 +97,9 @@
   </div>
 
   <div id="title" class="screen" style="background:rgba(10,6,40,.45)">
-    <div class="text-center" style="width:640px">
+    <div class="text-center" style="width:780px">
+      <div class="trophyBox mb-3"><canvas class="trophyCv" width="1600" height="132" style="width:800px;height:66px;display:block;margin:0 auto"></canvas>
+        <div class="trophyTxt text-sm font-black text-amber-200"></div></div>
       <h1 class="title-glow text-7xl font-black text-amber-300 leading-none" style="-webkit-text-stroke:2px #1e1b4b">Soen</h1>
       <div class="text-3xl font-black text-white mt-1" style="-webkit-text-stroke:1px #1e1b4b">L'Épreuve de la Tour</div>
       <div class="mt-8 flex flex-col items-center gap-3">
@@ -161,7 +163,10 @@
 
   <!-- ============ TOUR FERMÉE ============ -->
   <div id="closed" class="screen off" style="background:rgba(10,6,40,.6)">
-    <div class="text-center bg-indigo-900/90 border-8 border-slate-900 rounded-[2rem] px-8 py-6" style="width:620px">
+    <div class="text-center" style="width:800px">
+      <div class="trophyBox mb-3"><canvas class="trophyCv" width="1600" height="132" style="width:800px;height:66px;display:block;margin:0 auto"></canvas>
+        <div class="trophyTxt text-sm font-black text-amber-200"></div></div>
+    <div class="text-center bg-indigo-900/90 border-8 border-slate-900 rounded-[2rem] px-8 py-5 mx-auto" style="width:620px">
       <h2 class="text-4xl font-black text-amber-300">🔒 La tour est fermée</h2>
       <p class="text-xl font-black mt-1">Reviens demain ! 🌙</p>
       <div id="closedBody" class="mt-3 bg-slate-900/70 border-4 border-slate-900 rounded-2xl px-4 py-3 text-lg font-bold"></div>
@@ -171,6 +176,7 @@
         <button data-act="options" class="btn bg-sky-300 hover:bg-sky-200 text-slate-900 text-xl px-5 py-2">⚙️ Options</button>
         <button data-act="test" class="testOnly btn bg-lime-400 hover:bg-lime-300 text-slate-900 text-sm px-3 py-1">🧪 Test</button>
       </div>
+    </div>
     </div>
   </div>
 
@@ -193,6 +199,7 @@
       <div class="mt-4 flex justify-center gap-3">
         <button data-act="home" class="btn bg-sky-300 hover:bg-sky-200 text-slate-900 text-lg px-5 py-2">🏠 Retour</button>
         <button data-act="balTest" class="btn bg-amber-400 hover:bg-amber-300 text-slate-900 text-lg px-5 py-2">🐕 Tester la balade</button>
+        <button data-act="trophyTest" class="btn bg-amber-300 hover:bg-amber-200 text-slate-900 text-lg px-4 py-2">🏆 +1 jour parfait</button>
         <button data-act="testReset" class=""btn bg-rose-400 hover:bg-rose-300 text-slate-900 text-lg px-5 py-2">♻️ Réinitialiser le run du jour</button>
       </div>
     </div>
@@ -312,7 +319,7 @@ const DAILY_FLOORS = 12, RUN_SECONDS = 30 * 60, VARIANTS = 20;
 const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900, SPRING = 1000;
 const PW = 28, PH = 40;
 const STEP = 1 / 120;
-const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v43';
+const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v44';
 /* [MODE TEST] Passe à false (ou supprime les blocs marqués [MODE TEST]) quand tout est réglé. */
 const TEST_MODE = true;
 
@@ -370,7 +377,7 @@ function dayInfo(d = new Date()) {
   const dn = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000;
   const off = dn - Date.UTC(2024, 0, 1) / 86400000;            // le 1er janvier 2024 était un lundi
   const wd = ((off % 7) + 7) % 7, week = Math.floor(off / 7);
-  return { wd, variant: ((week % VARIANTS) + VARIANTS) % VARIANTS, theme: THEMES[wd] };
+  return { wd, week, variant: ((week % VARIANTS) + VARIANTS) % VARIANTS, theme: THEMES[wd] };
 }
 const TOWER_NAMES = ['du Dragon Rigolo', 'du Hibou Savant', 'du Sorcier Farceur', 'du Chat Volant', 'du Robot Magicien', 'de la Licorne Pressée',
   'du Fantôme Gourmand', 'du Pirate des Nuages', 'du Yéti Chatouilleux', 'de la Grenouille Géante', 'du Lutin Champion', 'du Panda Magique',
@@ -380,6 +387,37 @@ let SEED = '', THEME = THEMES[0], VARIANT = 0, isDaily = true, isTest = false, d
 let floorSeq = [];   // niveaux de difficulté (0..11) des étages de la partie
 
 /* ---------- Sauvegarde locale ---------- */
+/* ---------- Trophées : 20 semaines, 1/7 de trophée par jour où toutes les pièces des 12 étages sont ramassées ---------- */
+const TROPHY_KEY = 'soen.trophees.v1';
+function loadTrophies() { try { return Object.assign({ perfect: {} }, JSON.parse(localStorage.getItem(TROPHY_KEY))); } catch (e) { return { perfect: {} }; } }
+function saveTrophies(t) { try { localStorage.setItem(TROPHY_KEY, JSON.stringify(t)); } catch (e) { } }
+function addPerfectDay(di) {   // retourne le nombre de jours parfaits de la semaine
+  const t = loadTrophies(), k = String(di.week), arr = t.perfect[k] || [];
+  if (arr.indexOf(di.wd) < 0) arr.push(di.wd); t.perfect[k] = arr; saveTrophies(t); return arr.length;
+}
+function trophyState() {   // les 20 trophées du cycle en cours
+  const di = dayInfo(), start = di.week - di.variant, t = loadTrophies();
+  return Array.from({ length: VARIANTS }, (_, i) => ({ n: (t.perfect[String(start + i)] || []).length, cur: i === di.variant, past: i < di.variant }));
+}
+function drawTrophy(c, x, y, s, fill, cur, dim) {   // coupe : contour, or qui monte du bas selon le remplissage
+  const cup = () => { c.beginPath(); c.moveTo(x - s * .42, y - s * .95); c.lineTo(x + s * .42, y - s * .95); c.bezierCurveTo(x + s * .42, y - s * .5, x + s * .25, y - s * .38, x + s * .08, y - s * .36);
+    c.lineTo(x + s * .08, y - s * .2); c.lineTo(x + s * .26, y - s * .12); c.lineTo(x + s * .26, y); c.lineTo(x - s * .26, y); c.lineTo(x - s * .26, y - s * .12); c.lineTo(x - s * .08, y - s * .2); c.lineTo(x - s * .08, y - s * .36);
+    c.bezierCurveTo(x - s * .25, y - s * .38, x - s * .42, y - s * .5, x - s * .42, y - s * .95); c.closePath(); };
+  c.save(); c.globalAlpha = dim ? .45 : 1;
+  c.lineWidth = Math.max(1.5, s * .06); c.strokeStyle = fill >= 1 ? '#fde68a' : '#94a3b8';
+  for (const sd of [-1, 1]) { c.beginPath(); c.arc(x + sd * s * .44, y - s * .76, s * .14, sd > 0 ? -Math.PI / 2 : Math.PI / 2, sd > 0 ? Math.PI / 2 : Math.PI * 1.5); c.stroke(); }   // anses
+  cup(); c.fillStyle = 'rgba(15,23,42,.85)'; c.fill();
+  if (fill > 0) { c.save(); cup(); c.clip(); const top = y - s * .95 * fill, g = c.createLinearGradient(x - s * .4, 0, x + s * .4, 0); g.addColorStop(0, '#b7791f'); g.addColorStop(.4, '#fde68a'); g.addColorStop(1, '#a16207'); c.fillStyle = g; c.fillRect(x - s, top, 2 * s, y - top + 1); c.restore(); }
+  cup(); c.stroke();
+  if (fill >= 1) { c.fillStyle = '#fff'; c.globalAlpha = .6 + .4 * Math.sin(performance.now() / 300 + x); c.beginPath(); c.arc(x - s * .2, y - s * .75, s * .06, 0, 7); c.fill(); }
+  c.restore();
+  if (cur) { c.fillStyle = '#38bdf8'; c.beginPath(); c.moveTo(x - s * .18, y + s * .2); c.lineTo(x + s * .18, y + s * .2); c.lineTo(x, y + s * .05); c.fill(); }
+}
+function drawTrophyRow(cv) {
+  const c = cv.getContext('2d'), st = trophyState(), sp = cv.width / VARIANTS, s = Math.min(sp * .85, cv.height * .8);
+  c.clearRect(0, 0, cv.width, cv.height);
+  st.forEach((t, i) => drawTrophy(c, sp * (i + .5), cv.height * .82, s, t.n / 7, t.cur, !t.past && !t.cur && !t.n));
+}
 function loadSave() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); return s && s.date === todayKey() ? s : null; } catch (e) { return null; } }
 function writeSave(o) { try { localStorage.setItem(SAVE_KEY, JSON.stringify(o)); } catch (e) { } }
 if (/[?&]reset\b/.test(location.search)) { try { localStorage.removeItem(SAVE_KEY); } catch (e) { } }
@@ -1255,6 +1293,7 @@ function saveProgress(status) {
 
 function loadFloor(i, first) {
   floor = i; L = genFloor(i); P = newPlayer(L.respawn.x - PW / 2, L.respawn.y - PH);
+  if (run) { run.floorCoins = run.floorCoins || {}; run.floorCoins[i] = { tot: L.coins.length, got: 0 }; }
   cam.x = 0; cam.y = 0; fade = first ? 0 : 1;
   const b = $('banner'); b.classList.remove('off', 'bannerAnim'); void b.offsetWidth; b.classList.add('bannerAnim');
   $('bannerTitle').textContent = (L.last ? '👑 Étage final ' : 'Étage ') + (i + 1) + ' / ' + floorSeq.length + '  ·  ' + THEME.emoji + ' ' + THEME.name;
@@ -1619,7 +1658,7 @@ function updatePlayer(dt) {
     showToast('❤️ Cœur trouvé ! Une vie de plus pour la grande balade.'); updateHUD(true); if (isDaily) saveProgress('started');
   }
   for (const c of L.coins) if (!c.got && Math.abs(c.x - cx) < 26 && Math.abs(c.y - cy) < 30) {
-    c.got = true; run.coins++; SFX.coin(); sparkle(c.x, c.y, 8); pop(c.x, c.y - 10, '+50'); updateHUD();
+    c.got = true; run.coins++; if (run.floorCoins && run.floorCoins[floor]) run.floorCoins[floor].got++; SFX.coin(); sparkle(c.x, c.y, 8); pop(c.x, c.y - 10, '+50'); updateHUD();
   }
   for (const o of L.orbs) {   // rayon vertical : on le traverse forcément en sautant, une seule bascule par passage
     if (!o.armed) { if (Math.abs(o.x - cx) > 60) o.armed = true; continue; }
@@ -1742,6 +1781,9 @@ function endRun(kind) {
   state = 'end'; keys.left = keys.right = keys.jump = false;
   const win = kind === 'win', n = floorSeq.length;
   run.score = calcScore(win);
+  const fcs = run.floorCoins || {}, fl = Object.keys(fcs), allC = win && fl.length >= floorSeq.length && fl.every(k => fcs[k].got >= fcs[k].tot);
+  const cTot = fl.reduce((a, k) => a + fcs[k].tot, 0);
+  run.perfect = allC; if (allC && isDaily) run.weekDays = addPerfectDay(dayInfo());
   if (isDaily) saveProgress(kind);
   $('hud').classList.add('off'); $('banner').classList.add('off'); $('toast').classList.add('off');
   $('endCard').className = 'text-center border-8 border-slate-900 rounded-[2rem] px-8 py-5 ' + (win ? 'bg-amber-500/95 text-slate-900' : 'bg-indigo-900/95');
@@ -1753,9 +1795,10 @@ function endRun(kind) {
     : `Tu as quand même grimpé ${run.floorsDone} étage${run.floorsDone > 1 ? 's' : ''} sur ${n} ! Notre chien t'attend toujours là-haut… ${isDaily ? 'Reviens demain pour un nouveau défi !' : 'Réessaie !'}`;
   const box = 'bg-slate-900/70 text-white border-4 border-slate-900 rounded-2xl px-4 py-2';
   $('endStats').innerHTML = `<div class="${box}">⭐ Score : <b>${run.score}</b></div><div class="${box}">🏰 Étages : <b>${run.floorsDone}/${n}</b></div>
-    <div class="${box}">⏱ Temps : <b>${fmt(run.elapsed)}</b></div><div class="${box}">🪙 Pièces : <b>${run.coins}</b> &nbsp; 💫 Chutes : <b>${run.deaths}</b></div>`;
+    <div class="${box}">⏱ Temps : <b>${fmt(run.elapsed)}</b></div><div class="${box}">🪙 Pièces : <b>${run.coins}${win ? ' / ' + cTot : ''}</b>${allC ? ' 🏆' : ''} &nbsp; 💫 Chutes : <b>${run.deaths}</b></div>`;
   $('endRank').textContent = !win ? '' : run.elapsed < 15 * 60 ? '🧙‍♂️ Archimage du Temps !' : run.elapsed < 22 * 60 ? '⚡ Grand Magicien !' : '🎩 Apprenti Courageux !';
   const b = 'btn text-slate-900 text-xl px-5 py-2 ', hb = heartsFor(run.elapsed, run.heartsFound), tb = hb - 1 - (run.heartsFound || 0), canBal = win && (isDaily || isTest);
+  if (win) $('endMsg').textContent += allC ? (isDaily ? ` 🏆 Toutes les pièces ! Trophée de la semaine : ${run.weekDays} / 7.` : ' 🏆 Toutes les pièces !') : ` 🪙 ${run.coins} / ${cTot} pièces : ramasse-les toutes pour remplir le trophée de la semaine.`;
   if (canBal) $('endMsg').textContent += ` 🐕 En récompense : la grande balade, avec ${hb} ❤️ (1 de base${tb ? ' + ' + tb + ' pour ta rapidité' : ''}${run.heartsFound ? ' + ' + run.heartsFound + ' trouvé' + (run.heartsFound > 1 ? 's' : '') + ' dans la tour' : ''}).`;
   const bs = 'btn text-slate-900 text-lg px-3 py-2 ', nw = ' style="white-space:nowrap"';
   const balBtn = canBal ? `<button data-act="balade" class="${bs}bg-lime-400 hover:bg-lime-300 pulse2"${nw}>🐕 Balade ${'❤️'.repeat(hb)}</button>` : '';
@@ -1786,7 +1829,7 @@ function updateHUD(full) {
     $('puz').innerHTML = h;
   }
   if (full) { $('heartBox').classList.toggle('off', !heartFloors); $('heartBox').textContent = `❤️ ${run.heartsFound}/2`; }
-  setTxt('scoreBox', '🪙 ' + run.coins); setTxt('deathBox', '💫 ' + run.deaths);
+  const fc = run.floorCoins && run.floorCoins[floor]; setTxt('scoreBox', fc ? '🪙 ' + fc.got + '/' + fc.tot + (fc.got >= fc.tot ? ' ✔' : '') : '🪙 ' + run.coins); setTxt('deathBox', '💫 ' + run.deaths);
 }
 function updateTimer() {
   if (!run) return;
@@ -1842,6 +1885,10 @@ document.addEventListener('click', e => {
   else if (a === 'resume' || a === 'balPause') togglePause();
   else if (a === 'mute') toggleMute();
   else if (a === 'shop') openShop();
+  else if (a === 'trophyTest') {   // [MODE TEST] ajoute un jour parfait à la semaine en cours (ou à la suivante si elle est pleine)
+    const di = dayInfo(), t = loadTrophies(); let w = di.week; while ((t.perfect[String(w)] || []).length >= 7 && w < di.week - di.variant + VARIANTS - 1) w++;
+    const arr = t.perfect[String(w)] || []; for (let d = 0; d < 7; d++) if (arr.indexOf(d) < 0) { arr.push(d); break; } t.perfect[String(w)] = arr; saveTrophies(t); showToast('🏆 Semaine ' + (w - di.week + di.variant + 1) + ' : ' + arr.length + ' / 7');
+  }
   else if (a === 'options') { state = 'title'; $('volBar').style.width = volume * 10 + '%'; showScreen('options'); }
   else if (a === 'volUp' || a === 'volDown') { volume = Math.max(0, Math.min(10, volume + (a === 'volUp' ? 1 : -1))); try { localStorage.setItem('soen.volume', volume); } catch (err) { } $('volBar').style.width = volume * 10 + '%'; tone(660, 880, .08, 'triangle', .06); }
   else if (a === 'introShow') { introFrom = 'options'; showScreen('intro'); }
@@ -3442,6 +3489,11 @@ function frame(ts) {
   if (state === 'closed') { cdT -= dt; if (cdT <= 0) { cdT = .5; updateCountdown(); } }
   const ht = $('heroTitle'); if (ht && ht.offsetParent) { const c3 = ht.getContext('2d'); c3.clearRect(0, 0, ht.width, ht.height); if (hero3DOk()) drawHero(c3, ht.width / 2, ht.height - 4, ht.height * .9, 1, 'idle'); else { c3.font = '70px sans-serif'; c3.textAlign = 'center'; c3.textBaseline = 'bottom'; c3.fillText('🧙‍♂️', ht.width / 2, ht.height - 6); } }
   if (state === 'padcfg') { if (!padCfg.cap) padCfgLive(); cdT -= dt; if (cdT <= 0) { cdT = 1; if (!padCfg.cap) renderPadCfg(); } }
+  for (const tc of document.querySelectorAll('.trophyCv')) if (tc.offsetParent) {
+    drawTrophyRow(tc); const st = trophyState(), full = st.filter(t => t.n >= 7).length, cur = st.find(t => t.cur);
+    const txt = `🏆 Trophées : ${full} / ${VARIANTS}  ·  Semaine ${dayInfo().variant + 1} : ${cur.n} / 7 jours avec toutes les pièces`;
+    const el = tc.parentNode.querySelector('.trophyTxt'); if (el.textContent !== txt) el.textContent = txt;
+  }
   const sdg = $('shopDog'); if (sdg && sdg.offsetParent) {   // aperçu du chien déguisé dans la boutique
     const c4 = sdg.getContext('2d'), tr = loadBank().eq.trail; c4.clearRect(0, 0, sdg.width, sdg.height);
     if (tr) for (let i = 0; i < (tr === 'rainbow' ? 30 : 7); i++) { const u = ((time * .9 + i / (tr === 'rainbow' ? 30 : 7)) % 1); drawTrailBit(c4, tr, sdg.width * .62 + u * sdg.width * .4, sdg.height * .66 + (tr === 'rainbow' ? 0 : Math.sin(i * 2.3 + time * 3) * 10), 26, 1 - u, i); }
