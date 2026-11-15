@@ -325,7 +325,7 @@ const DAILY_FLOORS = 12, RUN_SECONDS = 30 * 60, VARIANTS = 20;
 const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900, SPRING = 1000;
 const PW = 28, PH = 40;
 const STEP = 1 / 120;
-const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v66';
+const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v67';
 /* [MODE TEST] Passe à false (ou supprime les blocs marqués [MODE TEST]) quand tout est réglé. */
 const TEST_MODE = true;
 
@@ -2211,11 +2211,17 @@ function drawBGLight(th, cx, t) {
       continue;
     }
     if (tx < -20 || tx > W + 20) continue;
-    const i = k, fl = 1 + Math.sin(t * 9 + i) * .15 + Math.sin(t * 23 + i * 3) * .05;   // seules les flammes sont dessinées
-    ctx.fillStyle = '#ea580c'; ctx.beginPath(); ctx.moveTo(tx - 8 * fl, 258); ctx.quadraticCurveTo(tx - 9, 240, tx + Math.sin(t * 12 + i) * 3, 226 - 6 * fl); ctx.quadraticCurveTo(tx + 9, 240, tx + 8 * fl, 258); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#fde047'; ctx.beginPath(); ctx.moveTo(tx - 4, 258); ctx.quadraticCurveTo(tx - 4, 246, tx + Math.sin(t * 12 + i) * 2, 238 - 3 * fl); ctx.quadraticCurveTo(tx + 4, 246, tx + 4, 258); ctx.closePath(); ctx.fill();
+    const fk = Math.floor((((t * 9 + k) % 6.2832) + 6.2832) % 6.2832 / 6.2832 * 8) % 8;   // seules les flammes bougent : 8 images préparées
+    ctx.drawImage(flameSprite(fk), tx - 14, 214);
   }
   ctx.restore();
+}
+function flameSprite(k) {
+  return sprite('flame' + k, 28, 46, () => {
+    const a = k / 8 * 6.2832, fl = 1 + Math.sin(a) * .15, wb = Math.sin(a * 2), tx = 14; ctx.translate(0, -214);
+    ctx.fillStyle = '#ea580c'; ctx.beginPath(); ctx.moveTo(tx - 8 * fl, 258); ctx.quadraticCurveTo(tx - 9, 240, tx + wb * 3, 226 - 6 * fl); ctx.quadraticCurveTo(tx + 9, 240, tx + 8 * fl, 258); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#fde047'; ctx.beginPath(); ctx.moveTo(tx - 4, 258); ctx.quadraticCurveTo(tx - 4, 246, tx + wb * 2, 238 - 3 * fl); ctx.quadraticCurveTo(tx + 4, 246, tx + 4, 258); ctx.closePath(); ctx.fill();
+  });
 }
 function bgTex(th, key) {
   if (!TEX.bg || TEX.bgKey !== key) {   // le mur est préparé une seule fois par étage (une seule image à afficher ensuite)
@@ -2407,11 +2413,18 @@ function coinFace() {   // pièce d'or frappée d'une étoile
     ctx.fillStyle = '#c98a12'; ctx.fill(); ctx.strokeStyle = 'rgba(255,240,180,.8)'; ctx.lineWidth = 1; ctx.stroke();
   });
 }
-function drawCoin(x, y, t) {   // la pièce tourne sur elle-même : on voit sa tranche quand elle est de profil
+function drawCoin(x, y, t) {
+  if (LIGHT) {   // mode léger : 16 images de la rotation préparées à l'avance, posées au pixel près
+    const k = Math.floor((((t % 6.2832) + 6.2832) % 6.2832) / 6.2832 * 16) % 16;
+    ctx.drawImage(sprite('coinF' + k, 32, 28, () => drawCoinVec(16, 14, k / 16 * 6.2832, true)), Math.round(x - 16), Math.round(y - 14)); return;
+  }
+  drawCoinVec(x, y, t);
+}
+function drawCoinVec(x, y, t, noGlint) {   // la pièce tourne sur elle-même : on voit sa tranche quand elle est de profil
   const sx = Math.cos(t), w = 22 * Math.max(.12, Math.abs(sx));
   ctx.fillStyle = '#7c4a03'; ctx.beginPath(); ctx.ellipse(x + (sx > 0 ? 1.5 : -1.5) * (1 - Math.abs(sx)) * 2, y, w / 2 + 1.5, 11.5, 0, 0, 7); ctx.fill();
   ctx.drawImage(coinFace(), x - w / 2, y - 11, w, 22);
-  if (Math.abs(sx) > .8) { ctx.fillStyle = 'rgba(255,255,255,.85)'; const k = (time * 2 + x * .01) % 3; if (k < .25) { ctx.beginPath(); ctx.moveTo(x - 5, y - 6); ctx.lineTo(x - 3, y - 4); ctx.lineTo(x - 5, y - 2); ctx.lineTo(x - 7, y - 4); ctx.fill(); } }
+  if (!noGlint && Math.abs(sx) > .8) { ctx.fillStyle = 'rgba(255,255,255,.85)'; const k = (time * 2 + x * .01) % 3; if (k < .25) { ctx.beginPath(); ctx.moveTo(x - 5, y - 6); ctx.lineTo(x - 3, y - 4); ctx.lineTo(x - 5, y - 2); ctx.lineTo(x - 7, y - 4); ctx.fill(); } }
 }
 function keySprite() {
   return sprite('key', 64, 32, () => {
@@ -2433,18 +2446,25 @@ function spikeRowReal(x, base, w, hgt, down) {   // pics en acier : côté écla
     ctx.fillStyle = '#a1a1aa'; ctx.beginPath(); ctx.arc(sx + 10, base + (down ? -3 : 3), 1.5, 0, 7); ctx.fill();
   }
 }
-function drawFlag(c, i) {   // drapeau de point de passage : mât, boule dorée, étendard qui ondule
+function drawFlag(c, i) {
+  if (LIGHT) {   // mode léger : 12 images de l'ondulation préparées à l'avance
+    const ph = time * 6 + i, k = Math.floor((((ph % 6.2832) + 6.2832) % 6.2832) / 6.2832 * 12) % 12, on = c.on ? 1 : 0;
+    ctx.drawImage(sprite('flag' + on + '_' + k, 56, 84, () => drawFlagVec({ x: 14, y: 80, on: c.on }, k / 12 * 6.2832)), Math.round(c.x - 14), Math.round(c.y - 80)); return;
+  }
+  drawFlagVec(c, time * 6 + i);
+}
+function drawFlagVec(c, ph) {   // drapeau de point de passage : mât, boule dorée, étendard qui ondule
   const x = c.x, y = c.y;
   ctx.fillStyle = '#57534e'; rr(x - 9, y - 6, 18, 6, 2); ctx.fill();
   const pg = ctx.createLinearGradient(x - 2, 0, x + 3, 0); pg.addColorStop(0, '#d4d4d8'); pg.addColorStop(1, '#52525b'); ctx.fillStyle = pg; ctx.fillRect(x - 2, y - 66, 4, 62);
   const bg = ctx.createRadialGradient(x - 1.5, y - 69, .5, x, y - 68, 5); bg.addColorStop(0, '#fff3b0'); bg.addColorStop(1, '#a16207'); ctx.fillStyle = bg; ctx.beginPath(); ctx.arc(x, y - 68, 4.5, 0, 7); ctx.fill();
   const on = c.on, col = on ? ['#4ade80', '#15803d'] : ['#cbd5e1', '#64748b'];
   ctx.beginPath(); ctx.moveTo(x + 2, y - 62);
-  for (let k = 0; k <= 8; k++) { const t = k / 8, wv = Math.sin(time * 6 + i - t * 4) * 3 * t; ctx.lineTo(x + 2 + t * 34, y - 62 + t * 5 + wv); }
-  for (let k = 8; k >= 0; k--) { const t = k / 8, wv = Math.sin(time * 6 + i - t * 4) * 3 * t; ctx.lineTo(x + 2 + t * 34, y - 40 - t * 5 + wv); }
+  for (let k = 0; k <= 8; k++) { const t = k / 8, wv = Math.sin(ph - t * 4) * 3 * t; ctx.lineTo(x + 2 + t * 34, y - 62 + t * 5 + wv); }
+  for (let k = 8; k >= 0; k--) { const t = k / 8, wv = Math.sin(ph - t * 4) * 3 * t; ctx.lineTo(x + 2 + t * 34, y - 40 - t * 5 + wv); }
   ctx.closePath(); const fg = ctx.createLinearGradient(x, y - 62, x + 36, y - 40); fg.addColorStop(0, col[0]); fg.addColorStop(1, col[1]); ctx.fillStyle = fg; ctx.fill();
   ctx.strokeStyle = 'rgba(20,14,30,.6)'; ctx.lineWidth = 1.5; ctx.stroke();
-  ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.font = '900 12px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(on ? '✔' : '★', x + 17, y - 51 + Math.sin(time * 6 + i - 2) * 1.5);
+  ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.font = '900 12px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(on ? '✔' : '★', x + 17, y - 51 + Math.sin(ph - 2) * 1.5);
 }
 function drawHeartGem(x, y, k) {   // cœur en verre rouge brillant
   ctx.save(); ctx.translate(x, y); ctx.scale(k, k);
