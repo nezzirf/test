@@ -125,8 +125,8 @@
   <div id="intro" class="screen off" style="background:rgba(10,6,40,.85)">
     <div class="text-center bg-indigo-900/95 border-8 border-slate-900 rounded-[2rem] px-8 py-6" style="width:720px">
       <h2 class="text-4xl font-black text-amber-300">📖 L'histoire</h2>
-      <p class="mt-3 text-lg font-bold leading-snug text-indigo-50">Le sorcier <b class="text-amber-300">Chronos</b> a enfermé <b class="text-amber-300">Taya 🐶</b>, la chienne de <b class="text-amber-300">Soën</b>, tout en haut de sa tour !
-        Grimpe les <b class="text-amber-300">12 étages</b> en moins de <b class="text-amber-300">30 minutes</b> pour la sauver. Chaque jour, la tour lance une épreuve différente.
+      <p class="mt-3 text-lg font-bold leading-snug text-indigo-50">Oh non ! <b class="text-amber-300">Taya 🐶</b>, la chienne de <b class="text-amber-300">Soën</b>, s'est perdue en explorant une drôle de tour… et elle est tout en haut !
+        Grimpe les <b class="text-amber-300">12 étages</b> en moins de <b class="text-amber-300">30 minutes</b> pour la retrouver. Chaque jour, la tour lance une épreuve différente.
         Si tu tombes, tu repars du dernier drapeau… mais le chrono continue !</p>
       <div class="mt-4 grid grid-cols-2 gap-2 text-left text-base font-bold">
         <div class="bg-slate-900/70 rounded-xl px-3 py-2 border-2 border-slate-700">⬅️ ➡️ : avancer</div>
@@ -325,7 +325,7 @@ const DAILY_FLOORS = 12, RUN_SECONDS = 30 * 60, VARIANTS = 20;
 const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900, SPRING = 1000;
 const PW = 28, PH = 40;
 const STEP = 1 / 120;
-const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v71';
+const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v72';
 /* [MODE TEST] Passe à false (ou supprime les blocs marqués [MODE TEST]) quand tout est réglé. */
 const TEST_MODE = true;
 
@@ -1867,7 +1867,7 @@ function goal() {
     L.dog.saved = true; clearT = 3.2; SFX.win(); const dp = L.dog.plat, dgx = L.dog.x;
     confetti(dgx, dp.y - 60, 280, 800, 650);
     for (let i = 0; i < 10; i++) parts.push({ t: 'text', x: dgx + (Math.random() - .5) * 120, y: dp.y - 80 - Math.random() * 40, vx: (Math.random() - .5) * 40, vy: -60 - Math.random() * 60, g: 0, life: 2.2, max: 2.2, text: '💛', c: '#fde047' });
-    showToast('🐶💛 Tu as sauvé Taya !');
+    showToast('🐶💛 Tu as retrouvé Taya !');
   } else {   // on monte l'escalier
     clearT = 1.6; P.climb = { x: d.x + 10, y: d.y + d.h }; P.x = d.x + 6; P.vx = P.vy = 0; P.face = 1;
     confetti(d.x + d.w / 2, d.y, 110, 700, 550); pop(d.x + d.w / 2, d.y - 30, 'Étage réussi ! ⭐ On monte !', '#fde047');
@@ -1885,7 +1885,7 @@ function calcScore(win) {
    FIN DE PARTIE
    ====================================================================== */
 const fmt = s => { s = Math.max(0, Math.ceil(s)); return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); };
-const STATUS_TXT = { win: '🐶 Taya sauvée !', timeout: '⏰ Temps écoulé', started: '🚪 Partie quittée en cours de route' };
+const STATUS_TXT = { win: '🐶 Taya retrouvée !', timeout: '⏰ Temps écoulé', started: '🚪 Partie quittée en cours de route' };
 
 function endRun(kind) {
   state = 'end'; keys.left = keys.right = keys.jump = false;
@@ -1901,7 +1901,7 @@ function endRun(kind) {
   $('endTitle').textContent = win ? 'TU AS SAUVÉ NOTRE CHIEN !' : 'Le temps est écoulé !';
   $('dogEnd').classList.toggle('off', !win);
   $('endTitle').className = 'text-4xl font-black ' + (win ? 'text-white' : 'text-amber-300');
-  $('endMsg').textContent = win ? 'Elle était coincée tout en haut de la tour de Chronos. Merci, Soën ! 🐶💛'
+  $('endMsg').textContent = win ? 'Elle s\'était perdue tout en haut de la tour. Merci, Soën ! 🐶💛'
     : `Tu as quand même grimpé ${run.floorsDone} étage${run.floorsDone > 1 ? 's' : ''} sur ${n} ! Taya t'attend toujours là-haut… ${isDaily ? 'Reviens demain pour un nouveau défi !' : 'Réessaie !'}`;
   const box = 'bg-slate-900/70 text-white border-4 border-slate-900 rounded-2xl px-4 py-2';
   $('endStats').innerHTML = `<div class="${box}">⭐ Score : <b>${run.score}</b></div><div class="${box}">🏰 Étages : <b>${run.floorsDone}/${n}</b></div>
