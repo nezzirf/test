@@ -325,7 +325,7 @@ const DAILY_FLOORS = 12, RUN_SECONDS = 30 * 60, VARIANTS = 20;
 const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900, SPRING = 1000;
 const PW = 28, PH = 40;
 const STEP = 1 / 120;
-const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v73';
+const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v74';
 /* [MODE TEST] Passe à false (ou supprime les blocs marqués [MODE TEST]) quand tout est réglé. */
 const TEST_MODE = true;
 
@@ -3735,22 +3735,22 @@ function balRender() {
    LA BOUTIQUE — on dépense les os de la balade (rien ici ne change la tour)
    ====================================================================== */
 const POWERS = [
-  { id: 'magnet', icon: '🧲', name: 'Aimant', desc: 'attire les os de toutes les voies', price: [100, 250, 400], dur: [8, 12, 16] },
-  { id: 'shield', icon: '🛡️', name: 'Bouclier', desc: 'protège d\'un choc', price: [150, 300, 450], dur: [15, 25, 40] },
-  { id: 'double', icon: '💰', name: 'Os × 2', desc: 'chaque os compte double', price: [250, 350, 500], dur: [8, 12, 16] },
-  { id: 'jump', icon: '🦘', name: 'Super-saut', desc: 'saute par-dessus les rochers', price: [300, 400, 550], dur: [8, 12, 16] },
-  { id: 'sprint', icon: '🚀', name: 'Fusée', desc: 'fonce, invincible, renverse tout', price: [400, 550, 700], dur: [3, 4.5, 6] }
+  { id: 'magnet', icon: '🧲', name: 'Aimant', desc: 'attire les os de toutes les voies', price: [400, 1200, 2500], dur: [8, 12, 16] },
+  { id: 'shield', icon: '🛡️', name: 'Bouclier', desc: 'protège d\'un choc', price: [500, 1500, 3000], dur: [15, 25, 40] },
+  { id: 'double', icon: '💰', name: 'Os × 2', desc: 'chaque os compte double', price: [800, 2000, 3500], dur: [8, 12, 16] },
+  { id: 'jump', icon: '🦘', name: 'Super-saut', desc: 'saute par-dessus les rochers', price: [1000, 2500, 4000], dur: [8, 12, 16] },
+  { id: 'sprint', icon: '🚀', name: 'Fusée', desc: 'fonce, invincible, renverse tout', price: [1500, 3000, 5000], dur: [3, 4.5, 6] }
 ];
 const DECOS = [
-  { id: 'party', slot: 'head', icon: '🥳', name: 'Chapeau de fête', price: 120 },
-  { id: 'wizard', slot: 'head', icon: '🧙', name: 'Chapeau de sorcier', price: 300 },
-  { id: 'crown', slot: 'head', icon: '👑', name: 'Couronne', price: 450 },
-  { id: 'bandana', slot: 'neck', icon: '🧣', name: 'Bandana', price: 100 },
-  { id: 'wings', slot: 'neck', icon: '👼', name: 'Ailes d\'ange', price: 300 },
-  { id: 'cape', slot: 'neck', icon: '🦸', name: 'Cape de héros', price: 350 },
-  { id: 'stars', slot: 'trail', icon: '✨', name: 'Traînée d\'étoiles', price: 200 },
-  { id: 'hearts', slot: 'trail', icon: '💖', name: 'Traînée de cœurs', price: 250 },
-  { id: 'rainbow', slot: 'trail', icon: '🌈', name: 'Arc-en-ciel', price: 500 }
+  { id: 'party', slot: 'head', icon: '🥳', name: 'Chapeau de fête', price: 500 },
+  { id: 'wizard', slot: 'head', icon: '🧙', name: 'Chapeau de sorcier', price: 1500 },
+  { id: 'crown', slot: 'head', icon: '👑', name: 'Couronne', price: 3000 },
+  { id: 'bandana', slot: 'neck', icon: '🧣', name: 'Bandana', price: 400 },
+  { id: 'wings', slot: 'neck', icon: '👼', name: 'Ailes d\'ange', price: 1800 },
+  { id: 'cape', slot: 'neck', icon: '🦸', name: 'Cape de héros', price: 2200 },
+  { id: 'stars', slot: 'trail', icon: '✨', name: 'Traînée d\'étoiles', price: 900 },
+  { id: 'hearts', slot: 'trail', icon: '💖', name: 'Traînée de cœurs', price: 1200 },
+  { id: 'rainbow', slot: 'trail', icon: '🌈', name: 'Arc-en-ciel', price: 4000 }
 ];
 let shopFrom = null, introFrom = '';
 function openShop() {
