@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Soen : L'Épreuve de la Tour</title>
+<title>Soën : L'Épreuve de la Tour</title>
 <!-- Tailwind (CDN) pour le design. Le jeu lui-même (canvas) fonctionne même hors-ligne. -->
 <script src="https://cdn.tailwindcss.com/3.4.17"></script>
 <!-- three.js : uniquement pour afficher le chien en 3D (si ça ne charge pas, un chien dessiné le remplace) -->
@@ -105,7 +105,7 @@
     <div class="text-center" style="width:780px">
       <div class="trophyBox mb-3"><canvas class="trophyCv" width="1600" height="132" style="width:800px;height:66px;display:block;margin:0 auto"></canvas>
         <div class="trophyTxt text-sm font-black text-amber-200"></div></div>
-      <h1 class="title-glow text-7xl font-black text-amber-300 leading-none" style="-webkit-text-stroke:2px #1e1b4b">Soen</h1>
+      <h1 class="title-glow text-7xl font-black text-amber-300 leading-none" style="-webkit-text-stroke:2px #1e1b4b">Soën</h1>
       <div class="text-3xl font-black text-white mt-1" style="-webkit-text-stroke:1px #1e1b4b">L'Épreuve de la Tour</div>
       <div class="mt-8 flex flex-col items-center gap-3">
         <button data-act="play" class="btn bg-amber-400 hover:bg-amber-300 text-slate-900 px-6 py-3 pulse2" style="width:440px">
@@ -125,8 +125,8 @@
   <div id="intro" class="screen off" style="background:rgba(10,6,40,.85)">
     <div class="text-center bg-indigo-900/95 border-8 border-slate-900 rounded-[2rem] px-8 py-6" style="width:720px">
       <h2 class="text-4xl font-black text-amber-300">📖 L'histoire</h2>
-      <p class="mt-3 text-lg font-bold leading-snug text-indigo-50">Le sorcier <b class="text-amber-300">Chronos</b> a enfermé <b class="text-amber-300">notre chien 🐶</b> tout en haut de sa tour !
-        Grimpe les <b class="text-amber-300">12 étages</b> en moins de <b class="text-amber-300">30 minutes</b> pour le sauver. Chaque jour, la tour lance une épreuve différente.
+      <p class="mt-3 text-lg font-bold leading-snug text-indigo-50">Le sorcier <b class="text-amber-300">Chronos</b> a enfermé <b class="text-amber-300">Taya 🐶</b>, la chienne de <b class="text-amber-300">Soën</b>, tout en haut de sa tour !
+        Grimpe les <b class="text-amber-300">12 étages</b> en moins de <b class="text-amber-300">30 minutes</b> pour la sauver. Chaque jour, la tour lance une épreuve différente.
         Si tu tombes, tu repars du dernier drapeau… mais le chrono continue !</p>
       <div class="mt-4 grid grid-cols-2 gap-2 text-left text-base font-bold">
         <div class="bg-slate-900/70 rounded-xl px-3 py-2 border-2 border-slate-700">⬅️ ➡️ : avancer</div>
@@ -264,7 +264,7 @@
   <div id="shop" class="screen off" style="background:rgba(10,6,40,.9)">
     <div class="text-center" style="width:930px">
       <div class="flex items-center justify-between">
-        <h2 class="text-4xl font-black text-amber-300">🛒 La boutique de Soen</h2>
+        <h2 class="text-4xl font-black text-amber-300">🛒 La boutique de Soën</h2>
         <div id="shopBones" class="bg-amber-400 text-slate-900 border-4 border-slate-900 rounded-2xl px-4 py-1 text-2xl font-black tabular-nums">🦴 0</div>
       </div>
       <div class="flex gap-3 mt-2">
@@ -325,7 +325,7 @@ const DAILY_FLOORS = 12, RUN_SECONDS = 30 * 60, VARIANTS = 20;
 const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900, SPRING = 1000;
 const PW = 28, PH = 40;
 const STEP = 1 / 120;
-const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v70';
+const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v71';
 /* [MODE TEST] Passe à false (ou supprime les blocs marqués [MODE TEST]) quand tout est réglé. */
 const TEST_MODE = true;
 
@@ -1318,8 +1318,8 @@ function genFloor(fi) {
   if (puz.sw === 'code') hints.push('mémorise le code du panneau 📜 puis refais-le en tapant les blocs pour faire apparaître le pont');
   if (puz.sw === 'button') hints.push('active l\'interrupteur 🔴 pour faire apparaître le pont');
   if (puz.sw === 'spire') hints.push(spireInfo && spireInfo.down ? 'descends au fond du puits appuyer sur le bouton 🔴… puis remonte : le pont sera ouvert' : 'grimpe tout en haut de la tour pour appuyer sur le bouton 🔴 qui fait apparaître le pont');
-  if (puz.key) hints.push(last ? 'trouve la clé 🔑 : elle fera descendre la plateforme de notre chien 🐶' : 'trouve la clé 🔑 pour ouvrir l\'escalier');
-  if (last && !puz.key) hints.push('rejoins notre chien 🐶 tout en haut');
+  if (puz.key) hints.push(last ? 'trouve la clé 🔑 : elle fera descendre la plateforme de Taya 🐶' : 'trouve la clé 🔑 pour ouvrir l\'escalier');
+  if (last && !puz.key) hints.push('rejoins Taya 🐶 tout en haut');
   if (zipUsed) hints.push('saute pour attraper la tyrolienne 🚡, saute encore pour la lâcher');
   if (goldUsed) hints.push('sur les dalles fragiles, pose-toi bien sur l\'or ✨');
   let hint = hints.join(' et ') + ' !'; hint = hint[0].toUpperCase() + hint.slice(1);
@@ -1482,7 +1482,7 @@ function updatePlatforms(dt) {
   for (const p of L.plats) {
     if (p.type === 'dogplat') {   // la plateforme du chien descend quand on a appuyé sur le bouton
       p.px = p.x; p.py = p.y;
-      if (L.dog && L.dog.pressed && p.y < p.y1) { p.y = Math.min(p.y1, p.y + 75 * dt); if (p.y >= p.y1 && !L.dog.lowered) { L.dog.lowered = true; shake = .3; SFX.land(); dust(p.x + p.w / 2, p.y, 14); showToast('🐶 Ouaf ! Notre chien arrive vers toi !'); } }
+      if (L.dog && L.dog.pressed && p.y < p.y1) { p.y = Math.min(p.y1, p.y + 75 * dt); if (p.y >= p.y1 && !L.dog.lowered) { L.dog.lowered = true; shake = .3; SFX.land(); dust(p.x + p.w / 2, p.y, 14); showToast('🐶 Ouaf ! Taya arrive vers toi !'); } }
       L.door.y = p.y - 90; p.dx = 0; p.dy = p.y - p.py; continue;
     }
     if (p.lift) {   // ascenseur : monte quand on est dessus, redescend sinon (ou après une courte pause en haut)
@@ -1825,7 +1825,7 @@ function updatePlayer(dt) {
   }
   if (L.key && !L.key.got && Math.abs(L.key.x - cx) < 30 && Math.abs(L.key.y - cy) < 36) {
     L.key.got = true; SFX.key(); confetti(L.key.x, L.key.y, 50, 400, 350); updateHUD(true);
-    showToast('🔑 Tu as la clé ! Direction ' + (L.last ? 'notre chien 🐶 !' : 'l\'escalier !'));
+    showToast('🔑 Tu as la clé ! Direction ' + (L.last ? 'Taya 🐶 !' : 'l\'escalier !'));
   }
   if (L.sw && (L.sw.kind === 'button' || L.sw.kind === 'spire') && !L.sw.on && Math.abs(L.sw.x - cx) < 34 && p.grounded && Math.abs((p.y + PH) - L.sw.y) < 6) {
     L.sw.on = true; L.sw.bridge.active = true; SFX.sw(); shake = .35; confetti(L.sw.x, L.sw.y - 10, 60, 500, 400);
@@ -1843,11 +1843,11 @@ function updatePlayer(dt) {
   // escalier / sauvetage du chien
   const d = L.door, dg = L.dog;
   if (dg) {
-    if (!dg.told && p.x > dg.bx - 400) { dg.told = true; showToast('🐶 Ouaf ! Notre chien est coincé là-haut… seule la clé 🔑 peut faire descendre sa plateforme !'); }
+    if (!dg.told && p.x > dg.bx - 400) { dg.told = true; showToast('🐶 Ouaf ! Taya est coincée là-haut… seule la clé 🔑 peut faire descendre sa plateforme !'); }
     // arrivé sur la dernière plateforme : la clé fait descendre le chien
     if (!dg.pressed && p.grounded && p.standing && p.standing.end) {
-      if (!L.needKey || L.key.got) { dg.pressed = true; SFX.sw(); sparkle(cx, p.y, 16); showToast('🔑 La clé brille… la plateforme du chien descend !'); }
-      else if (doorMsgCd <= 0) { doorMsgCd = 3; SFX.locked(); showToast('🔒 Sans la clé 🔑, la plateforme du chien ne descendra pas !'); }
+      if (!L.needKey || L.key.got) { dg.pressed = true; SFX.sw(); sparkle(cx, p.y, 16); showToast('🔑 La clé brille… la plateforme de Taya descend !'); }
+      else if (doorMsgCd <= 0) { doorMsgCd = 3; SFX.locked(); showToast('🔒 Sans la clé 🔑, la plateforme de Taya ne descendra pas !'); }
     }
     if (dg.lowered && !dg.saved) {   // le chien marche jusqu'à nous
       const dx = cx - dg.x; dg.walking = Math.abs(dx) > 42; dg.flip = dx > 0;
@@ -1867,7 +1867,7 @@ function goal() {
     L.dog.saved = true; clearT = 3.2; SFX.win(); const dp = L.dog.plat, dgx = L.dog.x;
     confetti(dgx, dp.y - 60, 280, 800, 650);
     for (let i = 0; i < 10; i++) parts.push({ t: 'text', x: dgx + (Math.random() - .5) * 120, y: dp.y - 80 - Math.random() * 40, vx: (Math.random() - .5) * 40, vy: -60 - Math.random() * 60, g: 0, life: 2.2, max: 2.2, text: '💛', c: '#fde047' });
-    showToast('🐶💛 Tu as sauvé notre chien !');
+    showToast('🐶💛 Tu as sauvé Taya !');
   } else {   // on monte l'escalier
     clearT = 1.6; P.climb = { x: d.x + 10, y: d.y + d.h }; P.x = d.x + 6; P.vx = P.vy = 0; P.face = 1;
     confetti(d.x + d.w / 2, d.y, 110, 700, 550); pop(d.x + d.w / 2, d.y - 30, 'Étage réussi ! ⭐ On monte !', '#fde047');
@@ -1885,7 +1885,7 @@ function calcScore(win) {
    FIN DE PARTIE
    ====================================================================== */
 const fmt = s => { s = Math.max(0, Math.ceil(s)); return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); };
-const STATUS_TXT = { win: '🐶 Chien sauvé !', timeout: '⏰ Temps écoulé', started: '🚪 Partie quittée en cours de route' };
+const STATUS_TXT = { win: '🐶 Taya sauvée !', timeout: '⏰ Temps écoulé', started: '🚪 Partie quittée en cours de route' };
 
 function endRun(kind) {
   state = 'end'; keys.left = keys.right = keys.jump = false;
@@ -1901,8 +1901,8 @@ function endRun(kind) {
   $('endTitle').textContent = win ? 'TU AS SAUVÉ NOTRE CHIEN !' : 'Le temps est écoulé !';
   $('dogEnd').classList.toggle('off', !win);
   $('endTitle').className = 'text-4xl font-black ' + (win ? 'text-white' : 'text-amber-300');
-  $('endMsg').textContent = win ? 'Il était coincé tout en haut de la tour de Chronos. Merci, héros ! 🐶💛'
-    : `Tu as quand même grimpé ${run.floorsDone} étage${run.floorsDone > 1 ? 's' : ''} sur ${n} ! Notre chien t'attend toujours là-haut… ${isDaily ? 'Reviens demain pour un nouveau défi !' : 'Réessaie !'}`;
+  $('endMsg').textContent = win ? 'Elle était coincée tout en haut de la tour de Chronos. Merci, Soën ! 🐶💛'
+    : `Tu as quand même grimpé ${run.floorsDone} étage${run.floorsDone > 1 ? 's' : ''} sur ${n} ! Taya t'attend toujours là-haut… ${isDaily ? 'Reviens demain pour un nouveau défi !' : 'Réessaie !'}`;
   const box = 'bg-slate-900/70 text-white border-4 border-slate-900 rounded-2xl px-4 py-2';
   $('endStats').innerHTML = `<div class="${box}">⭐ Score : <b>${run.score}</b></div><div class="${box}">🏰 Étages : <b>${run.floorsDone}/${n}</b></div>
     <div class="${box}">⏱ Temps : <b>${fmt(run.elapsed)}</b></div><div class="${box}">💰 Pièces : <b>${run.coins}${win ? ' / ' + cTot : ''}</b>${allC ? ' 🏆' : ''} &nbsp; 💫 Chutes : <b>${run.deaths}</b></div>`;
@@ -1975,7 +1975,7 @@ function updateCountdown() {
 }
 function shareResult() {
   const s = loadSave(); if (!s) return;
-  const txt = `🏰 Soen : L'Épreuve de la Tour ${s.date}\n${s.theme} (variante ${s.variant}/${VARIANTS})\n${STATUS_TXT[s.status] || ''}\n🏰 ${s.floors}/${s.total} étages · ⏱ ${fmt(s.time)} · 💫 ${s.deaths} chutes · ⭐ ${s.score}` + (s.bal ? `\n🐕 Balade : ${s.bal.bones} 🦴 · ${s.bal.dist} m` : '');
+  const txt = `🏰 Soën : L'Épreuve de la Tour ${s.date}\n${s.theme} (variante ${s.variant}/${VARIANTS})\n${STATUS_TXT[s.status] || ''}\n🏰 ${s.floors}/${s.total} étages · ⏱ ${fmt(s.time)} · 💫 ${s.deaths} chutes · ⭐ ${s.score}` + (s.bal ? `\n🐕 Balade : ${s.bal.bones} 🦴 · ${s.bal.dist} m` : '');
   try { navigator.clipboard.writeText(txt).then(() => showToast('📋 Résultat copié !'), () => prompt('Copie ton résultat :', txt)); } catch (e) { prompt('Copie ton résultat :', txt); }
 }
 
@@ -2735,7 +2735,7 @@ function drawDogArea() {
   const gy = dg.lowered ? dg.by : p.y, g = ctx.createRadialGradient(cx, gy - 40, 5, cx, gy - 40, 100); g.addColorStop(0, dg.saved ? 'rgba(253,224,71,.6)' : 'rgba(255,255,255,.25)'); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.fillRect(cx - 110, gy - 150, 220, 170);
   drawDog(ctx, cx, dg.lowered ? dg.by : p.y, 120, dg.saved ? 'happy' : dg.walking ? 'walk' : 'still', dg.flip);
   // bulle
-  const msg = dg.saved ? 'Ouaf ! 💛' : dg.lowered ? 'J\'arrive ! 🐾' : 'Ouaf… je suis coincé ! 😢';
+  const msg = dg.saved ? 'Ouaf ! 💛' : dg.lowered ? 'J\'arrive ! 🐾' : 'Ouaf… je suis coincée ! 😢';
   ctx.font = '900 16px "Trebuchet MS",sans-serif'; const tw = ctx.measureText(msg).width + 20, by = gy - 70 + Math.sin(time * 3) * 3, bx = cx - 76 - tw / 2;   // bulle à gauche de la cage
   ctx.fillStyle = '#fff'; rr(bx - tw / 2, by - 15, tw, 30, 14); ctx.fill(); ctx.strokeStyle = OUT; ctx.lineWidth = 3; ctx.stroke();
   ctx.beginPath(); ctx.moveTo(bx + tw / 2 - 2, by - 6); ctx.lineTo(cx - 64, by); ctx.lineTo(bx + tw / 2 - 2, by + 6); ctx.fillStyle = '#fff'; ctx.fill();
@@ -3290,7 +3290,7 @@ function balFinish(kind) {
   state = 'balEnd'; $('balHud').classList.add('off');
   $('balEndIcon').textContent = kind === 'win' ? '🏆' : kind === 'ko' ? '😓' : '🏠';
   $('balEndTitle').textContent = kind === 'win' ? 'Balade terminée, bravo !' : kind === 'ko' ? 'Petite pause repos !' : 'Balade arrêtée';
-  $('balEndMsg').textContent = kind === 'win' ? 'Vous avez tenu les 5 minutes : +50 os en cadeau ! 🦴' : kind === 'ko' ? 'Ton chien est tout essoufflé : il a besoin de se reposer… mais il est très content de sa promenade !' : 'Les os ramassés sont gardés.';
+  $('balEndMsg').textContent = kind === 'win' ? 'Vous avez tenu les 5 minutes : +50 os en cadeau ! 🦴' : kind === 'ko' ? 'Taya est toute essoufflée : elle a besoin de se reposer… mais elle est très contente de sa promenade !' : 'Les os ramassés sont gardés.';
   const box = 'bg-slate-900/70 text-white border-4 border-slate-900 rounded-2xl px-4 py-2';
   $('balEndStats').innerHTML = `<div class="${box}">🦴 Os ramassés : <b>${b.bones}${bonus ? ' + ' + bonus : ''}</b></div><div class="${box}">📏 Distance : <b>${m} m</b>${rec ? ' 🌟 Record !' : ''}</div>
     <div class="${box}">⏱ Temps : <b>${fmt(b.t)}</b> · ${BIOMES[b.biome].name}</div><div class="${box}">💰 Total d'os : <b>${bank.bones}</b></div>`;
@@ -3648,7 +3648,7 @@ function balDrawDog() {
     const hx = p.x, hy = p.y - size * .6;
     for (let k = 0; k < 3; k++) { const u = (time * 1.6 + k / 3) % 1; ctx.globalAlpha = (1 - u) * .8; ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(hx + (k - 1) * g.s * .35 + Math.sin(time * 3 + k) * 4, hy - u * g.s * .9, g.s * (.1 + u * .12), 0, 7); ctx.fill(); }
     ctx.globalAlpha = 1; ctx.fillStyle = '#7dd3fc'; for (const sd of [-1, 1]) { const u = (time * 1.3 + (sd > 0 ? .5 : 0)) % 1; ctx.globalAlpha = 1 - u; ctx.beginPath(); ctx.ellipse(hx + sd * g.s * .55, hy + g.s * .2 + u * g.s * .5, g.s * .05, g.s * .08, 0, 0, 7); ctx.fill(); }
-    ctx.globalAlpha = Math.min(1, b.overT * 3); ctx.font = '900 18px "Trebuchet MS",sans-serif'; const txt = 'Ouf… je suis fatigué ! 😓', tw = ctx.measureText(txt).width + 24;
+    ctx.globalAlpha = Math.min(1, b.overT * 3); ctx.font = '900 18px "Trebuchet MS",sans-serif'; const txt = 'Ouf… je suis fatiguée ! 😓', tw = ctx.measureText(txt).width + 24;
     ctx.fillStyle = 'rgba(255,255,255,.95)'; rr(hx - tw / 2, hy - g.s * 1.6 - 20, tw, 32, 16); ctx.fill(); ctx.fillStyle = '#1e1b4b'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(txt, hx, hy - g.s * 1.6 - 4); ctx.globalAlpha = 1;
   }
 }
@@ -3774,7 +3774,7 @@ function buyDeco(id) {
   const bk = loadBank(), d = DECOS.find(q => q.id === id);
   if (!bk.own[id]) {
     if (bk.bones < d.price) { $('shopMsg').textContent = `Il te manque ${d.price - bk.bones} 🦴 pour ça.`; tone(200, 150, .15, 'square', .04); return; }
-    bk.bones -= d.price; bk.own[id] = true; bk.eq[d.slot] = id; SFX.key(); $('shopMsg').textContent = `${d.icon} ${d.name} : ton chien est très beau !`;
+    bk.bones -= d.price; bk.own[id] = true; bk.eq[d.slot] = id; SFX.key(); $('shopMsg').textContent = `${d.icon} ${d.name} : Taya est très belle !`;
   } else if (bk.eq[d.slot] === id) { bk.eq[d.slot] = ''; $('shopMsg').textContent = `${d.icon} ${d.name} enlevé.`; }
   else { bk.eq[d.slot] = id; $('shopMsg').textContent = `${d.icon} ${d.name} mis !`; tone(600, 900, .1, 'triangle', .05); }
   saveBank(bk); try { applyDogDeco(); } catch (e) { } renderShop();
@@ -3983,7 +3983,7 @@ let DIAG = null;
 function DG(k) { return !!(DIAG && DIAG.c && DIAG.c[k]); }
 const DIAG_CFG = [
   ['Jeu complet', {}], ['Jeu figé, décor qui défile', { freeze: 1 }], ['Sans le fond', { freeze: 1, nobg: 1 }],
-  ['Sans plateformes ni objets', { freeze: 1, noobj: 1 }], ['Sans héros ni chien', { freeze: 1, nohero: 1 }],
+  ['Sans plateformes ni objets', { freeze: 1, noobj: 1 }], ['Sans Soën ni Taya', { freeze: 1, nohero: 1 }],
   ['Sans bords assombris', { freeze: 1, novig: 1 }], ['Sans barre du haut', { freeze: 1, nohud: 1 }],
   ['Fond seul', { freeze: 1, noobj: 1, nohero: 1, novig: 1, nohud: 1 }],
   ['Écran vide', { freeze: 1, blank: 1, nohud: 1 }], ['Écran vide, sans manette', { freeze: 1, blank: 1, nohud: 1, nopad: 1 }]];
