@@ -109,7 +109,7 @@
       <div class="text-3xl font-black text-white mt-1" style="-webkit-text-stroke:1px #1e1b4b">L'Épreuve de la Tour</div>
       <div class="mt-8 flex flex-col items-center gap-3">
         <button data-act="play" class="btn bg-amber-400 hover:bg-amber-300 text-slate-900 px-6 py-3 pulse2" style="width:440px">
-          <div class="text-3xl font-black">▶ Run du jour</div><div id="playSub" class="text-lg font-black opacity-80"></div></button>
+          <div id="playTitle" class="text-3xl font-black">▶ Run du jour</div><div id="playSub" class="text-lg font-black opacity-80"></div></button>
         <div class="flex gap-3">
           <button data-act="shop" class="btn bg-emerald-400 hover:bg-emerald-300 text-slate-900 text-2xl px-4 py-2" style="width:214px">🛒 Boutique</button>
           <button data-act="options" class="btn bg-sky-300 hover:bg-sky-200 text-slate-900 text-2xl px-4 py-2" style="width:214px">⚙️ Options</button>
@@ -325,7 +325,7 @@ const DAILY_FLOORS = 12, RUN_SECONDS = 30 * 60, VARIANTS = 20;
 const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900, SPRING = 1000;
 const PW = 28, PH = 40;
 const STEP = 1 / 120;
-const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v72';
+const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v73';
 /* [MODE TEST] Passe à false (ou supprime les blocs marqués [MODE TEST]) quand tout est réglé. */
 const TEST_MODE = true;
 
@@ -593,7 +593,7 @@ const appKeys = {}; let appPresses = 0, appSeen = false;
 if (window.SoenAndroid) pad.connected = true;   // dans l'application, on lit toujours l'état des touches
 let lastAppKey = '', lastAppKeyT = 0;
 window.soenKey = (k, down) => { appKeys[k] = !!down; pad.connected = true; if (down) { pad.used = true; lastAppKey = k; lastAppKeyT = performance.now(); } };
-window.soenAppPause = () => { if (state === 'playing' || state === 'balade') togglePause(); };   // l'application passe en arrière-plan
+window.soenAppPause = () => { if (isDaily && run && (state === 'playing' || state === 'dying' || state === 'clear')) saveProgress('started'); if (state === 'playing' || state === 'balade') togglePause(); };   // l'application passe en arrière-plan
 function readPads() {
   const st = { left: false, right: false, up: false, down: false, jump: false, ok: false, back: false, pause: false };
   if (window.SOEN_APP) {   // A / centre = sauter + valider · B / retour = sauter + revenir · X, Y, haut = sauter
@@ -677,7 +677,8 @@ function pollPads(dt) {
   }
   pad.prev = st;
 }
-document.addEventListener('visibilitychange', () => { if (document.hidden && (state === 'playing' || state === 'balade')) togglePause(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden && isDaily && run && (state === 'playing' || state === 'dying' || state === 'clear' || (state === 'paused' && prevState !== 'balade'))) saveProgress('started'); if (document.hidden && (state === 'playing' || state === 'balade')) togglePause(); });
+window.addEventListener('pagehide', () => { if (isDaily && run && (state === 'playing' || state === 'dying' || state === 'clear' || (state === 'paused' && prevState !== 'balade'))) saveProgress('started'); });
 
 /* ---------- Décor (change selon le thème, la variante et l'étage) ---------- */
 function theme(f) {
@@ -1347,7 +1348,7 @@ function newPlayer(x, y) {
     face: 1, sx: 1, sy: 1, inv: 0, dustT: 0, hidden: false };
 }
 
-function startRun(daily, themeIdx, test) {
+function startRun(daily, themeIdx, test, resume) {
   ac();
   isDaily = daily; isTest = !!test;
   if (test) {   // [MODE TEST] la vraie tour du jour choisi, à partir de l'étage choisi
@@ -1370,17 +1371,33 @@ function startRun(daily, themeIdx, test) {
   $('trainTag').classList.toggle('off', daily);
   $('trainTag').textContent = isTest ? `MODE TEST · variante ${VARIANT + 1} · N : étage suivant · B : étage précédent` : 'ENTRAÎNEMENT';
   $('themeBox').textContent = THEME.emoji + ' ' + THEME.name;
-  if (daily) { saveProgress('started'); markPlayed(); }
+  if (resume) {   // on reprend au début de l'étage où on s'était arrêté (les pièces de cet étage sont à ramasser de nouveau)
+    const fc = resume.floorCoins[resume.floor];
+    Object.assign(run, { elapsed: resume.elapsed, deaths: resume.deaths, floorsDone: resume.floorsDone, heartsFound: resume.heartsFound, heartGot: resume.heartGot, heartHost: resume.heartHost, floorCoins: resume.floorCoins,
+      coins: Math.max(0, resume.coins - (fc ? fc.got : 0)) });
+  }
   hideScreens(); $('hud').classList.remove('off');
-  loadFloor(test ? test.floor : 0, true);
+  loadFloor(resume ? resume.floor : test ? test.floor : 0, true);
+  if (daily) { saveProgress('started'); markPlayed(); }
+  if (resume) showToast('▶ On reprend à l\'étage ' + (resume.floor + 1) + ' !');
   state = 'playing';
   updateHUD(true);
 }
 function saveProgress(status) {
   const old = loadSave();
   writeSave({ date: todayKey(), status, hearts: heartsFor(run.elapsed, run.heartsFound), bal: old ? old.bal : undefined, score: calcScore(status === 'win'), floors: run.floorsDone, total: floorSeq.length, deaths: run.deaths,
-    time: Math.round(run.elapsed), coins: run.coins, theme: THEME.emoji + ' ' + THEME.name, variant: VARIANT + 1 });
+    time: Math.round(run.elapsed), coins: run.coins, theme: THEME.emoji + ' ' + THEME.name, variant: VARIANT + 1,
+    resume: status === 'started' ? { floor: run.floorsDone, elapsed: run.elapsed, coins: run.coins, deaths: run.deaths, floorsDone: run.floorsDone, heartsFound: run.heartsFound, heartGot: run.heartGot, heartHost: run.heartHost, floorCoins: run.floorCoins } : undefined });
 }
+// partie du jour quittée en cours de route : on peut la reprendre au début de l'étage où on en était (le même jour)
+function canResume(s) { return !!(s && s.status === 'started' && (s.time || 0) < RUN_SECONDS && (s.floors || 0) < (s.total || DAILY_FLOORS)); }
+function resumeInfo(s) { const r = s.resume || {}; return { floor: r.floor !== undefined ? r.floor : (s.floors || 0), elapsed: r.elapsed !== undefined ? r.elapsed : (s.time || 0), coins: r.coins !== undefined ? r.coins : (s.coins || 0), deaths: r.deaths !== undefined ? r.deaths : (s.deaths || 0), floorsDone: r.floorsDone !== undefined ? r.floorsDone : (s.floors || 0), heartsFound: r.heartsFound || 0, heartGot: r.heartGot || {}, heartHost: r.heartHost || {}, floorCoins: r.floorCoins || {} }; }
+function refreshPlayBtn() {   // accueil : « Run du jour » ou « Reprendre »
+  const s = loadSave(), di = dayInfo(), t = di.theme;
+  if (canResume(s)) { const r = resumeInfo(s); $('playTitle').textContent = '▶ Reprendre'; $('playSub').textContent = `Étage ${r.floor + 1} / ${s.total || DAILY_FLOORS} · ⏳ ${fmt(RUN_SECONDS - r.elapsed)} restantes`; }
+  else { $('playTitle').textContent = '▶ Run du jour'; $('playSub').textContent = `${t.day} · ${t.emoji} ${t.name}`; }
+}
+let saveT = 0;
 
 function loadFloor(i, first) {
   floor = i; L = genFloor(i); P = newPlayer(L.respawn.x - PW / 2, L.respawn.y - PH);
@@ -1447,6 +1464,7 @@ function step(dt) {
   // chrono global
   run.elapsed += dt;
   if (run.elapsed >= RUN_SECONDS) { run.elapsed = RUN_SECONDS; endRun('timeout'); return; }
+  if (isDaily && (saveT -= dt) <= 0) { saveT = 3; saveProgress('started'); }   // sauvegarde toutes les 3 secondes, pour pouvoir reprendre
 
   updatePlatforms(dt);
   updateSimon(dt);
@@ -1923,7 +1941,7 @@ function endRun(kind) {
 /* ======================================================================
    INTERFACE
    ====================================================================== */
-function showScreen(id) { for (const el of document.querySelectorAll('.screen')) el.classList.toggle('off', el.id !== id); }
+function showScreen(id) { for (const el of document.querySelectorAll('.screen')) el.classList.toggle('off', el.id !== id); if (id === 'title') refreshPlayBtn(); }
 function hideScreens() { showScreen(''); }
 function showToast(t) { $('toastTxt').textContent = t; $('toast').classList.remove('off'); toastT = 2.6; }
 
@@ -1983,7 +2001,7 @@ document.addEventListener('click', e => {
   const b = e.target.closest('[data-act]'); if (!b) return;
   ac();
   const a = b.dataset.act;
-  if (a === 'play') { const s = loadSave(); if (s) showClosed(s); else startRun(true); }
+  if (a === 'play') { const s = loadSave(); if (canResume(s)) startRun(true, 0, null, resumeInfo(s)); else if (s) showClosed(s); else startRun(true); }
   else if (a === 'train') { state = 'title'; $('hud').classList.add('off'); showScreen('trainPick'); }
   else if (a === 'trainGo') startRun(false, +b.dataset.i);
   // [MODE TEST]
@@ -2003,7 +2021,7 @@ document.addEventListener('click', e => {
   else if (a === 'options') { state = 'title'; $('volBar').style.width = volume * 10 + '%'; showScreen('options'); }
   else if (a === 'volUp' || a === 'volDown') { volume = Math.max(0, Math.min(10, volume + (a === 'volUp' ? 1 : -1))); try { localStorage.setItem('soen.volume', volume); } catch (err) { } $('volBar').style.width = volume * 10 + '%'; tone(660, 880, .08, 'triangle', .06); }
   else if (a === 'introShow') { introFrom = 'options'; showScreen('intro'); }
-  else if (a === 'introOk') { try { localStorage.setItem('soen.intro.v1', '1'); } catch (err) { } if (introFrom === 'options') showScreen('options'); else { const sv = loadSave(); if (sv) showClosed(sv); else showScreen('title'); } introFrom = ''; }
+  else if (a === 'introOk') { try { localStorage.setItem('soen.intro.v1', '1'); } catch (err) { } if (introFrom === 'options') showScreen('options'); else { const sv = loadSave(); if (sv && !canResume(sv)) showClosed(sv); else showScreen('title'); } introFrom = ''; }
   else if (a === 'light') { LIGHT = !LIGHT; lightPref = LIGHT ? 'on' : 'off'; try { localStorage.setItem(LIGHT_KEY, lightPref); } catch (err) { } applyLight(); }
   else if (a === 'padCfg') { state = 'padcfg'; padCfg.cap = null; renderPadCfg(); showScreen('padCfgScr'); }
   else if (a === 'padAll') padStartCap(PAD_ACTS.map(q => q.k));
@@ -2023,7 +2041,7 @@ document.addEventListener('click', e => {
   }
   else if (a === 'quit') {   // retour au menu : on met la partie en pause et on demande confirmation
     if (state === 'playing' || state === 'dying' || state === 'clear' || state === 'balade') { prevState = state; state = 'paused'; }
-    if (state === 'paused') { $('quitMsg').textContent = prevState === 'balade' ? 'La balade sera terminée (les os ramassés sont gardés).' : isDaily ? 'Attention : ta tentative du jour sera terminée (le score atteint est gardé). Tu ne pourras pas la reprendre avant demain.' : 'Ta partie d\'entraînement sera arrêtée.'; showScreen('quitAsk'); }
+    if (state === 'paused') { $('quitMsg').textContent = prevState === 'balade' ? 'La balade sera terminée (les os ramassés sont gardés).' : isDaily ? 'Ta partie est sauvegardée : tu pourras la reprendre aujourd\'hui au début de cet étage, avec le temps qu\'il te restait.' : 'Ta partie d\'entraînement sera arrêtée.'; showScreen('quitAsk'); }
   }
   else if (a === 'quitYes') {
     if (prevState === 'balade' && bal) { prevState = 'title'; balFinish('quit'); return; }
@@ -2031,11 +2049,11 @@ document.addEventListener('click', e => {
     if (isDaily && run) saveProgress('started');
     $('hud').classList.add('off'); $('banner').classList.add('off'); $('toast').classList.add('off');
     run = null; L = null; state = 'title';
-    const sv = isDaily ? loadSave() : null; if (sv) showClosed(sv); else showScreen('title');
+    const sv = isDaily ? loadSave() : null; if (sv && !canResume(sv)) showClosed(sv); else showScreen('title');
   }
   else if (a === 'share') shareResult();
-  else if (a === 'closed') { const s = loadSave(); if (s) showClosed(s); }
-  else if (a === 'home') { const s = loadSave(); if (s) showClosed(s); else { state = 'title'; showScreen('title'); } }
+  else if (a === 'closed') { const s = loadSave(); if (s && !canResume(s)) showClosed(s); }
+  else if (a === 'home') { const s = loadSave(); if (s && !canResume(s)) showClosed(s); else { state = 'title'; showScreen('title'); } }
 });
 $('btnPause').addEventListener('click', togglePause);
 $('btnMute').addEventListener('click', toggleMute);
@@ -2056,7 +2074,7 @@ function initTitle() {
   if (window.SOEN_APP) for (const el of document.querySelectorAll('[data-act=padCfg]')) el.style.display = 'none';   // l'application gère déjà la manette
   const di = dayInfo(), t = di.theme;
   dayHue = t.hue;
-  $('playSub').textContent = `${t.day} · ${t.emoji} ${t.name}`;
+  refreshPlayBtn();
   const d = new Date();
   $('dateTag').textContent = '[test] ' + d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
     + ` — La Tour ${TOWER_NAMES[di.variant]} (variante ${di.variant + 1}/${VARIANTS}) · ${VERSION}`;
@@ -4058,7 +4076,7 @@ initTitle(); applyLight();
 firstDay();   // retient le jour du premier lancement (les jours d'avant ne comptent pas)
 (function boot() {
   const s = loadSave();
-  if (s) showClosed(s); else { state = 'title'; showScreen('title'); }
+  if (s && !canResume(s)) showClosed(s); else { state = 'title'; showScreen('title'); }   // partie quittée en cours de route : l'accueil propose de la reprendre
   let seen = false; try { seen = !!localStorage.getItem('soen.intro.v1'); } catch (e) { }
   if (!seen) showScreen('intro');   // l'histoire, seulement au tout premier lancement
   requestAnimationFrame(frame);
