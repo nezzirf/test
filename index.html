@@ -325,7 +325,7 @@ const DAILY_FLOORS = 12, RUN_SECONDS = 30 * 60, VARIANTS = 20;
 const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900, SPRING = 1000;
 const PW = 28, PH = 40;
 const STEP = 1 / 120;
-const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v74';
+const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v75';
 /* [MODE TEST] Passe à false (ou supprime les blocs marqués [MODE TEST]) quand tout est réglé. */
 const TEST_MODE = true;
 
@@ -2143,7 +2143,9 @@ function gNoise(x, y, s, per) {   // bruit lissé qui se répète tous les « pe
   return a + (b - a) * ux + (c - a) * uy + (a - b - c + d) * ux * uy;
 }
 function gFbm(x, y, s, per) { return gNoise(x, y, s, per) * .55 + gNoise(x * 2, y * 2, s + 1, per * 2) * .3 + gNoise(x * 4, y * 4, s + 2, per * 4) * .15; }
-function gCanvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+// images préparées à l'avance : gardées en mémoire normale (et non graphique). Sur certaines télés, la mémoire graphique pleine efface ces images
+// (mur, porte, héros invisibles) ; en mémoire normale elles ne peuvent pas être effacées.
+function gCanvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; try { c.getContext('2d', { willReadFrequently: true }); } catch (e) { } return c; }
 function gPixels(c, fn) {   // remplit chaque pixel : fn(x, y) -> [r, g, b]
   const g = c.getContext('2d'), im = g.createImageData(c.width, c.height), d = im.data;
   for (let y = 0; y < c.height; y++) for (let x = 0; x < c.width; x++) { const v = fn(x, y), i = (y * c.width + x) * 4; d[i] = v[0]; d[i + 1] = v[1]; d[i + 2] = v[2]; d[i + 3] = 255; }
@@ -3054,7 +3056,7 @@ function drawHero(c, x, y, h, dir, mode, sx, sy) {
 /* Mode télé léger : on prépare une fois pour toutes les images des animations */
 const BAKE_N = 12;
 function snapGL(r) {   // copie l'image 3D en lisant directement ses pixels (marche aussi sur les puces où la copie classique sort vide)
-  const w = 256, h = 256, cv2 = document.createElement('canvas'); cv2.width = cv2.height = w;
+  const w = 256, h = 256, cv2 = gCanvas(w, w);
   const c = cv2.getContext('2d'), px = new Uint8Array(w * h * 4); let filled = 0;
   try { const gl = r.getContext(); gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, px); } catch (e) { }
   const img = c.createImageData(w, h), d = img.data;
@@ -3838,7 +3840,7 @@ function dogAnchors() {   // repères mesurés sur le modèle : dessus du crâne
 }
 function toonMat(color, map) { return new THREE.MeshToonMaterial(map ? { color, map } : { color }); }
 function stripeTex(c1, c2, n, dots) {
-  const cv = document.createElement('canvas'); cv.width = cv.height = 64; const g = cv.getContext('2d');
+  const cv = gCanvas(64, 64), g = cv.getContext('2d');
   g.fillStyle = c1; g.fillRect(0, 0, 64, 64);
   g.fillStyle = c2; if (dots) { for (let y = 4; y < 64; y += 14) for (let x = (y / 14 % 2) * 7 + 3; x < 64; x += 14) { g.beginPath(); g.arc(x, y, 3, 0, 7); g.fill(); } }
   else for (let i = 0; i < n; i++) g.fillRect(i * 64 / n, 0, 32 / n, 64);
