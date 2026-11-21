@@ -325,7 +325,7 @@ const DAILY_FLOORS = 12, RUN_SECONDS = 30 * 60, VARIANTS = 20;
 const GRAV = 1900, MOVE = 270, JUMP = 640, JUMP2 = 580, MAXFALL = 900, SPRING = 1000;
 const PW = 28, PH = 40;
 const STEP = 1 / 120;
-const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v75';
+const SAVE_KEY = 'chronoTower.daily.v2', VERSION = 'v76';
 /* [MODE TEST] Passe à false (ou supprime les blocs marqués [MODE TEST]) quand tout est réglé. */
 const TEST_MODE = true;
 
@@ -4073,6 +4073,15 @@ function frameBody(ts) {
 window.fitStage && window.fitStage();
 
 /* ---------- Démarrage ---------- */
+/* Si la télé vide la mémoire graphique (« contexte perdu »), tout ce qui avait été préparé à l'avance est refait */
+function resetGfx() {
+  for (const k in TEX) delete TEX[k];
+  GLY.clear(); for (const k in BSKY) delete BSKY[k];
+  BGD.key = null; VIGNETTE = null;
+  if (L) { for (const p of L.plats) { p._sk = null; if (p._zone) p._zone._sk = null; } for (const sp of L.spikes) sp._sk = null; if (L.door) L.door._spr = null; }
+  Hero3D.frames = null; Dog3D.side = Dog3D.back = Dog3D.still = null;
+}
+try { cv.addEventListener('contextlost', resetGfx); cv.addEventListener('contextrestored', resetGfx); } catch (e) { }
 initDog3D(); initHero3D();
 initTitle(); applyLight();
 firstDay();   // retient le jour du premier lancement (les jours d'avant ne comptent pas)
